@@ -4,7 +4,7 @@ import { API_BASE_URL } from "../api.js";
 
 const AttendanceEntryPage = () => {
   const [students, setStudents] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(() => { const today = new Date(); return new Date(today.getFullYear(), today.getMonth(), today.getDate()); });
   const [standard, setStandard] = useState("");
   const [attendanceData, setAttendanceData] = useState([]);
   const [errors, setErrors] = useState({});
@@ -140,7 +140,6 @@ const AttendanceEntryPage = () => {
       });
       setPageSuccess(response.data?.message || "Attendance has been saved successfully.");
       setHasUnsavedChanges(false);
-      setSelectedDate(null);
       setStandard("");
       setStudents([]);
       setAttendanceData([]);
@@ -152,6 +151,20 @@ const AttendanceEntryPage = () => {
     } finally {
       setSubmittingAttendance(false);
     }
+  };
+
+  const handleMarkAllPresent = () => {
+    if (!students.length || loadingStudents || submittingAttendance) return;
+    setAttendanceData((previous) => previous.map((item) => ({
+      ...item,
+      status: "present",
+      reason: "",
+    })));
+    setErrors({});
+    setStatistics({ present: students.length, absent: 0 });
+    setHasUnsavedChanges(true);
+    setPageError("");
+    setPageSuccess("");
   };
 
   const handleReasonChange = (studentId, reason) => {
@@ -270,6 +283,24 @@ const AttendanceEntryPage = () => {
         </div>
       )}
 
+      {students.length > 0 && (
+        <div className="ops-attendance-toolbar">
+          <div>
+            <strong>Quick action</strong>
+            <span>Use this only when every child in the selected class is present. You can still mark individual children absent afterward.</span>
+          </div>
+          <button type="button" className="btn btn-outline-success" onClick={handleMarkAllPresent} disabled={loadingStudents || submittingAttendance}>
+            Mark everyone present
+          </button>
+        </div>
+      )}
+      {hasUnsavedChanges && students.length > 0 && (
+        <div className="alert alert-warning d-flex align-items-start gap-2" role="status">
+          <strong aria-hidden="true">!</strong>
+          <div><strong>Changes not saved yet.</strong> Review the class and date, add a reason for each absence, then select “Save attendance”.</div>
+        </div>
+      )}
+
       {/* Student Attendance Form */}
       {loadingStudents ? (
         <div className="page-card text-center py-5"><span className="spinner-border spinner-border-sm text-primary" role="status" /><p className="muted mt-3 mb-0">Loading students for this class…</p></div>
@@ -300,6 +331,7 @@ const AttendanceEntryPage = () => {
                     type="radio"
                     name={`attendance-${student._id}`}
                     value="present"
+                    aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} present`}
                     checked={
                       attendanceData.find(
                         (att) => att.studentId === student._id
@@ -313,6 +345,7 @@ const AttendanceEntryPage = () => {
                     type="radio"
                     name={`attendance-${student._id}`}
                     value="absent"
+                    aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} absent`}
                     checked={
                       attendanceData.find(
                         (att) => att.studentId === student._id
