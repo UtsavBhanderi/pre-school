@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 function TeachersEntry() {
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
   const [TeachersData, setTeachersData] = useState([]);
   useEffect(() => {
