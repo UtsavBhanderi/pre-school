@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const AdminVideo = () => {
-  const linkone = `https://api.kidzeranursery.com`;
-  // const linkone = `http://localhost:5000`;
+  const linkone = `http://localhost:5000`;
 
   const [videos, setVideos] = useState([]);
   const [editingVideo, setEditingVideo] = useState(null);
