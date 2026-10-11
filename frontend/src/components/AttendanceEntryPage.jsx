@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 
 const AttendanceEntryPage = () => {
   const [students, setStudents] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(() => { const today = new Date(); return new Date(today.getFullYear(), today.getMonth(), today.getDate()); });
   const [standard, setStandard] = useState("");
   const [attendanceData, setAttendanceData] = useState([]);
   const [errors, setErrors] = useState({});
@@ -12,40 +13,48 @@ const AttendanceEntryPage = () => {
   const [submittingAttendance, setSubmittingAttendance] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const linkone = API_BASE_URL;
 
   // Fetch students based on selected standard
   useEffect(() => {
     if (standard) {
-      fetchStudentsByStandard(standard);
+      fetchStudentsByStandard(standard, selectedDate);
+    } else {
+      setStudents([]);
+      setAttendanceData([]);
+      setStatistics({ present: 0, absent: 0 });
     }
-  }, [standard]);
+  }, [standard, selectedDate]);
 
-  const fetchStudentsByStandard = async (standard) => {
+  const fetchStudentsByStandard = async (standard, date) => {
     setLoadingStudents(true);
     setPageError("");
     setPageSuccess("");
     try {
       const response = await axios.get(
         `${linkone}` + "/api/attendance/students",
-        { params: { standard } }
+        { params: { standard, date: date ? formatDate(date) : undefined } }
       );
       setStudents(response.data);
 
       // Initialize attendanceData with default "present" status for each student
       const initialAttendance = response.data.map((student) => ({
         studentId: student._id,
-        status: "present",
-        reason: "",
+        status: student.attendanceStatus || "present",
+        reason: student.attendanceReason || "",
+        attendanceRecordId: student.attendanceRecordId || "",
       }));
       setAttendanceData(initialAttendance);
       calculateStatistics(initialAttendance);
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Error fetching students:", error);
       setPageError(error.response?.data?.message || "Unable to load students for this class.");
       setStudents([]);
       setAttendanceData([]);
       setStatistics({ present: 0, absent: 0 });
+      setHasUnsavedChanges(false);
     } finally {
       setLoadingStudents(false);
     }
@@ -67,6 +76,23 @@ const AttendanceEntryPage = () => {
   //   );
   // };
 
+  const confirmDiscardAttendanceChanges = () => {
+    if (!hasUnsavedChanges) return true;
+    return window.confirm("You have attendance changes that are not saved yet. Discard those changes and load another class or date?");
+  };
+
+  const handleStandardChange = (value) => {
+    if (!confirmDiscardAttendanceChanges()) return;
+    setHasUnsavedChanges(false);
+    setStandard(value);
+  };
+
+  const handleDateChange = (value) => {
+    if (!confirmDiscardAttendanceChanges()) return;
+    setHasUnsavedChanges(false);
+    setSelectedDate(value ? new Date(value) : null);
+  };
+
   const handleStatusChange = (studentId, status) => {
     setAttendanceData((prevData) => {
       const updatedData = prevData.map((item) =>
@@ -78,6 +104,7 @@ const AttendanceEntryPage = () => {
       return updatedData;
     });
     setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
+    setHasUnsavedChanges(true);
   };
   const formatDate = (value) => {
     if (!value) return "";
@@ -107,12 +134,12 @@ const AttendanceEntryPage = () => {
     setPageError("");
     setPageSuccess("");
     try {
-      await axios.post(linkone + "/api/attendance/attendance", {
+      const response = await axios.post(linkone + "/api/attendance/attendance", {
         date: formatDate(selectedDate),
         studentDetails: attendanceData,
       });
-      setPageSuccess("Attendance has been saved successfully.");
-      setSelectedDate(null);
+      setPageSuccess(response.data?.message || "Attendance has been saved successfully.");
+      setHasUnsavedChanges(false);
       setStandard("");
       setStudents([]);
       setAttendanceData([]);
@@ -126,12 +153,27 @@ const AttendanceEntryPage = () => {
     }
   };
 
+  const handleMarkAllPresent = () => {
+    if (!students.length || loadingStudents || submittingAttendance) return;
+    setAttendanceData((previous) => previous.map((item) => ({
+      ...item,
+      status: "present",
+      reason: "",
+    })));
+    setErrors({});
+    setStatistics({ present: students.length, absent: 0 });
+    setHasUnsavedChanges(true);
+    setPageError("");
+    setPageSuccess("");
+  };
+
   const handleReasonChange = (studentId, reason) => {
     setAttendanceData((prevData) =>
       prevData.map((item) =>
         item.studentId === studentId ? { ...item, reason } : item
       )
     );
+    setHasUnsavedChanges(true);
   };
 
   const validateForm = () => {
@@ -184,8 +226,9 @@ const AttendanceEntryPage = () => {
           <label>Select Standard</label>
           <select
             value={standard}
-            onChange={(e) => setStandard(e.target.value)}
+            onChange={(e) => handleStandardChange(e.target.value)}
             className="form-select"
+            aria-label="Select class for attendance"
           >
             <option value="">Select Standard</option>
             <option value="ENG Play Group">ENG Play Group</option>
@@ -212,8 +255,9 @@ const AttendanceEntryPage = () => {
             <input
               type="date"
               value={selectedDate ? formatDate(selectedDate) : ""}
-              onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : null)}
+              onChange={(e) => handleDateChange(e.target.value)}
               className="form-control"
+              aria-label="Select attendance date"
               required={true}
             />
 
@@ -225,6 +269,37 @@ const AttendanceEntryPage = () => {
 
         </div>
       </div></div>
+
+      {standard && selectedDate && attendanceData.some((item) => item.attendanceRecordId) && (
+        <div className="alert alert-info d-flex align-items-start gap-2" role="status">
+          <span className="fw-bold" aria-hidden="true">i</span>
+          <div>
+            <strong>Saved attendance found for this date.</strong>
+            <div>
+              {attendanceData.filter((item) => item.attendanceRecordId).length} of {attendanceData.length} children already have a saved entry.
+              Their current statuses have been loaded. You can correct a status or reason and save again without creating duplicate entries.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {students.length > 0 && (
+        <div className="ops-attendance-toolbar">
+          <div>
+            <strong>Quick action</strong>
+            <span>Use this only when every child in the selected class is present. You can still mark individual children absent afterward.</span>
+          </div>
+          <button type="button" className="btn btn-outline-success" onClick={handleMarkAllPresent} disabled={loadingStudents || submittingAttendance}>
+            Mark everyone present
+          </button>
+        </div>
+      )}
+      {hasUnsavedChanges && students.length > 0 && (
+        <div className="alert alert-warning d-flex align-items-start gap-2" role="status">
+          <strong aria-hidden="true">!</strong>
+          <div><strong>Changes not saved yet.</strong> Review the class and date, add a reason for each absence, then select “Save attendance”.</div>
+        </div>
+      )}
 
       {/* Student Attendance Form */}
       {loadingStudents ? (
@@ -256,6 +331,7 @@ const AttendanceEntryPage = () => {
                     type="radio"
                     name={`attendance-${student._id}`}
                     value="present"
+                    aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} present`}
                     checked={
                       attendanceData.find(
                         (att) => att.studentId === student._id
@@ -269,6 +345,7 @@ const AttendanceEntryPage = () => {
                     type="radio"
                     name={`attendance-${student._id}`}
                     value="absent"
+                    aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} absent`}
                     checked={
                       attendanceData.find(
                         (att) => att.studentId === student._id

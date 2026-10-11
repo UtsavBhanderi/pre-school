@@ -11,8 +11,9 @@ After signing in, open **Start here** in the left menu. It is a launchpad for th
 1. Open **Take attendance**.
 2. Select the correct date and class.
 3. Mark each child present or absent. Add a reason for an absence when asked.
+4. If attendance has already been saved for that date, the saved statuses load automatically. Correct what needs changing and save again; existing entries are updated instead of duplicated.
 4. Check the class and date once more.
-5. Save and wait for the confirmation message.
+5. Save and wait for the confirmation message. If you change the class or date after making unsaved changes, the screen asks before discarding them.
 
 ## Register a child
 
@@ -29,6 +30,17 @@ After signing in, open **Start here** in the left menu. It is a launchpad for th
 3. Enter the amount received and check the date and discount, if applicable.
 4. Review the amount due after payment.
 5. Save once and wait for confirmation. Avoid repeatedly pressing Save if the page is still processing.
+
+## Print a fee payment receipt
+
+1. Open **Fees & payments** and find the correct child.
+2. Check the child’s name, GR number and class before opening the receipt.
+3. Choose **Receipt** on that fee record.
+4. If the child has multiple saved payments, choose the payment you need.
+5. Review the payment date, amount and student details, then choose **Print receipt**.
+6. In the print dialog, select your printer or choose “Save as PDF”.
+
+Receipts are generated only from saved payment entries. The displayed balance is the current balance, so it may include payments recorded after an older payment. Verify the details before handing a printed copy to a parent or guardian.
 
 ## Prepare a report card
 
@@ -48,6 +60,22 @@ After signing in, open **Start here** in the left menu. It is a launchpad for th
 ## Add classroom material or photos
 
 Use **PDF resources** for PDF/worksheet material, **Video resources** for videos, and **Photo gallery** for school activity photos. Add a useful title and the class/subject information available on the form. After saving, check that the new item appears in the list.
+
+## Share or read school notices
+
+**Administrators**
+1. Open **School notices** from the menu or use the task finder.
+2. Choose **Write a notice** and enter a clear title and simple message.
+3. Choose the audience (all staff or teachers), importance and start date. You can optionally choose when the notice should stop appearing.
+4. Preview the details, then choose **Publish notice**.
+5. Use **Edit** to correct a message or **Archive** to hide an old notice without permanently deleting its history.
+
+**Teachers**
+1. Open **School notices** in the teacher workspace.
+2. Read the latest active notices and check any dates or instructions.
+3. Contact the administrator if a notice seems incorrect or unclear.
+
+The notice board is internal to this software. It does not send WhatsApp, SMS or email messages.
 
 ## If something goes wrong
 

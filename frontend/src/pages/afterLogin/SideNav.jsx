@@ -5,7 +5,7 @@ import {
   MdDashboard, MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
-  MdHome, MdHelpOutline,
+  MdHome, MdHelpOutline, MdCampaign,
 } from "react-icons/md";
 
 const navigation = [
@@ -22,6 +22,7 @@ const navigation = [
       { to: "/dashboard/attendanceEntryPage", label: "Take attendance", icon: MdChecklist },
       { to: "/dashboard/fees", label: "Fees & payments", icon: MdCurrencyRupee },
       { to: "/dashboard/calendar", label: "School calendar", icon: MdCalendarMonth },
+      { to: "/dashboard/notices", label: "School notices", icon: MdCampaign },
       { to: "/dashboard/attendanceOverview", label: "Attendance records", icon: MdFactCheck },
     ],
   },

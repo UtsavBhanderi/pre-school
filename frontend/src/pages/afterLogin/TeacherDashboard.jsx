@@ -1,9 +1,10 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../../api.js";
 import { AuthContext } from "../../context/AuthContext";
 
-const configuredApiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-const API_BASE_URL = configuredApiBase.endsWith("/") ? configuredApiBase.slice(0, -1) : configuredApiBase;
+
+
 const STANDARDS = [
   "ENG Play Group", "ENG NR.", "ENG JR.", "ENG SR.",
   "GUJ Play Group", "GUJ NR.", "GUJ JR.", "GUJ SR.",

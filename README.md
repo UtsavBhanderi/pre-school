@@ -11,6 +11,9 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 - Subject setup, assessment marks, report cards, printing, and spreadsheet exports
 - School calendar, student/teacher birthdays, gallery, PDF/video learning resources
 - Teacher daily-work reports and student report-document generation
+- Internal school notices with scheduled visibility, staff targeting, editing and archiving
+- Plain-language Start here dashboard, searchable task finder, and step-by-step in-app help
+- Printable copies of saved fee payments, with student details and current balance clearly identified
 
 ## Requirements
 
@@ -83,7 +86,8 @@ GitHub Actions also runs backend JavaScript syntax checks, backend unit tests, a
 
 - Keep `.env` files, JWT secrets, mail credentials, and real student data out of Git.
 - Restrict MongoDB network access and create regular database/file-upload backups.
-- Update `FRONTEND_ORIGIN` and `VITE_API_BASE_URL` for the production deployment.
+- Set `FRONTEND_ORIGIN` to the deployed frontend origin. Set `VITE_API_BASE_URL` to the API origin when frontend and API are hosted separately; if both are served from the same origin, the frontend can leave it unset. In local development, copy `frontend/.env.example` to `frontend/.env.local` to use `http://localhost:5000`.
 - The backend protects administrative API groups by role. Uploaded media currently uses public static URLs so the frontend can render those files; review whether student/parent photos require authenticated media delivery for your school's privacy policy.
 - Review the configured class fee schedule against the school's current approved fee policy before relying on fee balances.
-- Test image/document uploads, email settings, backups, and account permissions in the actual hosting environment before production rollout.
+- Review the notice board, printable fee receipt, date-corrected attendance and staff permissions in the actual hosting environment before production rollout.
+- Uploaded student and teacher photos currently use public static URLs; assess authenticated media delivery against the school's student privacy policy before using real family records.

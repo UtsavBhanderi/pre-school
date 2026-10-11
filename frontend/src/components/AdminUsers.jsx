@@ -1,9 +1,9 @@
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { AuthContext } from "../context/AuthContext";
 import { MdPersonAddAlt1, MdManageAccounts } from "react-icons/md";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 const EMPTY_FORM = { username: "", email: "", password: "", role: "teacher" };
 

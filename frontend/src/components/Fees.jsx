@@ -1,12 +1,13 @@
 // import React, { useState, useEffect, useRef } from "react";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 
 
 const Fees = () => {
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   const [feesData, setFeesData] = useState([]);
   const [loadingFees, setLoadingFees] = useState(true);
@@ -27,6 +28,8 @@ const Fees = () => {
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [receiptRecord, setReceiptRecord] = useState(null);
+  const [receiptPaymentIndex, setReceiptPaymentIndex] = useState(0);
 
   useEffect(() => {
     fetchFeesData();
@@ -119,6 +122,24 @@ const Fees = () => {
 
   const handleDelete = (id) => {
     setDeleteId(id);
+  };
+
+  const openReceipt = (fees, paymentIndex = 0) => {
+    setReceiptRecord(fees);
+    setReceiptPaymentIndex(paymentIndex);
+  };
+
+  const closeReceipt = () => setReceiptRecord(null);
+
+  const formatReceiptAmount = (value) => new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0);
+
+  const handlePrintReceipt = () => {
+    if (!receiptRecord || !receiptRecord.paymentDetails?.[receiptPaymentIndex]) return;
+    window.print();
   };
 
   const confirmDelete = async () => {
@@ -632,8 +653,21 @@ const Fees = () => {
                   <td>{fees.discount}</td>
                   <td>
                     <div className="d-flex column-gap-2">
+                      {Array.isArray(fees.paymentDetails) && fees.paymentDetails.length > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          title="Print a receipt for a saved payment"
+                          aria-label={`Print payment receipt for ${fees.studentName}`}
+                          onClick={() => openReceipt(fees, fees.paymentDetails.length - 1)}
+                        >
+                          Receipt
+                        </button>
+                      )}
                       <button
+                        type="button"
                         className="btn btn-warning btn-sm"
+                        aria-label={`Edit fee record for ${fees.studentName}`}
                         onClick={() => handleEdit(fees)}
                       >
                         <svg
@@ -690,6 +724,100 @@ const Fees = () => {
             </tbody>
           </table>
         </div>
+        {receiptRecord && (
+          <div
+            className="modal show fee-receipt-modal"
+            style={{ display: "block" }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fee-receipt-title"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeReceipt();
+            }}
+          >
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content">
+                <div className="modal-header no-print">
+                  <div>
+                    <h5 className="modal-title" id="fee-receipt-title">Payment receipt</h5>
+                    <p className="small muted mb-0">Print a copy of a payment already saved in the school records.</p>
+                  </div>
+                  <button type="button" className="btn-close" onClick={closeReceipt} aria-label="Close receipt preview" />
+                </div>
+                <div className="modal-body">
+                  {Array.isArray(receiptRecord.paymentDetails) && receiptRecord.paymentDetails.length > 1 && (
+                    <div className="mb-3 no-print">
+                      <label className="form-label" htmlFor="receipt-payment-select">Choose a saved payment</label>
+                      <select
+                        id="receipt-payment-select"
+                        className="form-select"
+                        value={receiptPaymentIndex}
+                        onChange={(event) => setReceiptPaymentIndex(Number(event.target.value))}
+                      >
+                        {receiptRecord.paymentDetails.map((payment, index) => (
+                          <option key={`${payment.date || "payment"}-${index}`} value={index}>
+                            Payment {index + 1} · {payment.date || "Date not recorded"} · {formatReceiptAmount(payment.amount)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {receiptRecord.paymentDetails?.[receiptPaymentIndex] ? (
+                    <article className="fee-receipt-print-area" id="fee-payment-receipt">
+                      <div className="fee-receipt-brand">
+                        <div className="fee-receipt-brand-mark" aria-hidden="true">S</div>
+                        <div>
+                          <div className="fee-receipt-school-name">Pre-School</div>
+                          <div className="fee-receipt-school-subtitle">School fee payment record</div>
+                        </div>
+                        <div className="fee-receipt-copy-label">PAYMENT<br />RECEIPT COPY</div>
+                      </div>
+                      <div className="fee-receipt-rule" />
+                      <div className="fee-receipt-meta">
+                        <div><span>Record reference</span><strong>{receiptRecord._id ? `FEE-${String(receiptRecord.stuNo || receiptRecord._id).slice(-8).toUpperCase()}-${receiptPaymentIndex + 1}` : `FEE-${receiptPaymentIndex + 1}`}</strong></div>
+                        <div><span>Payment date</span><strong>{receiptRecord.paymentDetails[receiptPaymentIndex].date || "Not recorded"}</strong></div>
+                        <div><span>Payment time</span><strong>{receiptRecord.paymentDetails[receiptPaymentIndex].time || "Not recorded"}</strong></div>
+                      </div>
+                      <h3 className="fee-receipt-section-title">Student details</h3>
+                      <div className="fee-receipt-student">
+                        <div><span>Student name</span><strong>{receiptRecord.studentName || "Not recorded"}</strong></div>
+                        <div><span>GR / student number</span><strong>{receiptRecord.stuNo || "Not recorded"}</strong></div>
+                        <div><span>Class</span><strong>{receiptRecord.standard || "Not recorded"}</strong></div>
+                        <div><span>Academic year</span><strong>{receiptRecord.batchYear || "Not recorded"}</strong></div>
+                      </div>
+                      <div className="fee-receipt-amount-panel">
+                        <span>Amount received in this payment</span>
+                        <strong>{formatReceiptAmount(receiptRecord.paymentDetails[receiptPaymentIndex].amount)}</strong>
+                      </div>
+                      <h3 className="fee-receipt-section-title">Fee summary</h3>
+                      <div className="fee-receipt-line"><span>Standard fees</span><strong>{formatReceiptAmount(receiptRecord.totalStandardFees)}</strong></div>
+                      <div className="fee-receipt-line"><span>Discount recorded</span><strong>{formatReceiptAmount(receiptRecord.discount)}</strong></div>
+                      <div className="fee-receipt-line"><span>Total paid to date</span><strong>{formatReceiptAmount(receiptRecord.totalFeesPaid)}</strong></div>
+                      <div className="fee-receipt-line fee-receipt-balance"><span>Current remaining balance</span><strong>{formatReceiptAmount(Math.max(0, Number(receiptRecord.totalStandardFees || 0) - Number(receiptRecord.discount || 0) - Number(receiptRecord.totalFeesPaid || 0)))}</strong></div>
+                      <p className="fee-receipt-note">This printout reflects the payment details currently saved in the school software. The current balance may include payments recorded after this payment date. Please check the school’s records if any detail appears incorrect.</p>
+                      <div className="fee-receipt-signatures">
+                        <div>Parent / guardian signature</div>
+                        <div>Authorized school signature</div>
+                      </div>
+                      <div className="fee-receipt-footer">Please retain this copy for your records.</div>
+                    </article>
+                  ) : (
+                    <div className="alert alert-warning mb-0">This fee record has no saved payment details. A receipt cannot be generated from a payment that is not recorded.</div>
+                  )}
+                </div>
+                <div className="modal-footer no-print">
+                  <button type="button" className="btn btn-outline-secondary" onClick={closeReceipt}>Close</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handlePrintReceipt}
+                    disabled={!receiptRecord.paymentDetails?.[receiptPaymentIndex]}
+                  >Print receipt</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {deleteId && (
           <div className="modal show" style={{ display: "block" }}>
             <div className="modal-dialog">

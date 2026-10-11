@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 
 const AdminPdf = () => {
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   const [pdfs, setPdfs] = useState([]);
   const [loading, setLoading] = useState(true);

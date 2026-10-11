@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { Modal } from "bootstrap";
 // import { saveAs } from "file-saver";
 // import * as XLSX from "xlsx";
@@ -10,7 +11,7 @@ import { Modal } from "bootstrap";
 // import PizZipUtils from 'pizzip/utils/index.js';
 
 function NewTeacherRegister() {
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   const [teachers, setTeachers] = useState([]);
   const [teacher, setTeacher] = useState({

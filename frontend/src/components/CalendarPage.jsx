@@ -4,11 +4,12 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { Modal, Button, Form } from "react-bootstrap";
 import "./CalendarPage.css"; // Optional: custom CSS for additional tweaks
 
 const CalendarPage = () => {
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [savingEvent, setSavingEvent] = useState(false);
   const [pageError, setPageError] = useState("");

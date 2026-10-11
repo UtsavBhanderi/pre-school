@@ -8,6 +8,7 @@ import "./operations.css";
 const PAGE_META = [
   ["/dashboard/home", "Start here", "Choose a task or search using everyday words."],
   ["/dashboard/help", "Help & guides", "Step-by-step instructions for common school tasks."],
+  ["/dashboard/notices", "School notices", "Publish reminders and updates for school staff."],
   ["/dashboard/feesOverview", "Fee overview", "A clear view of collection and outstanding balances."],
   ["/dashboard/attendanceOverview", "Attendance records", "Review attendance and follow up on absences."],
   ["/dashboard/studentRegister", "Student records", "Manage student profiles and family information."],
@@ -43,6 +44,7 @@ const COMMANDS = [
   { label: "Birthday lists", detail: "Find student and teacher birthdays", to: "/dashboard/studentBirthday", terms: "birthday cake student teacher" },
   { label: "User access", detail: "Manage who can sign in", to: "/dashboard/users", terms: "accounts login permissions" },
   { label: "Help & guides", detail: "Read simple instructions and troubleshoot", to: "/dashboard/help", terms: "support help how to error problem" },
+  { label: "School notices", detail: "Publish reminders, holidays and staff updates", to: "/dashboard/notices", terms: "announcement notice memo communication teachers" },
 ];
 
 export default function LayoutAdmin() {
