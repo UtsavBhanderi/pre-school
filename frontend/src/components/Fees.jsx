@@ -17,8 +17,7 @@ const standardFees = {
 };
 
 const Fees = () => {
-  const linkone = `https://api.kidzeranursery.com`;
-  // const linkone = `http://localhost:5000`;
+  const linkone = `http://localhost:5000`;
 
   const [feesData, setFeesData] = useState([]);
   const [formData, setFormData] = useState({
