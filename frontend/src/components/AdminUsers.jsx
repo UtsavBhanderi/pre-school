@@ -3,8 +3,7 @@ import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 
 function AdminUsers() {
-  const linkone = `https://api.kidzeranursery.com`;
-  // const linkone = `http://localhost:5000`;
+ const linkone = `http://localhost:5000`;
 
   
   const [UsersData, setUsersData] = useState([]);
