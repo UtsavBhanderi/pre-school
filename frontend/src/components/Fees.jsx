@@ -9,6 +9,10 @@ const Fees = () => {
   const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [feesData, setFeesData] = useState([]);
+  const [loadingFees, setLoadingFees] = useState(true);
+  const [savingFees, setSavingFees] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
   const [standardFees, setStandardFees] = useState({});
   const [formData, setFormData] = useState({
     studentName: "",
@@ -39,11 +43,15 @@ const Fees = () => {
   };
 
   const fetchFeesData = async () => {
+    setLoadingFees(true);
     try {
       const response = await axios.get(`${linkone}/api/fees/all`);
       setFeesData(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Error fetching fees data:", error);
+      setPageError(error.response?.data?.message || "Unable to load fee records.");
+    } finally {
+      setLoadingFees(false);
     }
   };
 
@@ -67,20 +75,24 @@ const Fees = () => {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    if (savingFees) return;
+    setSavingFees(true);
+    setPageError("");
+    setPageSuccess("");
     try {
       if (editMode) {
-        await axios.put(
-          `${linkone}/api/fees/update/${editId}`,
-          formData
-        );
+        await axios.put(`${linkone}/api/fees/update/${editId}`, formData);
       } else {
         await axios.post(`${linkone}/api/fees/create`, formData);
       }
-      fetchFeesData();
+      await fetchFeesData();
+      setPageSuccess(editMode ? "Fee record updated successfully." : "Fee record created successfully.");
       resetForm();
     } catch (error) {
       console.error("Error saving fees data:", error);
-      alert("Failed : " + error);
+      setPageError(error.response?.data?.message || "Unable to save this fee record.");
+    } finally {
+      setSavingFees(false);
     }
   };
 
@@ -123,8 +135,7 @@ const Fees = () => {
 
   const handlePaymentDetailChange = (index, e) => {
     const { name, value } = e.target;
-    const updatedPaymentDetails = [...formData.paymentDetails];
-    updatedPaymentDetails[index][name] = value;
+    const updatedPaymentDetails = formData.paymentDetails.map((detail, detailIndex) => detailIndex === index ? { ...detail, [name]: value } : detail);
     setFormData((prevFormData) => ({
       ...prevFormData,
       paymentDetails: updatedPaymentDetails,
@@ -139,7 +150,7 @@ const Fees = () => {
     const newPaymentDetail = {
       date: (() => { const now = new Date(); return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`; })(),
       time: new Date().toLocaleTimeString(),
-      amount: 0,
+      amount: "",
     };
     setFormData((prevFormData) => ({
       ...prevFormData,
@@ -331,13 +342,17 @@ const Fees = () => {
   return (
     <>
       <div className="mt-1">
-        <div className="d-flex flex-row">
-          <h2>Fees Management</h2>
+        {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+        {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
+        <div className="page-header">
+          <div>
+            <h2 className="mb-0">Fees & payments</h2>
+            <p className="page-subtitle">Record payments accurately and review each student’s outstanding balance.</p>
+          </div>
         </div>
-        {/* ref={formRef} */}
-        <form onSubmit={handleFormSubmit}>
+        <form className="page-card" onSubmit={handleFormSubmit}>
           <div className="row g-3">
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Student Name</label>
               <input
                 type="text"
@@ -372,7 +387,10 @@ const Fees = () => {
                 <option value="">Select Batch Year</option>
                 <option value="2022-23">2022-2023</option>
                 <option value="2023-24">2023-2024</option>
-                <option value="2024-25">2024-2025</option>
+                <option value="2024-25">2024-2025 (legacy)</option>
+                {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - 3 + index).map((year) => (
+                  <option key={year} value={`${year}-${year + 1}`}>{year}-{year + 1}</option>
+                ))}
               </select>
             </div>
 
@@ -420,7 +438,7 @@ const Fees = () => {
               <label>Total Remaining Fees</label>
               <input
                 type="number"
-                value={formData.totalStandardFees - formData.totalFeesPaid}
+                value={Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.totalFeesPaid || 0) - Number(formData.discount || 0))}
                 className="form-control"
                 readOnly
               />
@@ -432,6 +450,8 @@ const Fees = () => {
                 className="form-control"
                 name="discount"
                 value={formData.discount}
+                min="0"
+                step="1"
                 onChange={handleInputChange}
               />
             </div>
@@ -471,48 +491,45 @@ const Fees = () => {
                       type="number"
                       name="amount"
                       value={detail.amount}
+                      min="1"
+                      step="1"
+                      required
+                      aria-label={`Payment amount ${index + 1}`}
                       onChange={(e) => handlePaymentDetailChange(index, e)}
                       className="form-control"
                     />
                   </div>
-                  {/* <div className="col">
-                    <button
-                      type="button"
-                      onClick={() => removePaymentDetail(index)}
-                      className="btn btn-danger btn-sm"
-                    >
-                      Remove
-                    </button>
-                  </div> */}
+                  <div className="col-auto align-self-end"><button type="button" onClick={() => removePaymentDetail(index)} className="btn btn-outline-danger" aria-label={`Remove payment ${index + 1}`}>Remove</button></div>
                 </div>
               ))}
             </div>
             <div className="row m-1 mt-2 gap-3">
-              <button type="submit" className="btn btn-success col-4">
-                {/*onClick={handleButtonClick} */}
-                {editMode ? "Update" : "Add"}
+              <button type="submit" className="btn btn-primary col-12 col-md-4" disabled={savingFees}>
+                {savingFees ? "Saving…" : editMode ? "Save changes" : "Create fee record"}
               </button>
               {/* <div className="btn btn-primary col-2" onClick={exportToExcel}> */}
-              <div
-                className="btn btn-primary col-2"
+              <button
+                type="button"
+                className="btn btn-outline-primary"
                 onClick={exportToExcelConfirm}
               >
-                All List
-              </div>
-              <div
-                className="btn btn-primary col-2"
-                // onClick={exportCheckedToExcel}
+                Export all
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-primary"
+                disabled={selectedStudents.length === 0}
                 onClick={exportCheckedToExcelConfirm}
               >
-                Select List
-              </div>
+                Export selected
+              </button>
             </div>
           </div>
         </form>
         <div className=""></div>
 
         <hr />
-        <div className="row mb-3 mt-2">
+        <div className="filter-panel mb-3 mt-2" aria-label="Filter fee records">
           <div className="col">
             <input
               type="text"
@@ -555,8 +572,8 @@ const Fees = () => {
             </select>
           </div>
         </div>
-        <h3>Fees Records</h3>
-        <div className="overflow-auto">
+        <div className="section-heading"><h3>Fee records</h3><span className="muted small">{filteredfeesData.length} records</span></div>
+        <div className="table-responsive">
           <table className="table table-bordered table-striped">
             <thead>
               <tr>
@@ -585,7 +602,11 @@ const Fees = () => {
             </thead>
             <tbody>
               {/* {feesData.map((fees) => ( */}
-              {filteredfeesData.map((fees, index) => (
+              {loadingFees ? (
+            <tr><td colSpan={13} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading fee records…</td></tr>
+          ) : filteredfeesData.length === 0 ? (
+            <tr><td colSpan={13}><div className="empty-state"><strong>No matching fee records</strong>Add a fee record or adjust your filters.</div></td></tr>
+          ) : filteredfeesData.map((fees, index) => (
                 <tr key={fees._id}>
                   <td>
                     <input

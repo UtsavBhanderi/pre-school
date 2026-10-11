@@ -1,318 +1,95 @@
-import React, { useState, useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import React, { useContext } from "react";
 import { NavLink } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
+import {
+  MdDashboard, MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
+  MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
+  MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
+} from "react-icons/md";
 
-import { FaRegFilePdf } from "react-icons/fa6";
-import { FiVideo } from "react-icons/fi";
-import { MdCurrencyRupee } from "react-icons/md";
-import { GrGallery } from "react-icons/gr";
-import { FaRegUser } from "react-icons/fa";
-import { TbReport } from "react-icons/tb";
-import { FaPowerOff } from "react-icons/fa6";
-import { IoAnalyticsOutline } from "react-icons/io5";
-import { SiReacthookform } from "react-icons/si";
-import { LuCalendarCheck } from "react-icons/lu";
-import { LuClipboardList } from "react-icons/lu";
-import { BsCake } from "react-icons/bs";
-import { MdCheckCircleOutline } from "react-icons/md";
-import { FaRegCheckCircle } from "react-icons/fa";
-import { FaRegCircleCheck } from "react-icons/fa6";
+const navigation = [
+  {
+    label: "OVERVIEW",
+    items: [
+      { to: "/dashboard/feesOverview", label: "Dashboard", icon: MdDashboard },
+      { to: "/dashboard/attendanceOverview", label: "Attendance overview", icon: MdFactCheck },
+    ],
+  },
+  {
+    label: "SCHOOL MANAGEMENT",
+    items: [
+      { to: "/dashboard/studentRegister", label: "Students", icon: MdPeople },
+      { to: "/dashboard/teacherRegister", label: "Teachers", icon: MdSchool },
+      { to: "/dashboard/fees", label: "Fees & payments", icon: MdCurrencyRupee },
+      { to: "/dashboard/attendanceEntryPage", label: "Take attendance", icon: MdChecklist },
+      { to: "/dashboard/calendar", label: "School calendar", icon: MdCalendarMonth },
+    ],
+  },
+  {
+    label: "SCHOOL COMMUNITY",
+    items: [
+      { to: "/dashboard/studentBirthday", label: "Student birthdays", icon: MdCake },
+      { to: "/dashboard/teacherBirthday", label: "Teacher birthdays", icon: MdCake },
+      { to: "/dashboard/teacherWorkReport", label: "Work reports", icon: MdAssessment },
+      { to: "/dashboard/users", label: "User access", icon: MdManageAccounts },
+    ],
+  },
+  {
+    label: "LEARNING & MEDIA",
+    items: [
+      { to: "/dashboard/pdf", label: "PDF resources", icon: MdPictureAsPdf },
+      { to: "/dashboard/video", label: "Video resources", icon: MdVideoLibrary },
+      { to: "/dashboard/gallery", label: "Photo gallery", icon: MdPhotoLibrary },
+      { to: "/dashboard/createReport", label: "Report cards", icon: MdAssessment },
+    ],
+  },
+];
 
-function SideNav() {
-  const [activeComponent, setActiveComponent] = useState("fees");
+export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
   const { user, logout } = useContext(AuthContext);
+  const displayName = user?.username || user?.name || "School administrator";
+
   return (
-    <>
-      <nav className="bg-light border-end vh-auto p-3 min-vh-100">
-        <h4>Admin Dashboard</h4>
-        <ul className="nav flex-column row-gap-3">
-          {/* <li className="nav-item">
-              <div
-                onClick={() => setActiveComponent("StuAtt")}
-                className="nav-link d-inline-flex align-items-center gap-3"
-              >
-                <h2>
-                  <IoAnalyticsOutline  />
-                </h2>
-                <h5>Student attendence</h5>
-              </div>
-            </li> */}
-          <li className="nav-item">
-            <div
-              // onClick={() => setActiveComponent("graph")}
-              className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <h2>
-                <IoAnalyticsOutline />
-              </h2>
-              <NavLink
-                className="active"
-                aria-current="page"
-                to="/dashboard/feesOverview"
-              >
-                <h5>Dashboard</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-            // onClick={() => setActiveComponent("AttPage")}
-            >
-              <NavLink
-                className="nav-link d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/attendanceOverview"
-              >
-                <h2>
-                  <IoAnalyticsOutline />
-                </h2>
-                <h5>Attendence</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-            // onClick={() => setActiveComponent("fees")}
-            >
-              <NavLink
-                className="nav-link d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/fees"
-              >
-                <h2>
-                  <MdCurrencyRupee />
-                </h2>
-                <h5>Fees</h5>
-              </NavLink>
-            </div>
-          </li>
+    <aside className={"admin-sidebar" + (isOpen ? " is-open" : "")} aria-label="Main navigation">
+      <div className="sidebar-brand">
+        <div className="sidebar-brand-mark" aria-hidden="true">S</div>
+        <div>
+          <div className="sidebar-brand-title">Pre-School</div>
+          <div className="sidebar-brand-subtitle">Management workspace</div>
+        </div>
+      </div>
 
-          <li className="nav-item">
-            <div
-              className="dropdown-toggle d-inline-flex align-items-center nav-link gap-3"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              {/* <NavLink className="nav-link" aria-current="page" to="/dashboard/attendanceOverview">
-              </NavLink> */}
-              <h2>
-                <LuClipboardList />
-              </h2>
-              <h5>Register</h5>
-            </div>
-            <ul className="dropdown-menu dropdown-menu-dark">
-              <li>
-                <NavLink
-                  className="dropdown-item"
-                  to="/dashboard/studentRegister"
-                >
-                  Student
-                </NavLink>
-              </li>
-              <li>
-                <NavLink
-                  className="dropdown-item"
-                  to="/dashboard/teacherRegister"
-                >
-                  Teacher
-                </NavLink>
-              </li>
-            </ul>
-          </li>
-          <li className="nav-item">
-            <div
-              className="dropdown-toggle d-inline-flex align-items-center nav-link gap-3"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              <h2>
-                <BsCake />
-              </h2>
-              <h5>Birthday</h5>
-            </div>
-            <ul className="dropdown-menu dropdown-menu-dark">
-              {/* <li>
-                  <NavLink className="dropdown-item" to="Management/Trustee">
-                    Trustee
+      <nav aria-label="School management">
+        {navigation.map((group) => (
+          <div className="mb-3" key={group.label}>
+            <div className="sidebar-section-title">{group.label}</div>
+            <ul className="sidebar-nav">
+              {group.items.map(({ to, label, icon: Icon }) => (
+                <li key={to}>
+                  <NavLink
+                    to={to}
+                    onClick={onNavigate}
+                    className={({ isActive }) => "sidebar-nav-link" + (isActive ? " active" : "")}
+                  >
+                    <span className="sidebar-icon" aria-hidden="true"><Icon /></span>
+                    <span>{label}</span>
                   </NavLink>
-                </li> */}
-              <li>
-                <NavLink
-                  className="dropdown-item"
-                  to="/dashboard/studentBirthday"
-                >
-                  Student
-                </NavLink>
-                {/* <span
-                  onClick={() => setActiveComponent("Birthday")}
-                  className="nav-link dropdown-item"
-                >
-                </span> */}
-              </li>
-              <li>
-                <NavLink
-                  className="dropdown-item"
-                  to="/dashboard/teacherBirthday"
-                >
-                  Teacher
-                </NavLink>
-              </li>
+                </li>
+              ))}
             </ul>
-          </li>
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("calendar")}
-              // className="nav-link"
-            >
-              <NavLink
-                className="nav-link d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/calendar"
-              >
-                <h2>
-                  <LuCalendarCheck />
-                </h2>
-                <h5>Calendar</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("AttEntry")}
-              // className="nav-link d-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/attendanceEntryPage"
-              >
-                <h2>
-                  <FaRegCircleCheck />
-                  {/* <FaRegCheckCircle /> */}
-                </h2>
-                <h5>Attendence Entry</h5>
-              </NavLink>
-            </div>
-          </li>
-
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("pdf")}
-              // className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/pdf"
-              >
-                <h2>
-                  <FaRegFilePdf />
-                </h2>
-                <h5>PDF</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("video")}
-              // className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/video"
-              >
-                <h2>
-                  <FiVideo />
-                </h2>
-                <h5>Videos</h5>
-              </NavLink>
-            </div>
-          </li>
-
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("GalleryDashboard")}
-              // className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/gallery"
-              >
-                <h2>
-                  <GrGallery />
-                </h2>
-                <h5>Gallery</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("ReportCard")}
-              // className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/createReport"
-              >
-                <h2>
-                  <TbReport />
-                </h2>
-                <h5>Report card</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("TeacherDashboard")}
-              // className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/teacherWorkReport"
-              >
-                <h2>
-                  <TbReport />
-                </h2>
-                <h5>Work Report</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <div
-              onClick={() => setActiveComponent("UserDashboard")}
-              // className="nav-link d-inline-flex align-items-center gap-3"
-            >
-              <NavLink
-                className="nav-link active d-inline-flex align-items-center gap-3"
-                aria-current="page"
-                to="/dashboard/users"
-              >
-                <h2>
-                  <FaRegUser />
-                </h2>
-                <h5>User</h5>
-              </NavLink>
-            </div>
-          </li>
-          <li className="nav-item">
-            <button
-              onClick={logout}
-              className="btn btn-danger w-75 gap-3 d-inline-flex align-items-center"
-            >
-              <h5>
-                <FaPowerOff />
-              </h5>
-              <h5>Logout</h5>
-            </button>
-          </li>
-        </ul>
+          </div>
+        ))}
       </nav>
-    </>
+
+      <div className="sidebar-spacer" />
+      <div className="sidebar-user">
+        <div className="sidebar-user-name" title={displayName}>{displayName}</div>
+        <div className="sidebar-user-role">{user?.role || "admin"} account</div>
+        <button type="button" onClick={logout} className="btn sidebar-logout d-flex align-items-center gap-2">
+          <MdLogout size={19} />
+          <span>Sign out</span>
+        </button>
+      </div>
+    </aside>
   );
 }
-
-export default SideNav;

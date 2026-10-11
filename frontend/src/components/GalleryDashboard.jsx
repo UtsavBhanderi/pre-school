@@ -1,218 +1,189 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
-const GalleryDashboard = () => {
- const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+const EMPTY_FORM = { title: "", description: "", photo: null, sequence: "" };
 
+export default function GalleryDashboard() {
   const [photos, setPhotos] = useState([]);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    photo: null,
-    sequence: "",
-  });
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [currentPhoto, setCurrentPhoto] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
+
+  const fetchPhotos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(API_BASE_URL + "/api/gallery");
+      setPhotos(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      setPageError(error.response?.data?.message || error.response?.data?.error || "Unable to load the school gallery.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchPhotos();
-  }, []);
+  }, [fetchPhotos]);
 
-  const fetchPhotos = async () => {
-    try {
-      const response = await axios.get(`${linkone}` + "/api/gallery");
-      setPhotos(response.data);
-    } catch (error) {
-      console.error("Error fetching photos:", error);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    if (!currentPhoto && !formData.photo) {
+      setPageError("Choose an image to add a gallery item.");
+      return;
     }
-  };
 
-  const handleFileChange = (e) => {
-    setFormData({ ...formData, photo: e.target.files[0] });
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const formDataObj = new FormData();
-    formDataObj.append("title", formData.title);
-    formDataObj.append("description", formData.description);
-    formDataObj.append("sequence", formData.sequence);
-    if (formData.photo) formDataObj.append("photo", formData.photo);
+    setSaving(true);
+    setPageError("");
+    setPageSuccess("");
+    const payload = new FormData();
+    payload.append("title", formData.title.trim());
+    payload.append("description", formData.description.trim());
+    payload.append("sequence", String(formData.sequence || photos.length + 1));
+    if (formData.photo) payload.append("photo", formData.photo);
 
     try {
       if (currentPhoto) {
-        await axios.put(
-          `${linkone}` + `/api/gallery/${currentPhoto._id}`,
-          formDataObj
-        );
+        await axios.put(API_BASE_URL + "/api/gallery/" + currentPhoto._id, payload);
       } else {
-        await axios.post(`${linkone}` + "/api/gallery", formDataObj);
+        await axios.post(API_BASE_URL + "/api/gallery", payload);
       }
-      fetchPhotos();
-      setFormData({ title: "", description: "", photo: null, sequence: "" });
+      setFormData(EMPTY_FORM);
       setCurrentPhoto(null);
+      setPageSuccess(currentPhoto ? "Gallery item updated." : "Gallery item added.");
+      await fetchPhotos();
     } catch (error) {
-      console.error("Error saving photo:", error);
+      setPageError(error.response?.data?.message || error.response?.data?.error || "Unable to save the gallery item.");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleEdit = (photo) => {
     setCurrentPhoto(photo);
     setFormData({
-      title: photo.title,
-      description: photo.description,
+      title: photo.title || "",
+      description: photo.description || "",
       photo: null,
-      sequence: photo.sequence,
+      sequence: photo.sequence ?? "",
     });
+    setPageError("");
+    setPageSuccess("");
+    document.getElementById("gallery-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleDelete = async (id) => {
+  const handleCancel = () => {
+    setCurrentPhoto(null);
+    setFormData(EMPTY_FORM);
+    setPageError("");
+    setPageSuccess("");
+  };
+
+  const handleDelete = async (photo) => {
+    if (!window.confirm("Delete “" + (photo.title || "this image") + "” from the gallery?")) return;
+    setPageError("");
+    setPageSuccess("");
     try {
-      await axios.delete(`${linkone}` + `/api/gallery/${id}`);
-      fetchPhotos();
+      await axios.delete(API_BASE_URL + "/api/gallery/" + photo._id);
+      setPhotos((previous) => previous.filter((item) => item._id !== photo._id));
+      if (currentPhoto?._id === photo._id) handleCancel();
+      setPageSuccess("Gallery item deleted.");
     } catch (error) {
-      console.error("Error deleting photo:", error);
+      setPageError(error.response?.data?.message || error.response?.data?.error || "Unable to delete this image.");
     }
   };
 
-  const movePhoto = async (id, direction) => {
-    const index = photos.findIndex((photo) => photo._id === id);
-
-    if (index < 0) return;
-
-    let newSequence = photos[index].sequence;
-
-    if (direction === "up" && index > 0) {
-      newSequence = photos[index - 1].sequence;
-      photos[index - 1].sequence = photos[index].sequence;
-    } else if (direction === "down" && index < photos.length - 1) {
-      newSequence = photos[index + 1].sequence;
-      photos[index + 1].sequence = photos[index].sequence;
-    }
-
-    photos[index].sequence = newSequence;
-
-    await axios.put(`${linkone}` + `/api/gallery/sequence/${id}`, {
-      sequence: newSequence,
-    });
-
-    fetchPhotos();
+  const imageUrl = (photo) => {
+    if (!photo?.url) return "";
+    return photo.url.startsWith("http") ? photo.url : API_BASE_URL + (photo.url.startsWith("/") ? "" : "/") + photo.url;
   };
 
   return (
-    <div className="">
-      <h1>Manage Gallery</h1>
-      <form onSubmit={handleSubmit} className="mb-4 row">
-        <div className="mb-3 col-3">
-          <label htmlFor="title" className="form-label">
-            Title
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            id="title"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-          />
-        </div>
-        <div className="mb-3 col-3">
-          <label htmlFor="description" className="form-label">
-            Description
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-          />
-        </div>
-        <div className="mb-3 col-3">
-          <label htmlFor="sequence" className="form-label">
-            sequence
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            id="sequence"
-            name="sequence"
-            value={formData.sequence}
-            onChange={handleChange}
-          />
-        </div>
-        <div className="mb-3 col-3">
-          <label htmlFor="photo" className="form-label">
-            Photo
-          </label>
-          <input
-            type="file"
-            className="form-control"
-            id="photo"
-            name="photo"
-            onChange={handleFileChange}
-          />
-        </div>
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
+
+      <div className="page-header">
         <div>
-          <button type="submit" className="btn btn-primary">
-            {currentPhoto ? "Update" : "Add"} Photo
-          </button>
+          <h2 className="mb-0">School photo gallery</h2>
+          <p className="page-subtitle">Keep school memories organized. Add a photo, write a helpful caption, and set its display order.</p>
         </div>
-      </form>
-      <table className="table table-bordered table-striped">
-        <thead>
-          <tr>
-            <th scope="col">#</th>
-            <th scope="col">Image</th>
-            <th scope="col">Title</th>
-            <th scope="col">Description</th>
-            <th scope="col">sequence</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+        <div className="page-actions">
+          <span className="badge rounded-pill text-bg-light border px-3 py-2">{photos.length} photo{photos.length === 1 ? "" : "s"}</span>
+        </div>
+      </div>
+
+      <section className="page-card mb-4" id="gallery-editor" aria-labelledby="gallery-editor-title">
+        <div className="section-heading mt-0">
+          <h3 id="gallery-editor-title">{currentPhoto ? "Edit gallery item" : "Add a gallery item"}</h3>
+          {currentPhoto && <span className="muted small">Photo file is optional when editing</span>}
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="row g-3">
+            <div className="col-12 col-md-6 col-xl-3">
+              <label htmlFor="gallery-title" className="form-label">Photo title</label>
+              <input id="gallery-title" type="text" className="form-control" name="title" value={formData.title} onChange={(e) => setFormData((previous) => ({ ...previous, title: e.target.value }))} maxLength={120} required />
+            </div>
+            <div className="col-12 col-md-6 col-xl-5">
+              <label htmlFor="gallery-description" className="form-label">Caption / description</label>
+              <input id="gallery-description" type="text" className="form-control" name="description" value={formData.description} onChange={(e) => setFormData((previous) => ({ ...previous, description: e.target.value }))} maxLength={300} placeholder="Describe the activity or event" />
+            </div>
+            <div className="col-12 col-md-6 col-xl-1">
+              <label htmlFor="gallery-sequence" className="form-label">Order</label>
+              <input id="gallery-sequence" type="number" min="1" step="1" className="form-control" name="sequence" value={formData.sequence} onChange={(e) => setFormData((previous) => ({ ...previous, sequence: e.target.value }))} placeholder={String(photos.length + 1)} />
+            </div>
+            <div className="col-12 col-md-6 col-xl-3">
+              <label htmlFor="gallery-photo" className="form-label">Image file {currentPhoto ? "(optional)" : ""}</label>
+              <input id="gallery-photo" type="file" accept="image/*" className="form-control" onChange={(e) => setFormData((previous) => ({ ...previous, photo: e.target.files?.[0] || null }))} required={!currentPhoto} />
+              <div className="form-text">Use a clear image, up to 5 MB.</div>
+            </div>
+          </div>
+          <div className="d-flex justify-content-end gap-2 mt-3">
+            {currentPhoto && <button type="button" className="btn btn-outline-secondary" onClick={handleCancel}>Cancel edit</button>}
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? "Saving…" : currentPhoto ? "Save changes" : "Add photo"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <div className="section-heading">
+        <h3>Gallery collection</h3>
+        <span className="muted small">Items are shown in display order.</span>
+      </div>
+
+      {loading ? (
+        <div className="page-card text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading gallery…</div>
+      ) : photos.length === 0 ? (
+        <div className="page-card"><div className="empty-state"><strong>Your gallery is ready for its first photo</strong>Add a school event or classroom moment using the form above.</div></div>
+      ) : (
+        <div className="gallery-grid">
           {photos.map((photo, index) => (
-            <tr key={photo._id}>
-              <th scope="row">{index + 1}</th>
-              <td>
-                <img
-                  src={`${linkone}` + photo.url}
-                  alt={photo.title}
-                  style={{ width: "50px", height: "50px" }}
-                />
-              </td>
-              <td>{photo.title}</td>
-              <td>{photo.description}</td>
-              <td>{photo.sequence}</td>
-              <td>
-                <button
-                  className="btn btn-primary me-2"
-                  onClick={() => handleEdit(photo)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="btn btn-danger me-2"
-                  onClick={() =>
-                    confirm("Are you sure you want to delete this photo?") &&
-                    handleDelete(photo._id)
-                  }
-                >
-                  Delete
-                </button>
-                {/* <button className="btn btn-secondary me-2" onClick={() => movePhoto(photo._id, 'up')}>Move Up</button> */}
-                {/* <button className="btn btn-secondary" onClick={() => movePhoto(photo._id, 'down')}>Move Down</button> */}
-              </td>
-            </tr>
+            <article className="gallery-card" key={photo._id}>
+              {photo.url ? (
+                <img className="gallery-card-image" src={imageUrl(photo)} alt={photo.title || "School gallery photo"} loading="lazy" />
+              ) : (
+                <div className="gallery-card-image gallery-card-placeholder">No image available</div>
+              )}
+              <div className="gallery-card-body">
+                <div className="d-flex justify-content-between align-items-start gap-2">
+                  <h4 className="gallery-card-title">{photo.title || "Untitled photo"}</h4>
+                  <span className="badge text-bg-light border">#{photo.sequence || index + 1}</span>
+                </div>
+                <p className="gallery-card-description">{photo.description || "No caption added."}</p>
+                <div className="d-flex gap-2 mt-auto">
+                  <button type="button" className="btn btn-outline-primary btn-sm flex-grow-1" onClick={() => handleEdit(photo)}>Edit</button>
+                  <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(photo)}>Delete</button>
+                </div>
+              </div>
+            </article>
           ))}
-        </tbody>
-      </table>
+        </div>
+      )}
     </div>
   );
-};
-
-export default GalleryDashboard;
+}

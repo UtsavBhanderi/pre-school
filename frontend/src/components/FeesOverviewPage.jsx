@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
+
+const SUMMARY_LABELS = {
+  today: "Today",
+  yesterday: "Yesterday",
+  thisWeek: "This week",
+  prevWeek: "Last week",
+  thisMonth: "This month",
+  prevMonth: "Last month",
+};
+
+const formatCurrency = (value) => new Intl.NumberFormat("en-IN", {
+  style: "currency", currency: "INR", maximumFractionDigits: 0,
+}).format(Number(value) || 0);
 
 const FeesOverviewPage = () => {
  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
@@ -8,17 +22,53 @@ const FeesOverviewPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [studentDetails, setStudentDetails] = useState(null); // To hold individual student details
   const [selectedDateData, setSelectedDateData] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [dateLoading, setDateLoading] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [schoolStats, setSchoolStats] = useState({ students: 0, teachers: 0, outstandingFees: 0 });
 
   useEffect(() => {
-    // Fetch fees data from the backend
-    axios
-      .get(`${linkone}` + "/api/fees/fees-collection-data")
+    let active = true;
+
+    axios.get(linkone + "/api/fees/fees-collection-data")
       .then((response) => {
-        setFeesData(response.data);
+        if (active) {
+          setFeesData(response.data || {});
+          setPageError("");
+        }
       })
       .catch((error) => {
         console.error("Error fetching fees data:", error);
+        if (active) setPageError(error.response?.data?.message || "Unable to load fee collection data.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
+
+    return () => { active = false; };
+  }, []);
+
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      axios.get(linkone + "/api/students"),
+      axios.get(linkone + "/api/teachers"),
+      axios.get(linkone + "/api/fees/all"),
+    ]).then(([studentsResponse, teachersResponse, feesResponse]) => {
+      const students = Array.isArray(studentsResponse.data) ? studentsResponse.data : [];
+      const teachers = Array.isArray(teachersResponse.data) ? teachersResponse.data : [];
+      const fees = Array.isArray(feesResponse.data) ? feesResponse.data : [];
+      const outstandingFees = fees.reduce((sum, fee) => sum + Math.max(0, Number(fee.totalStandardFees || 0) - Number(fee.totalFeesPaid || 0) - Number(fee.discount || 0)), 0);
+      if (active) setSchoolStats({ students: students.length, teachers: teachers.length, outstandingFees });
+    }).catch((error) => {
+      console.error("Unable to load school dashboard counts:", error);
+    }).finally(() => {
+      if (active) setStatsLoading(false);
+    });
+    return () => { active = false; };
   }, []);
 
   // Handle modal open for student details
@@ -45,27 +95,44 @@ const FeesOverviewPage = () => {
   };
 
   // Handle custom date filtering
-  const handleDateFilter = (e) => {
-    const selectedDate = e.target.value;
+  const handleDateFilter = async (event) => {
+    const value = event.target.value;
+    setSelectedDate(value);
+    setPageError("");
+    if (!value) {
+      setSelectedDateData([]);
+      return;
+    }
 
-        const date = new Date(`${selectedDate}T00:00:00`);
-    const formattedDate = `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+    const date = new Date(value + "T00:00:00");
+    if (Number.isNaN(date.getTime())) {
+      setPageError("Choose a valid date.");
+      return;
+    }
+    const formattedDate = String(date.getMonth() + 1).padStart(2, "0") + "/" +
+      String(date.getDate()).padStart(2, "0") + "/" + date.getFullYear();
 
-    axios
-      .get(`${linkone}` + `/api/fees/fees-by-date?date=${formattedDate}`)
-      .then((response) => {
-        setSelectedDateData(response.data);
-      })
-      .catch((error) => {
-        console.error("Error fetching date-specific data:", error);
+    setDateLoading(true);
+    try {
+      const response = await axios.get(linkone + "/api/fees/fees-by-date", {
+        params: { date: formattedDate },
       });
+      setSelectedDateData(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Error fetching date-specific data:", error);
+      setPageError(error.response?.data?.message || "Unable to load payments for that date.");
+      setSelectedDateData([]);
+    } finally {
+      setDateLoading(false);
+    }
   };
+
 
   // define a reusable function
   function calculateSum(arr) {
     var sum = 0;
     for (var i = 0; i < arr.length; i++) {
-      sum += arr[i];
+      sum += Number(arr[i]) || 0;
     }
     return sum.toLocaleString("en-IN", {
       maximumFractionDigits: 0,
@@ -74,59 +141,70 @@ const FeesOverviewPage = () => {
     });
   }
   const totalStandardFeesTable =
-    feesData.standardWise?.map((standard) => standard.totalStandardFees) || "0";
+    feesData.standardWise?.map((standard) => Number(standard.totalStandardFees) || 0) || [];
 
   const totalPaidTable =
-    feesData.standardWise?.map((standard) => standard.totalPaid) || "0";
+    feesData.standardWise?.map((standard) => Number(standard.totalPaid) || 0) || [];
 
   const totalRemainingTable =
-    feesData.standardWise?.map((standard) => standard.totalStandardFees - standard.totalPaid - (standard.totalDiscount || 0)
-    ) || "0";
+    feesData.standardWise?.map((standard) => Math.max(0, Number(standard.totalStandardFees || 0) - Number(standard.totalPaid || 0) - Number(standard.totalDiscount || 0))) || [];
 
   return (
-    <div className="">
-      <h2>Fees Overview</h2>
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
 
-      {/* Cards Section */}
-      <div className="w-100 d-flex flex-wrap mb-3">
-        {Object.keys(feesData).map(
-          (key, index) =>
-            key !== "standardWise" &&
-            key !== "monthsData" && (
-              <div className="col-md-4" key={key}>
-                <div className="card w-75 m-3">
-                  <div className="card-body">
-                    {/* <div> */}
-                    <h5 className="card-title">{key}</h5>
-                    {/* <p className="card-text">₹{feesData[key].totalPaid || 0}</p> */}
-                    <p className="card-text">₹{new Intl.NumberFormat('en-IN').format(feesData[key].totalPaid || 0)}</p>
-                    {/* </div> */}
-                    <button
-                      onClick={() => handleShowModal(feesData[key])}
-                      className="btn btn-info"
-                    >
-                      Info
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-        )}
-        {/* // {{(index===2) ? <br/>}} */}
-        {/* <div className="col-md-3">
-          <div className="card w-100 text-center">
-            <div className="card-body">
-              <h5 className="card-title">Today's Collection</h5>
-              <p className="card-text">₹{feesData.today}</p>
-              <button onClick={() => handleShowModal(feesData[0])} className="btn btn-info">Info</button>
-            </div>
-          </div>
-        </div> */}
+      <div className="page-header">
+        <div>
+          <h2 className="mb-0">Fee collection overview</h2>
+          <p className="page-subtitle">Compare collection across daily, weekly, and monthly periods.</p>
+        </div>
+      </div>
+
+      <div className="overview-stat-grid" aria-label="School summary">
+        <section className="overview-stat-card">
+          <div className="overview-stat-label">Registered students</div>
+          <div className="overview-stat-value">{statsLoading ? "—" : schoolStats.students.toLocaleString("en-IN")}</div>
+          <Link className="btn btn-outline-primary btn-sm" to="/dashboard/studentRegister">Manage students</Link>
+        </section>
+        <section className="overview-stat-card">
+          <div className="overview-stat-label">Teaching staff</div>
+          <div className="overview-stat-value">{statsLoading ? "—" : schoolStats.teachers.toLocaleString("en-IN")}</div>
+          <Link className="btn btn-outline-primary btn-sm" to="/dashboard/teacherRegister">Manage teachers</Link>
+        </section>
+        <section className="overview-stat-card">
+          <div className="overview-stat-label">Outstanding fees</div>
+          <div className="overview-stat-value">{statsLoading ? "—" : formatCurrency(schoolStats.outstandingFees)}</div>
+          <Link className="btn btn-outline-primary btn-sm" to="/dashboard/fees">View fee records</Link>
+        </section>
+      </div>
+
+      <section className="page-card mb-4">
+        <div className="section-heading mt-0"><h3>Quick actions</h3><span className="muted small">Common tasks, one click away</span></div>
+        <div className="page-actions">
+          <Link className="btn btn-primary" to="/dashboard/attendanceEntryPage">Take attendance</Link>
+          <Link className="btn btn-outline-primary" to="/dashboard/studentRegister">Add student</Link>
+          <Link className="btn btn-outline-primary" to="/dashboard/fees">Record a payment</Link>
+          <Link className="btn btn-outline-primary" to="/dashboard/calendar">Add school event</Link>
+        </div>
+      </section>
+
+      <div className="section-heading"><h3>Fee collection trends</h3><span className="muted small">Based on recorded payments</span></div>
+      <div className="overview-stat-grid">
+        {loading ? (
+          <div className="page-card"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading collection summary…</div>
+        ) : Object.entries(feesData).filter(([key]) => Boolean(SUMMARY_LABELS[key])).map(([key, summary]) => (
+          <section className="overview-stat-card" key={key}>
+            <div className="overview-stat-label">{SUMMARY_LABELS[key]}</div>
+            <div className="overview-stat-value">{formatCurrency(summary?.totalPaid || 0)}</div>
+            <div className="muted small mb-3">{summary?.students?.length || 0} payment entries</div>
+            <button type="button" onClick={() => handleShowModal(summary || {})} className="btn btn-outline-primary btn-sm">View details</button>
+          </section>
+        ))}
       </div>
 
       {/* Standard-wise Collection Table */}
-      <h2>Standard-wise Fees Collection</h2>
-      <table className="table table-striped table-bordered mb-3">
+      <div className="section-heading"><h3>Collection by class</h3><span className="muted small">Totals reflect recorded fee accounts</span></div>
+      <div className="table-responsive"><table className="table table-hover align-middle mb-0">
         <thead>
           <tr>
             <th>Standard</th>
@@ -138,12 +216,16 @@ const FeesOverviewPage = () => {
           </tr>
         </thead>
         <tbody>
-          {feesData.standardWise?.map((standard) => (
+          {loading ? (
+            <tr><td colSpan={5} className="text-center py-4">Loading class totals…</td></tr>
+          ) : !feesData.standardWise?.length ? (
+            <tr><td colSpan={5}><div className="empty-state"><strong>No fee summary is available</strong>Fee totals will appear once student fee records are available.</div></td></tr>
+          ) : feesData.standardWise.map((standard) => (
             <tr key={standard._id}>
               <td>{standard._id}</td>
-              <td>{standard.totalStandardFees}</td>
-              <td>{standard.totalPaid}</td>
-              <td>{standard.totalStandardFees - standard.totalPaid - standard.totalDiscount}</td>
+              <td>{formatCurrency(standard.totalStandardFees)}</td>
+              <td>{formatCurrency(standard.totalPaid)}</td>
+              <td>{formatCurrency(Math.max(0, Number(standard.totalStandardFees || 0) - Number(standard.totalPaid || 0) - Number(standard.totalDiscount || 0)))}</td>
               {/* <td>{standard.totalDiscount}</td> */}
               <td>
                 <button
@@ -175,54 +257,42 @@ const FeesOverviewPage = () => {
           </tr>
           {/* <td><strong>{totals.totalDiscountFees}</strong></td> */}
         </tbody>
-      </table>
+      </table></div>
 
-      {/* Table for Custom Date Payments */}
-      {/* <h4>Payments for Selected Date</h4> */}
-      <div className="d-flex mt-5">
-        <h2 className="me-3">Filter by Date</h2>
-        <input
-          type="date"
-          className="form-control w-25"
-          onChange={handleDateFilter}
-        />
-      </div>
-      <table className="table table-striped">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Student Name</th>
-            <th>Standard</th>
-            <th>Roll No</th>
-            <th>Amount</th>
-            {/* <th>Actions</th> */}
-          </tr>
-        </thead>
-        <tbody>
-          {selectedDateData.map((student, index) => {
-            if (student) {
-              return (
-                <tr key={student.rollNo}>
+      <section className="page-card mt-4">
+        <div className="section-heading mt-0">
+          <div>
+            <h3>Payments by date</h3>
+            <p className="page-subtitle">Select a day to review payments recorded for that date.</p>
+          </div>
+          <div>
+            <label htmlFor="fee-collection-date" className="form-label">Payment date</label>
+            <input id="fee-collection-date" type="date" className="form-control" value={selectedDate} onChange={handleDateFilter} />
+          </div>
+        </div>
+        <div className="table-responsive">
+          <table className="table table-hover align-middle">
+            <thead>
+              <tr><th>#</th><th>Student name</th><th>Standard</th><th>GR No.</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+              {dateLoading ? (
+                <tr><td colSpan={5} className="text-center py-4"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading payments…</td></tr>
+              ) : selectedDateData.length === 0 ? (
+                <tr><td colSpan={5}><div className="empty-state"><strong>{selectedDate ? "No payments found for this date" : "Choose a payment date"}</strong>{selectedDate ? "Try another day to see the payments recorded." : "Payment entries for the selected day will appear here."}</div></td></tr>
+              ) : selectedDateData.map((student, index) => (
+                <tr key={student._id || student.rollNo + "-" + index}>
                   <td>{index + 1}</td>
-                  <td>{student.studentName}</td>
-                  <td>{student.standard}</td>
-                  <td>{student.rollNo}</td>
-                  <td>{student.totalPaid}</td>
-                  {/* <td>
-                  <button onClick={() => handleShowModal(student)} className="btn btn-info">Info</button>
-                </td> */}
+                  <td className="fw-semibold">{student.studentName || "—"}</td>
+                  <td>{student.standard || "—"}</td>
+                  <td>{student.rollNo || "—"}</td>
+                  <td>{formatCurrency(student.totalPaid || 0)}</td>
                 </tr>
-              );
-            }
-
-            return (
-              <tr>
-                <td colSpan={4}>no data</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {/* Modal for showing student details */}
       {/* {showModal && studentDetails && (

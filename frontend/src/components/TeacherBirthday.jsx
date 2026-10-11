@@ -4,6 +4,8 @@ import axios from "axios";
 
 function TeacherBirthday() {
   const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
 
     const [teachers, setTeachers] = useState([]);
     const [filteredTeachers, setFilteredTeachers] = useState([]);
@@ -20,10 +22,14 @@ function TeacherBirthday() {
       const fetchTeachers = async () => {
         try {
           const response = await axios.get(`${linkone}` + "/api/teachers/birthdays");
-          setTeachers(response.data);
-          setFilteredTeachers(response.data); // Initially, show all teachers
+          const rows = Array.isArray(response.data) ? response.data : [];
+          setTeachers(rows);
+          setFilteredTeachers(rows);
         } catch (err) {
           console.error(err);
+          setPageError(err.response?.data?.message || "Unable to load teacher birthdays.");
+        } finally {
+          setLoading(false);
         }
       };
       fetchTeachers();
@@ -122,8 +128,9 @@ function TeacherBirthday() {
   
   return (
     <div>
-      <h2>Teachers Birthdays</h2>
-      <div className="column-gap-3 d-flex flex-wrap align-content-center align-items-end">
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      <div className="page-header"><div><h2 className="mb-0">Teacher birthdays</h2><p className="page-subtitle">Find staff birthdays by date range, name, class, or teacher number.</p></div><span className="badge text-bg-light border px-3 py-2">{filteredTeachers.length} results</span></div>
+      <div className="filter-panel mb-3" aria-label="Filter teacher birthdays">
         <div className="col">
           <select
             value={filters.date}
@@ -201,7 +208,7 @@ function TeacherBirthday() {
           </li>
         ))}
       </ul> */}
-      <table className="table table-bordered table-striped my-3">
+      <div className="table-responsive"><table className="table table-hover align-middle my-0">
         <thead>
           <tr>
             <th>#</th>
@@ -213,15 +220,18 @@ function TeacherBirthday() {
           </tr>
         </thead>
         <tbody>
-          {filteredTeachers.map((teacher,index) => (
+          {loading ? (
+            <tr><td colSpan={6} className="text-center py-5">Loading teacher birthdays…</td></tr>
+          ) : filteredTeachers.length === 0 ? (
+            <tr><td colSpan={6}><div className="empty-state"><strong>No matching birthdays</strong>Try changing the date or clearing a filter.</div></td></tr>
+          ) : filteredTeachers.map((teacher,index) => (
             <tr key={teacher._id}>
               <td>{index+1}</td>
               <td>{teacher.GR_No}</td>
               <td style={{ width: "55px", height: "auto" }}>
                 <img
-                  src={`${linkone}/` + teacher.selfPhoto}
-                  // src={`https://kidzera.vedantclasses.org.in/` + teacher.SelfPhoto}
-                  alt=""
+                  src={teacher.selfPhoto ? (String(teacher.selfPhoto).startsWith("http") ? teacher.selfPhoto : linkone + "/" + String(teacher.selfPhoto).replace(/^\/+/, "")) : "https://ui-avatars.com/api/?name=" + encodeURIComponent(teacher.middleName || "Teacher")}
+                  alt={[teacher.firstName, teacher.middleName, teacher.lastName].filter(Boolean).join(" ") || "Teacher"}
                   style={{ width: "50px", height: "50px" }}
                 />
               </td>
@@ -233,7 +243,7 @@ function TeacherBirthday() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   )
 }

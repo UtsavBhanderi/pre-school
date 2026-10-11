@@ -9,6 +9,10 @@ import "./CalendarPage.css"; // Optional: custom CSS for additional tweaks
 
 const CalendarPage = () => {
   const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
 
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -33,15 +37,19 @@ const CalendarPage = () => {
           color: event.color || "#3788d8",
         })));
       })
-      .catch((error) => console.error("Error fetching events:", error));
+      .catch((error) => {
+        console.error("Error fetching events:", error);
+        setPageError(error.response?.data?.message || "Unable to load the school calendar.");
+      })
+      .finally(() => setLoadingEvents(false));
   }, []);
 
   // Open modal to create a new event
   const handleDateClick = (info) => {
     setModalEvent({
       title: "",
-      start: info.dateStr,
-      end: info.dateStr,
+      start: info.dateStr.length === 10 ? info.dateStr + "T09:00" : info.dateStr.slice(0, 16),
+      end: info.dateStr.length === 10 ? info.dateStr + "T10:00" : info.dateStr.slice(0, 16),
       color: "#3788d8", // Default color
       isEdit: false,
     });
@@ -50,12 +58,11 @@ const CalendarPage = () => {
 
   // Open modal to edit an existing event
   const handleEventClick = (clickInfo) => {
-    // id: clickInfo.event._id,
-    setModalEvent({
+      setModalEvent({
       id: clickInfo.event.id || clickInfo.event._def.extendedProps._id,
       title: clickInfo.event.title,
-      start: clickInfo.event.startStr || clickInfo.event.start,
-      end: clickInfo.event.endStr || clickInfo.event.startStr,
+      start: (() => { const raw = String(clickInfo.event.startStr || clickInfo.event.start || ""); return raw.length === 10 ? raw + "T09:00" : raw.slice(0, 16); })(),
+      end: (() => { const raw = String(clickInfo.event.endStr || clickInfo.event.startStr || ""); return raw.length === 10 ? raw + "T10:00" : raw.slice(0, 16); })(),
       color: clickInfo.event.backgroundColor || "#3788d8",
       isEdit: true,
     });
@@ -65,10 +72,21 @@ const CalendarPage = () => {
   const handleSaveEvent = async () => {
     const { title, start, end, color, isEdit, id } = modalEvent;
     if (!title.trim()) {
-      alert("Event title is required.");
+      setPageError("Enter an event title before saving.");
+      return;
+    }
+    if (!start || !end) {
+      setPageError("Add both a start and end time.");
+      return;
+    }
+    if (new Date(end) < new Date(start)) {
+      setPageError("The event end time must be after its start time.");
       return;
     }
 
+    setSavingEvent(true);
+    setPageError("");
+    setPageSuccess("");
     const eventData = { title: title.trim(), start, end, color };
     try {
       if (isEdit) {
@@ -81,24 +99,18 @@ const CalendarPage = () => {
         const response = await axios.post(`${linkone}/api/events`, eventData);
         setEvents((previous) => [...previous, { ...response.data, id: response.data._id }]);
       }
+      setPageSuccess(isEdit ? "Calendar event updated." : "Calendar event created.");
+      setPageError("");
       setShowModal(false);
     } catch (error) {
       console.error("Unable to save calendar event:", error);
-      alert(error.response?.data?.message || "Unable to save the calendar event.");
+      setPageError(error.response?.data?.message || "Unable to save the calendar event.");
+    } finally {
+      setSavingEvent(false);
     }
   };
 
   // Delete an event
-  // const handleEventDelete = async () => {
-  //   try {
-  //     await axios.delete(`/api/events/${modalEvent.id}`);
-  //     setEvents(events.filter(event => event.id !== modalEvent.id)); // Remove event from state
-  //     setShowModal(false);
-  //   } catch (error) {
-  //     console.error('Error deleting event:', error);
-  //   }
-  // };
-
   const handleEventDelete = async () => {
     if (!modalEvent.id) {
       alert("No event ID is available for deletion.");
@@ -119,7 +131,8 @@ const CalendarPage = () => {
 
   // Handle form input changes
   const handleInputChange = (e) => {
-    setModalEvent({ ...modalEvent, [e.target.name]: e.target.value });
+    setPageError("");
+    setModalEvent((previous) => ({ ...previous, [e.target.name]: e.target.value }));
   };
 
   const handleEventDrop = async (info) => {
@@ -146,12 +159,19 @@ const CalendarPage = () => {
 
   return (
     <div className="my-4">
-      <div className="calendar-header">
-        <h2 className="text-center mb-2">Event Calendar</h2>
+            {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
+      <div className="page-header">
+        <div>
+          <h2 className="mb-0">School calendar</h2>
+          <p className="page-subtitle">Plan events and important dates. Select a day to add an event, or choose an existing event to edit it.</p>
+        </div>
       </div>
 
-      <div className="calendar-container shadow-sm w-100 bg-white rounded">
-        <FullCalendar
+      <div className="page-card calendar-container">
+        {loadingEvents ? (
+          <div className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading school events…</div>
+        ) : <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           events={events}
@@ -165,7 +185,7 @@ const CalendarPage = () => {
             center: "title",
             right: "dayGridMonth,timeGridWeek,timeGridDay",
           }}
-        />
+        />}
       </div>
 
       {/* Modal for creating/editing events */}
@@ -176,9 +196,10 @@ const CalendarPage = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
           <Form>
-            <div className="d-flex gap-5">
-              <Form.Group controlId="formEventTitle">
+            <div className="row g-3">
+              <Form.Group controlId="formEventTitle" className="col-12 col-md-8">
                 <Form.Label>Event Title</Form.Label>
                 <Form.Control
                   type="text"
@@ -189,7 +210,7 @@ const CalendarPage = () => {
                 />
               </Form.Group>
 
-              <Form.Group controlId="formEventColor" className="">
+              <Form.Group controlId="formEventColor" className="col-12 col-md-4">
                 <Form.Label>Event Color</Form.Label>
                 <Form.Control
                   type="color"
@@ -237,8 +258,8 @@ const CalendarPage = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary" onClick={handleSaveEvent}>
-            {modalEvent.isEdit ? "Update Event" : "Create Event"}
+          <Button variant="primary" onClick={handleSaveEvent} disabled={savingEvent}>
+            {savingEvent ? "Saving…" : modalEvent.isEdit ? "Save changes" : "Create event"}
           </Button>
         </Modal.Footer>
       </Modal>

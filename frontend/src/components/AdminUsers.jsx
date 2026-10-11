@@ -1,138 +1,205 @@
-import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../context/AuthContext";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import axios from "axios";
+import { AuthContext } from "../context/AuthContext";
+import { MdPersonAddAlt1, MdManageAccounts } from "react-icons/md";
 
-function AdminUsers() {
- const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
-  
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    role: "teacher",
-  });
+const EMPTY_FORM = { username: "", email: "", password: "", role: "teacher" };
 
+export default function AdminUsers() {
   const { register } = useContext(AuthContext);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [savingUser, setSavingUser] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const { username, email, password, role } = formData;
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    setErrorMessage("");
+    try {
+      const response = await axios.get(API_BASE_URL + "/api/userDetailsself");
+      setUsers(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || "Unable to load user accounts.");
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, []);
 
-  const onChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
+    setErrorMessage("");
+    setSuccessMessage("");
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (savingUser) return;
+    setSavingUser(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
     try {
-      await register(formData);
-      setFormData({ username: "", email: "", password: "", role: "teacher" });
-      const response = await axios.get(`${linkone}/api/userDetailsself`);
-      setUsers(Array.isArray(response.data) ? response.data : []);
-      alert("User created successfully.");
+      await register({
+        ...formData,
+        username: formData.username.trim(),
+        email: formData.email.trim().toLowerCase(),
+      });
+      setFormData(EMPTY_FORM);
+      setSuccessMessage("The account was created successfully.");
+      await fetchUsers();
     } catch (error) {
-      console.error("Unable to create user:", error);
-      alert(error.response?.data?.message || "Unable to create the user.");
+      setErrorMessage(error.response?.data?.message || error.message || "Unable to create this account.");
+    } finally {
+      setSavingUser(false);
     }
   };
 
-  const [users, setUsers] = useState([]);
+  const filteredUsers = users.filter((user) => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+    return [user.username, user.email, user.role]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+  });
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await axios.get(`${linkone}` + "/api/userDetailsself");
-        // const res = await axios.get('/api/auth/userDetails');
-        setUsers(res.data);
-      } catch (err) {
-        console.error(
-          "Error fetching users:",
-          err.response ? err.response.data : err.message
-        );
-      }
-    };
-
-    fetchUsers();
-  }, []);
   return (
-    <>
-      <div className="d-flex flex-column">
-        <h1>User</h1>
-        <form onSubmit={onSubmit}>
-          <div className="d-flex col-12 column-gap-3 g-3 m-2">
-            <input
-              type="text"
-              name="username"
-              value={username}
-              onChange={onChange}
-              placeholder="Username"
-              className="form-control"
-              required
-            />
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={onChange}
-              placeholder="Email"
-              className="form-control"
-              required
-            />
-            <input
-              type="password"
-              name="password"
-              value={password}
-              onChange={onChange}
-              placeholder="Password"
-              className="form-control"
-              required
-            />
-            <select
-              name="role"
-              value={role}
-              onChange={onChange}
-              className="form-select"
-            >
-              <option value="teacher">teacher</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button type="submit" className="btn btn-success col-1">
-              Register
+    <div>
+      <div className="page-header">
+        <div>
+          <h2 className="mb-0">User access</h2>
+          <p className="page-subtitle">Create staff accounts and keep access to school records under control.</p>
+        </div>
+        <div className="page-actions">
+          <span className="badge rounded-pill text-bg-light border px-3 py-2">
+            <MdManageAccounts className="me-1" aria-hidden="true" />
+            {users.length} account{users.length === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+
+      <section className="page-card mb-4" aria-labelledby="create-user-heading">
+        <div className="section-heading mt-0">
+          <h3 id="create-user-heading"><MdPersonAddAlt1 className="me-2" aria-hidden="true" />Create an account</h3>
+          <span className="muted small">Temporary passwords should be shared privately.</span>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="row g-3">
+            <div className="col-12 col-md-6 col-xl-3">
+              <label className="form-label" htmlFor="user-username">Full name</label>
+              <input
+                id="user-username"
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                className="form-control"
+                placeholder="e.g. Priya Patel"
+                autoComplete="name"
+                maxLength={80}
+                required
+              />
+            </div>
+            <div className="col-12 col-md-6 col-xl-3">
+              <label className="form-label" htmlFor="user-email">Email address</label>
+              <input
+                id="user-email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="form-control"
+                placeholder="name@school.com"
+                autoComplete="email"
+                required
+              />
+            </div>
+            <div className="col-12 col-md-6 col-xl-3">
+              <label className="form-label" htmlFor="user-password">Initial password</label>
+              <input
+                id="user-password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="form-control"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </div>
+            <div className="col-12 col-md-6 col-xl-3">
+              <label className="form-label" htmlFor="user-role">Access role</label>
+              <select id="user-role" name="role" value={formData.role} onChange={handleChange} className="form-select" required>
+                <option value="teacher">Teacher — daily work</option>
+                <option value="admin">Administrator — full access</option>
+              </select>
+            </div>
+          </div>
+          {errorMessage && <div className="alert alert-danger mt-3 mb-0" role="alert">{errorMessage}</div>}
+          {successMessage && <div className="alert alert-success mt-3 mb-0" role="status">{successMessage}</div>}
+          <div className="d-flex justify-content-end mt-3">
+            <button type="submit" className="btn btn-primary" disabled={savingUser}>
+              {savingUser ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Creating account…</> : "Create account"}
             </button>
           </div>
         </form>
-        <br />
-        <h3>Users Records</h3>
-        <table className="table table-striped">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* {filteredfeesData.map((fees) => ( */}
-            {/* {UsersData.map((user) => (
-              <tr key={user._id}>
-                <td>{user.username}</td>
-                <td>{user.email}</td>
-                <td>{user.role}</td>
-              </tr>
-            ))} */}
-            {users.map((user, index) => (
-              <tr key={user._id}>
-                <td>{index + 1}</td>
-                <td>{user.username}</td>
-                <td>{user.email}</td>
-                <td>{user.role}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+      </section>
+
+      <section className="page-card" aria-labelledby="user-list-heading">
+        <div className="section-heading mt-0">
+          <div>
+            <h3 id="user-list-heading">Existing accounts</h3>
+            <p className="page-subtitle">Search by name, email, or role.</p>
+          </div>
+          <div className="page-actions">
+            <input
+              type="search"
+              className="form-control"
+              aria-label="Search user accounts"
+              placeholder="Search accounts…"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              style={{ minWidth: "220px" }}
+            />
+            <button type="button" className="btn btn-outline-primary" onClick={fetchUsers} disabled={loadingUsers}>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="table-responsive">
+          <table className="table table-hover align-middle">
+            <thead>
+              <tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Access role</th></tr>
+            </thead>
+            <tbody>
+              {loadingUsers ? (
+                <tr><td colSpan={4} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" aria-hidden="true" />Loading accounts…</td></tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={4}><div className="empty-state"><strong>{searchTerm ? "No matching accounts" : "No accounts found"}</strong>{searchTerm ? "Try another search term." : "Create an account using the form above."}</div></td></tr>
+              ) : filteredUsers.map((user, index) => (
+                <tr key={user._id}>
+                  <td>{index + 1}</td>
+                  <td className="fw-semibold">{user.username || "—"}</td>
+                  <td>{user.email || "—"}</td>
+                  <td><span className={"badge rounded-pill " + (user.role === "admin" ? "text-bg-primary" : "text-bg-light border text-dark")}>{user.role || "teacher"}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   );
 }
-
-export default AdminUsers;

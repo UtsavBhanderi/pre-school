@@ -25,6 +25,10 @@ const StudentsReport = () => {
   const [total, setTotal] = useState(0);
   const [percentage, setPercentage] = useState(0);
   const [grade, setGrade] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
 
   const [printStudent, setPrintStudent] = useState(null);
   const [printReport, setPrintReport] = useState(null);
@@ -33,13 +37,21 @@ const StudentsReport = () => {
      FETCH DATA
   ================================ */
   const fetchData = useCallback(async () => {
-    const [studentsRes, subjectsRes] = await Promise.all([
-      api.get(`/api/students/${standard}`),
-      api.get(`/api/subjects/${standard}`),
-    ]);
-
-    setStudents(studentsRes.data || []);
-    setSubjects(subjectsRes.data?.subjects || []);
+    setLoading(true);
+    setPageError("");
+    try {
+      const [studentsRes, subjectsRes] = await Promise.all([
+        api.get(`/api/students/${standard}`),
+        api.get(`/api/subjects/${standard}`),
+      ]);
+      setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+      setSubjects(Array.isArray(subjectsRes.data?.subjects) ? subjectsRes.data.subjects : []);
+    } catch (error) {
+      console.error("Unable to load class report data:", error);
+      setPageError(error.response?.data?.message || "Unable to load students and subjects for this report.");
+    } finally {
+      setLoading(false);
+    }
   }, [standard]);
 
   useEffect(() => {
@@ -97,24 +109,39 @@ const StudentsReport = () => {
      SAVE MARKS
   ================================ */
   const handleSave = async () => {
-    const subjectData = subjects.map((s) => ({
-      subject: s,
-      mark: Number(marks[s]) || 0,
-      date: dates[s] || "",
+    if (!selectedStudent || saving) return;
+    const invalidMark = subjects.find((subject) => {
+      const value = marks[subject];
+      return value !== "" && value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0);
+    });
+    if (invalidMark) {
+      setPageError("Marks must be zero or a positive number.");
+      return;
+    }
+
+    setSaving(true);
+    setPageError("");
+    setPageSuccess("");
+    const subjectData = subjects.map((subject) => ({
+      subject,
+      mark: Number(marks[subject]) || 0,
+      date: dates[subject] || "",
     }));
 
-    const res = await api.post(
-      `/api/students/${selectedStudent._id}/${reportId}`,
-      { subjectData }
-    );
-
-    setTotal(res.data.total);
-    setPercentage(res.data.percentage);
-    setGrade(res.data.grade);
-
-    alert("Marks saved successfully");
-    setSelectedStudent(null);
-    fetchData();
+    try {
+      const response = await api.post(`/api/students/${selectedStudent._id}/${reportId}`, { subjectData });
+      setTotal(response.data.total);
+      setPercentage(response.data.percentage);
+      setGrade(response.data.grade);
+      setSelectedStudent(null);
+      setPageSuccess("Marks saved successfully.");
+      await fetchData();
+    } catch (error) {
+      console.error("Unable to save student marks:", error);
+      setPageError(error.response?.data?.message || "Unable to save these marks. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   /* ===============================
@@ -122,13 +149,15 @@ const StudentsReport = () => {
   ================================ */
   const handlePrintPreview = (student) => {
     const report = student.marks?.find(
-      (m) => m.reportId.toString() === reportId
+      (m) => m.reportId?.toString() === reportId
     );
 
     if (!report) {
-      alert("No report data found");
+      setPageError("No saved marks are available to print for this student yet.");
       return;
     }
+    setPageError("");
+    setPageSuccess("");
 
     setPrintStudent(student);
     setPrintReport(report);
@@ -138,10 +167,22 @@ const StudentsReport = () => {
      UI
   ================================ */
   return (
-    <div className="container mt-3">
-      <h3>Students – {standard}</h3>
-
-      <table className="table table-bordered">
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
+      <div className="page-header">
+        <div>
+          <h2 className="mb-0">Student report cards</h2>
+          <p className="page-subtitle">Class: {standard}. Enter subject marks, save progress, or print a report card.</p>
+        </div>
+        <div className="page-actions">
+          <button type="button" className="btn btn-outline-primary" onClick={fetchData} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh class"}
+          </button>
+        </div>
+      </div>
+      <div className="section-heading"><h3>Students in this class</h3><span className="muted small">{students.length} students</span></div>
+      <div className="table-responsive"><table className="table table-hover align-middle">
         <thead>
           <tr>
             <th>#</th>
@@ -154,7 +195,11 @@ const StudentsReport = () => {
           </tr>
         </thead>
         <tbody>
-          {students.map((s, i) => {
+          {loading ? (
+            <tr><td colSpan={7} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading students and subjects…</td></tr>
+          ) : students.length === 0 ? (
+            <tr><td colSpan={7}><div className="empty-state"><strong>No students found for this class</strong>Check the selected class or register a student before preparing report cards.</div></td></tr>
+          ) : students.map((s, i) => {
             const report = s.marks?.find(
               (m) => m.reportId.toString() === reportId
             );
@@ -162,7 +207,7 @@ const StudentsReport = () => {
             return (
               <tr key={s._id}>
                 <td>{i + 1}</td>
-                <td>{s.middleName}</td>
+                <td className="fw-semibold">{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ") || "—"}</td>
                 <td>{s.stuNo}</td>
                 <td>{report?.total ?? "-"}</td>
                 <td>{report?.percentage ?? "-"}</td>
@@ -185,25 +230,22 @@ const StudentsReport = () => {
             );
           })}
         </tbody>
-      </table>
+      </table></div>
 
       {/* ===============================
          EDIT MODAL
       ================================ */}
       {selectedStudent && (
-        <div className="modal show" style={{ display: "block" }}>
-          <div className="modal-dialog modal-lg">
+        <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="marks-modal-title" style={{ background: "rgba(16,24,40,.45)", overflowY: "auto" }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5>{selectedStudent.middleName}</h5>
-                <button
-                  className="btn-close"
-                  onClick={() => setSelectedStudent(null)}
-                />
+                <h5 className="modal-title" id="marks-modal-title">Enter marks · {[selectedStudent.firstName, selectedStudent.middleName, selectedStudent.lastName].filter(Boolean).join(" ")}</h5>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setSelectedStudent(null)} />
               </div>
 
               <div className="modal-body">
-                <table className="table table-bordered">
+                <div className="table-responsive"><table className="table table-hover align-middle">
                   <thead>
                     <tr>
                       <th>Subject</th>
@@ -218,39 +260,40 @@ const StudentsReport = () => {
                         <td>
                           <input
                             type="date"
+                            className="form-control"
+                            aria-label={"Assessment date for " + sub}
                             value={dates[sub] || ""}
-                            onChange={(e) =>
-                              setDates({ ...dates, [sub]: e.target.value })
-                            }
+                            onChange={(e) => setDates((previous) => ({ ...previous, [sub]: e.target.value }))}
                           />
                         </td>
                         <td>
                           <input
                             type="number"
-                            value={marks[sub] || ""}
-                            onChange={(e) =>
-                              setMarks({ ...marks, [sub]: e.target.value })
-                            }
+                            className="form-control"
+                            min="0"
+                            step="1"
+                            aria-label={"Marks for " + sub}
+                            value={marks[sub] ?? ""}
+                            onChange={(e) => setMarks((previous) => ({ ...previous, [sub]: e.target.value }))}
                           />
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
 
-                <h6>Total: {total}</h6>
-                <h6>Percentage: {percentage}%</h6>
-                <h6>Grade: {grade}</h6>
+                <div className="d-flex flex-wrap gap-3 mt-3">
+                  <span className="badge text-bg-light border px-3 py-2">Total: {total}</span>
+                  <span className="badge text-bg-light border px-3 py-2">Percentage: {percentage}%</span>
+                  <span className="badge text-bg-light border px-3 py-2">Grade: {grade || "—"}</span>
+                </div>
               </div>
 
               <div className="modal-footer">
-                <button className="btn btn-primary" onClick={handleSave}>
-                  Save
+                <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                  {saving ? "Saving marks…" : "Save marks"}
                 </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setSelectedStudent(null)}
-                >
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setSelectedStudent(null)} disabled={saving}>
                   Cancel
                 </button>
               </div>
@@ -263,8 +306,8 @@ const StudentsReport = () => {
          PRINT PREVIEW MODAL
       ================================ */}
       {printStudent && printReport && (
-        <div className="modal show" style={{ display: "block" }}>
-          <div className="modal-dialog modal-xl">
+        <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="print-report-title" style={{ background: "rgba(16,24,40,.45)", overflowY: "auto" }}>
+          <div className="modal-dialog modal-xl modal-dialog-centered">
             <div className="modal-content">
 
               <div className="modal-body" id="print-area">
@@ -274,16 +317,16 @@ const StudentsReport = () => {
                     <div className="school-name">
                       Kidz Era Pre-School
                     </div>
-                    <div className="report-title">
+                    <div className="report-title" id="print-report-title">
                       Student Report Card
                     </div>
                   </div>
 
                   <div className="info">
-                    <div><span>Student Name:</span> {printStudent.middleName}</div>
+                    <div><span>Student Name:</span> {[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ")}</div>
                     <div><span>Class:</span> {printStudent.standard}</div>
                     <div><span>Roll No:</span> {printStudent.stuNo}</div>
-                    <div><span>Academic Year:</span> 2025 – 2026</div>
+                    <div><span>Academic Year:</span> {printReport.batchYear || "—"}</div>
                   </div>
 
                   <table>
@@ -329,7 +372,7 @@ const StudentsReport = () => {
               </div>
 
               <div className="modal-footer">
-                <button className="btn btn-success" onClick={() => window.print()}>
+                <button type="button" className="btn btn-primary" onClick={() => window.print()}>
                   Print / Save PDF
                 </button>
                 <button

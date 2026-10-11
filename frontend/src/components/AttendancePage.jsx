@@ -11,6 +11,10 @@ const AttendancePage = () => {
   const [status, setStatus] = useState("");
   const [statistics, setStatistics] = useState({ present: 0, absent: 0 });
   const [editingStatus, setEditingStatus] = useState({});
+  const [editDraft, setEditDraft] = useState(null);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [loadingRecords, setLoadingRecords] = useState(true);
   const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   // Fetch attendance data on mount and when date or standard changes
@@ -20,6 +24,8 @@ const AttendancePage = () => {
 
   // Fetch attendance records with optional date and standard filters
   const fetchAttendance = async () => {
+    setLoadingRecords(true);
+    setPageError("");
     try {
       const params = {};
       if (date) params.date = date;
@@ -47,6 +53,11 @@ const AttendancePage = () => {
       calculateStatistics(initialAttendance);
     } catch (error) {
       console.error("Error fetching attendance data:", error);
+      setPageError(error.response?.data?.message || "Unable to load attendance records.");
+      setAttendanceData([]);
+      setStatistics({ present: 0, absent: 0 });
+    } finally {
+      setLoadingRecords(false);
     }
   };
 
@@ -58,35 +69,38 @@ const AttendancePage = () => {
   };
 
   // Handle edit status
-  const handleEditStatus = (attendanceId, studentId) => {
-    setEditingStatus({ attendanceId, studentId });
+  const handleEditStatus = (attendanceId, studentDetail) => {
+    setEditingStatus({ attendanceId, studentId: studentDetail.studentId?._id });
+    setEditDraft({
+      status: studentDetail.status || "present",
+      reason: studentDetail.reason || "",
+    });
+    setPageError("");
   };
 
   // Save the new status after editing
-  const handleSaveStatus = async (
-    attendanceId,
-    studentId,
-    newStatus,
-    newReason
-  ) => {
+  const handleSaveStatus = async (attendanceId, studentId) => {
+    if (!editDraft) return;
+    if (editDraft.status === "absent" && !String(editDraft.reason || "").trim()) {
+      setPageError("Add a reason before saving an absence.");
+      return;
+    }
+
+    setSavingStatus(true);
+    setPageError("");
     try {
       await axios.put(
-        `${linkone}` +
-          `/api/attendance/attendances/${attendanceId}/student/${studentId}`,
-        { status: newStatus, reason: newReason }
+        `${linkone}/api/attendance/attendances/${attendanceId}/student/${studentId}`,
+        { status: editDraft.status, reason: editDraft.status === "absent" ? editDraft.reason.trim() : "" }
       );
-      fetchAttendance(); // Refresh attendance data after updating status
       setEditingStatus({});
+      setEditDraft(null);
+      await fetchAttendance();
     } catch (error) {
-      console.error("Error updating status:", error);
+      setPageError(error.response?.data?.message || "Unable to save this attendance change.");
+    } finally {
+      setSavingStatus(false);
     }
-  };
-  const handleReasonChange = (studentId, reason) => {
-    setAttendanceData((prevData) =>
-      prevData.map((item) =>
-        item.studentId === studentId ? { ...item, reason } : item
-      )
-    );
   };
 
   function dateToIndianFormat(dateString) {
@@ -103,10 +117,11 @@ const AttendancePage = () => {
   const absentPercentage = totalAttendance ? (statistics.absent / totalAttendance) * 100 : 0;
 
   return (
-    <div className="">
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
       {/* Attendance Summary */}
-      <div className="mt-4">
-        <h4>Attendance Summary</h4>
+      <div className="page-card mb-4">
+        <div className="section-heading mt-0"><h3>Attendance summary</h3><span className="muted small">Based on the current filters</span></div>
 
         <div className="progress mb-3">
           <div
@@ -131,10 +146,10 @@ const AttendancePage = () => {
           {statistics.present} | Absent: {statistics.absent}
         </p>
       </div>
-      <h2>Attendance Records</h2>
+      <div className="page-header"><div><h2 className="mb-0">Attendance records</h2><p className="page-subtitle">Filter records by date, class, student, or attendance status.</p></div></div>
 
       {/* Date and Standard Filters */}
-      <div className="filters mb-3 d-flex align-items-end gap-3">
+      <div className="filter-panel mb-3" aria-label="Filter attendance records">
         <div className="form-group col">
           <label>Date:</label>
           <input
@@ -207,7 +222,7 @@ const AttendancePage = () => {
       </div>
 
       {/* Table for Attendance Data */}
-      <table className="table table-bordered table-striped">
+      <div className="table-responsive"><table className="table table-hover align-middle">
         <thead>
           <tr>
             <th>#</th>
@@ -222,7 +237,9 @@ const AttendancePage = () => {
         </thead>
         <tbody>
           {/* filteredAttendenceData.map((record) => { */}
-          {attendanceData.length > 0 ? (
+          {loadingRecords ? (
+            <tr><td colSpan={8} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading attendance…</td></tr>
+          ) : attendanceData.length > 0 ? (
             attendanceData.map((record) => {
               // Ensure record.studentDetails is an array and populated correctly
               if (
@@ -230,82 +247,75 @@ const AttendancePage = () => {
                 record.studentDetails.length > 0
               ) {
                 return record.studentDetails.map((studentDetail, index) => (
-                  <tr key={studentDetail.studentId._id}>
+                  <tr key={studentDetail.studentId?._id || record._id + "-" + index}>
                     <td>{index + 1}</td>
                     <td>{dateToIndianFormat(record.date)}</td>
-                    <td>{studentDetail.studentId.stuNo}</td>
-                    <td>{studentDetail.studentId.middleName}</td>
-                    <td>{studentDetail.studentId.standard}</td>
+                    <td>{studentDetail.studentId?.stuNo || "—"}</td>
+                    <td>{studentDetail.studentId?.middleName || "—"}</td>
+                    <td>{studentDetail.studentId?.standard || "—"}</td>
                     <td>
                       {/* If editing, show dropdown, else show text */}
                       {editingStatus.attendanceId === record._id &&
                       editingStatus.studentId ===
-                        studentDetail.studentId._id ? (
+                        studentDetail.studentId?._id ? (
                         <select
                           className="form-select"
-                          value={studentDetail.status}
-                          onChange={(e) =>
-                            handleSaveStatus(
-                              record._id,
-                              studentDetail.studentId._id,
-                              e.target.value,
-                              studentDetail.reason
-                            )
-                          }
+                          value={editDraft?.status || studentDetail.status || "present"}
+                          onChange={(e) => setEditDraft((previous) => ({ ...previous, status: e.target.value }))}
                         >
                           <option value="present">Present</option>
                           <option value="absent">Absent</option>
                         </select>
                       ) : (
-                        studentDetail.status
+                        <span className={"badge rounded-pill " + (studentDetail.status === "present" ? "text-bg-success" : "text-bg-danger")}>
+                          {studentDetail.status || "Not marked"}
+                        </span>
                       )}
                     </td>
                     <td>
                       {/* If editing, show dropdown, else show text */}
                       {editingStatus.attendanceId === record._id &&
                       editingStatus.studentId ===
-                        studentDetail.studentId._id ? (
+                        studentDetail.studentId?._id ? (
                         <input
                           type="text"
                           className="form-control"
                           placeholder="Enter reason"
-                          value={studentDetail.reason}
-                          // onChange={(e) =>
-                          //   handleReasonChange(student._id, e.target.value)
-                          // }
-                          onChange={(e) =>
-                            handleSaveStatus(
-                              record._id,
-                              studentDetail.studentId._id,
-                              studentDetail.status,
-                              e.target.value
-                            )
-                          }
+                          value={editDraft?.reason || ""}
+                          onChange={(e) => setEditDraft((previous) => ({ ...previous, reason: e.target.value }))}
                         />
                       ) : (
-                        studentDetail.reason
+                        studentDetail.reason || <span className="muted">—</span>
                       )}
                     </td>
                     <td>
                       {/* Toggle edit mode */}
                       {editingStatus.attendanceId === record._id &&
                       editingStatus.studentId ===
-                        studentDetail.studentId._id ? (
-                        <button
-                          className="btn btn-success"
-                          onClick={() => setEditingStatus({})}
-                        >
-                          Cancel
-                        </button>
+                        studentDetail.studentId?._id ? (
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={savingStatus}
+                            onClick={() => handleSaveStatus(record._id, studentDetail.studentId?._id)}
+                          >
+                            {savingStatus ? "Saving…" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            disabled={savingStatus}
+                            onClick={() => { setEditingStatus({}); setEditDraft(null); setPageError(""); }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       ) : (
                         <button
                           className="btn btn-primary"
-                          onClick={() =>
-                            handleEditStatus(
-                              record._id,
-                              studentDetail.studentId._id
-                            )
-                          }
+                          type="button"
+                          onClick={() => handleEditStatus(record._id, studentDetail)}
                         >
                           Edit
                         </button>
@@ -318,11 +328,11 @@ const AttendancePage = () => {
             })
           ) : (
             <tr>
-              <td colSpan="6">No attendance records found.</td>
+              <td colSpan="8"><div className="empty-state"><strong>No attendance records found</strong>Try choosing another date or clearing some filters.</div></td>
             </tr>
           )}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 };

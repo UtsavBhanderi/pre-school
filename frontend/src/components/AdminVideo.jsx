@@ -5,6 +5,9 @@ const AdminVideo = () => {
   const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
   const [editingVideo, setEditingVideo] = useState(null);
   const [filter, setFilter] = useState({
     title: "",
@@ -24,21 +27,28 @@ const AdminVideo = () => {
   });
 
   useEffect(() => {
-    axios.get(`${linkone}` + "/api/videos").then((response) => {
-      setVideos(response.data);
-    });
+    let active = true;
+    axios.get(linkone + "/api/videos")
+      .then((response) => {
+        if (active) setVideos(Array.isArray(response.data) ? response.data : []);
+      })
+      .catch((error) => {
+        console.error("Unable to load video resources:", error);
+        if (active) setPageError(error.response?.data?.message || "Unable to load video resources.");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
+
 
   const handleFilterChange = (e) => {
     setFilter({ ...filter, [e.target.name]: e.target.value });
   };
 
-  const filteredVideos = videos.filter(
-    (video) =>
-      video.title.includes(filter.title) &&
-      video.standard.includes(filter.standard) &&
-      video.subject.includes(filter.subject) &&
-      video.chapter.includes(filter.chapter)
+  const filteredVideos = videos.filter((video) =>
+    ["title", "standard", "subject", "chapter"].every((field) =>
+      String(video[field] || "").toLowerCase().includes(filter[field].toLowerCase())
+    )
   );
 
   const handleChange = (e) => {
@@ -99,8 +109,11 @@ const AdminVideo = () => {
         file: null,
         uploadType: "url",
       });
+      setPageSuccess("Video resource saved successfully.");
+      setPageError("");
     } catch (error) {
       console.error(error);
+      setPageError(error.response?.data?.message || "Unable to save the video resource.");
     }
   };
 
@@ -121,8 +134,11 @@ const AdminVideo = () => {
     try {
       await axios.delete(`${linkone}` + `/api/videos/${id}`);
       setVideos((prevVideos) => prevVideos.filter((video) => video._id !== id));
+      setPageSuccess("Video resource deleted.");
+      setPageError("");
     } catch (error) {
       console.error(error);
+      setPageError(error.response?.data?.message || "Unable to delete the video resource.");
     }
   };
 
@@ -140,11 +156,13 @@ const AdminVideo = () => {
   };
 
   return (
-    <div className="mt-4">
-      <h2>Admin Video Management</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="row">
-          <div className="mb-3 col-md-3">
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
+      <div className="page-header"><div><h2 className="mb-0">Video learning resources</h2><p className="page-subtitle">Manage classroom videos and links, grouped by class and subject.</p></div></div>
+      <form className="page-card" onSubmit={handleSubmit}>
+        <div className="row g-3">
+          <div className="mb-3 col-12 col-md-6 col-xl-3">
             <label className="form-label">Title</label>
             <input
               type="text"
@@ -218,7 +236,7 @@ const AdminVideo = () => {
             <div className="mb-3 col-md-3">
               <label className="form-label">URL</label>
               <input
-                type="text"
+                type="url"
                 name="url"
                 className="form-control"
                 value={formData.url}
@@ -231,6 +249,7 @@ const AdminVideo = () => {
               <label className="form-label">File</label>
               <input
                 type="file"
+                accept="video/*"
                 className="form-control"
                 onChange={handleFileChange}
                 required
@@ -239,19 +258,13 @@ const AdminVideo = () => {
           )}
         </div>
         <div className="d-flex justify-content-end">
-          <button
-            type="button"
-            className="btn btn-secondary me-2"
-            onClick={handleCancel}
-          >
-            Cancel
-          </button>
+          {editingVideo && <button type="button" className="btn btn-outline-secondary me-2" onClick={handleCancel}>Cancel edit</button>}
           <button type="submit" className="btn btn-primary">
-            Save
+            {editingVideo ? "Save changes" : "Add video resource"}
           </button>
         </div>
       </form>
-      <div className="row mb-3 mt-4">
+      <div className="filter-panel mb-3 mt-4" aria-label="Filter video resources">
         <div className="col">
           <input
             type="text"
@@ -293,7 +306,7 @@ const AdminVideo = () => {
           />
         </div>
       </div>
-      <table className="table table-striped table-bordered">
+      <div className="table-responsive"><table className="table table-hover align-middle">
         <thead>
           <tr>
             <th>#</th>
@@ -306,7 +319,11 @@ const AdminVideo = () => {
           </tr>
         </thead>
         <tbody>
-          {filteredVideos.map((video, index) => (
+          {loading ? (
+            <tr><td colSpan={7} className="text-center py-5">Loading video resources…</td></tr>
+          ) : filteredVideos.length === 0 ? (
+            <tr><td colSpan={7}><div className="empty-state"><strong>No matching video resources</strong>Add a resource or adjust your filters.</div></td></tr>
+          ) : filteredVideos.map((video, index) => (
             <tr key={video._id}>
               <td>{index + 1}</td>
               <td>{video.title}</td>
@@ -325,14 +342,14 @@ const AdminVideo = () => {
               <td>
                 <button
                   className="btn btn-sm btn-primary me-2"
-                  onClick={() => handleEdit(video)}
+                  type="button" onClick={() => handleEdit(video)}
                 >
                   Edit
                 </button>
                 <button
                   className="btn btn-sm btn-danger"
                   // onClick={() => handleDelete(video._id)}
-                  onClick={() => confirm("Are you sure?") && handleDelete(video._id)}
+                  type="button" onClick={() => confirm("Delete this video resource?") && handleDelete(video._id)}
                 >
                   Delete
                 </button>
@@ -340,7 +357,7 @@ const AdminVideo = () => {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 };
