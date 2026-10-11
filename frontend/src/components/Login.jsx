@@ -4,10 +4,6 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const Login = () => {
-  {
-    /**---------- for redirect to admin only
-     */
-  }
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { login, user } = useContext(AuthContext);
@@ -30,79 +26,10 @@ const Login = () => {
     }
   };
 
-  //  const [formData, setFormData] = useState({ email: '', password: '' });
-  //  const { login } = useContext(AuthContext);
-  //  const navigate = useNavigate();
-
-  //  const { email, password } = formData;
-
-  //  // onChange function should update the state
-  //  const onChange = (e) => {
-  //    const { name, value } = e.target;
-  //    setFormData({ ...formData, [name]: value });
-  //  };
-
-  //  const handleSubmit = async (e) => {
-  //    e.preventDefault();
-  //    console.log('Form submitted');
-  //    try {
-  //     console.log('Sending login request', formData); // Debugging line
-  //      const res = await axios.post('/api/auth/login', formData);
-  //     //  const res = await axios.post('/api/auth/me', formData);
-  //      console.log('Response received', res.data);
-  //      const userData = res.data;
-
-  //      console.log(userData ,"userData login.jsx before");
-  //      console.log(formData ,"formData login.jsx before");
-  //      // Set user data in context
-  //       login(formData.email , formData.password);
-  //       // login(userData);
-  //       console.log(userData ,"userData login.jsx after");
-
-  //       // Redirect based on role
-  //       if (userData.user.role === 'teacher') {
-  //        console.log("teacher role userData login.jsx");
-  //        navigate('/teacher-dashboard');
-  //       } else if (userData.user.role === 'admin') {
-  //        console.log("admin role userData login.jsx");
-  //        navigate('/dashboard');
-  //      } else {
-  //        navigate('/dashboard'); // Default fallback
-  //      }
-  //    } catch (err) {
-  //     //  console.error('Login error:', err.response.data);
-  //      console.error('Login error:', err.response ? err.response.data : err.message);
-  //    }
-  //  };
-
+ 
   return (
     <>
-      {/* <div className="d-flex align-items-center justify-content-center w-100 h-auto p-5 border border-1 border-black">
-        <div className="card w-75 h-100 p-5">
-          <h2>Login</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="d-flex flex-column text-start m-3">
-              <label>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="d-flex flex-column text-start m-3">
-              <label>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary border-info">Login</button>
-          </form>
-        </div>
-      </div> */}
+     
 
       <div
         className="container w-100 d-flex align-items-center justify-content-center"
