@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     //   const users = await User.find().select('-password'); // Exclude password from the result
-    const users = await User.find(); // Exclude password from the result
+    const users = await User.find().select('-password');
 
     res.json(users);
   } catch (err) {

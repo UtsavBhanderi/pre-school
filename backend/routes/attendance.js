@@ -1,185 +1,160 @@
-// routes/attendance.js
+'use strict';
+
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Attendance = require('../models/Attendance');
 const Student = require('../models/Student');
-const { getAttendance, markAttendance, updateAttendance } = require('../controllers/attendanceController');
 
-router.post('/', async (req, res) => {
-  const { date, studentDetails } = req.body;
+const VALID_STATUSES = new Set(['present', 'absent']);
+const toDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
-  try {
-    const attendance = new Attendance({ date, studentDetails });
-
-    await attendance.save();
-    res.json(attendance);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
-
-// routes/attendance.js
-router.get('/student/:id', async (req, res) => {
-  try {
-    const attendanceRecords = await Attendance.find({ studentId: req.params.id });
-    res.json(attendanceRecords);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get students by standard
 router.get('/students', async (req, res) => {
+  const standard = String(req.query.standard || '').trim();
+  if (!standard) return res.status(400).json({ message: 'A standard is required.' });
+
   try {
-    const { standard } = req.query;
-    const students = await Student.find({ standard });
-    res.status(200).json(students);
+    const students = await Student.find({ standard })
+      .select('stuNo firstName middleName lastName standard')
+      .sort({ middleName: 1 })
+      .lean();
+    return res.json(students);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch students' });
+    console.error('Unable to load attendance students:', error);
+    return res.status(500).json({ message: 'Unable to load students.' });
   }
 });
 
-router.get('/attendance/:date?', async (req, res) => {
-  try {
-    let queryDate;
-
-    if (req.params.date) {
-      // If date parameter is provided
-      queryDate = new Date(req.params.date);
-    } else {
-      // Default to today's date
-      const today = new Date();
-      queryDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    }
-
-    // Ensure date is set to start of the day for accurate querying
-    // queryDate.setHours(0, 0, 0, 0);
-
-    // datas = await Attendance.find({ createdAt: { $gt: firstDay, $lt: lastDay } })
-    const attendance = await Attendance.findOne({ date: queryDate })
-      // const attendance = await Attendance.find({ date: queryDate })
-      .populate('studentDetails.studentId', 'middleName standard stuNo');
-    if (!attendance) {
-      return res.status(404).json({ message: 'No attendance found for this date' });
-    }
-
-    res.json(attendance);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server Error', error: err.message });
-  }
-});
-
-// GET /api/attendances - Fetch attendance records (with optional date and standard filters)
 router.get('/attendances', async (req, res) => {
   try {
-    const { date, standard, middleName, stuNo, status, reason } = req.query;
+    const { date, standard, middleName, stuNo, status } = req.query;
+    const filter = {};
 
-    // Construct query object with optional filters
-    let query = {};
     if (date) {
-      query.date = new Date(date);
+      const parsedDate = toDate(date);
+      if (!parsedDate) return res.status(400).json({ message: 'Invalid attendance date.' });
+      const dayStart = new Date(parsedDate);
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+      filter.date = { $gte: dayStart, $lt: dayEnd };
     }
 
-    // Find attendance records based on date
-    let attendances = await Attendance.find(query).populate({
-      path: 'studentDetails.studentId',
-      model: 'Student',
-      select: 'stuNo middleName standard', // Selecting the necessary fields from the Student model
-    });
-
-    // If a standard is provided, filter studentDetails based on the standard
-    if (standard) {
-      attendances = attendances.map(attendance => {
-        const filteredDetails = attendance.studentDetails.filter(student => student.studentId.standard === standard);
-        return { ...attendance._doc, studentDetails: filteredDetails };
+    let attendances = await Attendance.find(filter)
+      .sort({ date: -1 })
+      .populate({
+        path: 'studentDetails.studentId',
+        model: 'Student',
+        select: 'stuNo firstName middleName lastName standard',
       });
+
+    const searchName = String(middleName || '').trim().toLowerCase();
+    const searchStuNo = String(stuNo || '').trim().toLowerCase();
+
+    if (standard || searchName || searchStuNo || status) {
+      attendances = attendances.map((attendance) => {
+        const studentDetails = attendance.studentDetails.filter((detail) => {
+          const student = detail.studentId;
+          if (!student) return false;
+          if (standard && student.standard !== standard) return false;
+          if (searchName && !String(student.middleName || '').toLowerCase().includes(searchName)) return false;
+          if (searchStuNo && !String(student.stuNo || '').toLowerCase().includes(searchStuNo)) return false;
+          if (status && detail.status !== status) return false;
+          return true;
+        });
+        return { ...attendance.toObject(), studentDetails };
+      }).filter((attendance) => attendance.studentDetails.length > 0);
     }
 
-    // If a Name is provided, filter studentDetails based on the Name
-    if (middleName) {
-      attendances = attendances.map(attendance => {
-        const filteredDetails = attendance.studentDetails.filter(student => student.studentId.middleName === middleName);
-        return { ...attendance._doc, studentDetails: filteredDetails };
-      });
-    }
-
-    // If a Name is provided, filter studentDetails based on the Name
-    if (stuNo) {
-      attendances = attendances.map(attendance => {
-        const filteredDetails = attendance.studentDetails.filter(student => student.studentId.stuNo === stuNo);
-        return { ...attendance._doc, studentDetails: filteredDetails };
-      });
-    }
-
-    // If a status is provided, filter studentDetails based on the status
-    if (status) {
-      attendances = attendances.map(attendance => {
-        const filteredDetails = attendance.studentDetails.filter(student => student.status === status);
-        return { ...attendance._doc, studentDetails: filteredDetails };
-      });
-    }
-
-    res.json(attendances);
+    return res.json(attendances);
   } catch (error) {
-    console.error('Error fetching attendance data:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Unable to fetch attendance records:', error);
+    return res.status(500).json({ message: 'Unable to fetch attendance records.' });
   }
 });
 
-//-------down side all are in use
-// PUT /api/attendances/:attendanceId/student/:studentId - Update student status in attendance
+router.post('/attendance', async (req, res) => {
+  try {
+    const date = toDate(req.body.date);
+    const studentDetails = req.body.studentDetails;
+
+    if (!date) return res.status(400).json({ message: 'A valid attendance date is required.' });
+    if (!Array.isArray(studentDetails) || studentDetails.length === 0) {
+      return res.status(400).json({ message: 'At least one student is required.' });
+    }
+
+    const uniqueStudentIds = new Set();
+    for (const detail of studentDetails) {
+      if (!detail || !mongoose.Types.ObjectId.isValid(detail.studentId)) {
+        return res.status(400).json({ message: 'An attendance entry contains an invalid student ID.' });
+      }
+      if (uniqueStudentIds.has(String(detail.studentId))) {
+        return res.status(400).json({ message: 'A student can appear only once in an attendance entry.' });
+      }
+      uniqueStudentIds.add(String(detail.studentId));
+
+      if (!VALID_STATUSES.has(detail.status)) {
+        return res.status(400).json({ message: 'Each student must be marked present or absent.' });
+      }
+      if (detail.status === 'absent' && !String(detail.reason || '').trim()) {
+        return res.status(400).json({ message: 'An absence reason is required for every absent student.' });
+      }
+    }
+
+    const existingStudents = await Student.countDocuments({ _id: { $in: [...uniqueStudentIds] } });
+    if (existingStudents !== uniqueStudentIds.size) {
+      return res.status(400).json({ message: 'One or more students do not exist.' });
+    }
+
+    const record = await Attendance.create({
+      date,
+      studentDetails: studentDetails.map((detail) => ({
+        studentId: detail.studentId,
+        status: detail.status,
+        reason: detail.status === 'absent' ? String(detail.reason).trim() : '',
+      })),
+    });
+
+    return res.status(201).json({ message: 'Attendance saved successfully.', attendance: record });
+  } catch (error) {
+    console.error('Unable to save attendance:', error);
+    return res.status(500).json({ message: 'Unable to save attendance.' });
+  }
+});
 
 router.put('/attendances/:attendanceId/student/:studentId', async (req, res) => {
   try {
     const { attendanceId, studentId } = req.params;
-    // const { status } = req.body;
-    const { status, reason } = req.body;
-    // Find the attendance record by ID
+    const status = String(req.body.status || '').trim();
+    const reason = String(req.body.reason || '').trim();
+
+    if (!mongoose.Types.ObjectId.isValid(attendanceId) || !mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: 'Invalid attendance or student ID.' });
+    }
+    if (!VALID_STATUSES.has(status)) {
+      return res.status(400).json({ message: 'Status must be present or absent.' });
+    }
+    if (status === 'absent' && !reason) {
+      return res.status(400).json({ message: 'An absence reason is required.' });
+    }
+
     const attendance = await Attendance.findById(attendanceId);
-    if (!attendance) {
-      return res.status(404).json({ message: 'Attendance record not found' });
-    }
+    if (!attendance) return res.status(404).json({ message: 'Attendance record not found.' });
 
-    // Find the specific student within the attendance record
-    const studentDetail = attendance.studentDetails.find(detail => detail.studentId.toString() === studentId);
-    if (!studentDetail) {
-      return res.status(404).json({ message: 'Student not found in attendance record' });
-    }
-    // Update the student's status
-    studentDetail.status = status;
-    studentDetail.reason = reason;
+    const detail = attendance.studentDetails.find((entry) => String(entry.studentId) === studentId);
+    if (!detail) return res.status(404).json({ message: 'Student is not part of this attendance record.' });
 
-    // Save the updated attendance record
+    detail.status = status;
+    detail.reason = status === 'absent' ? reason : '';
     await attendance.save();
 
-    res.json({ message: 'Student status updated successfully' });
+    return res.json({ message: 'Attendance status updated successfully.' });
   } catch (error) {
-    console.error('Error updating student status:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.get('/attendance', getAttendance); // Fetch attendance
-// router.post('/attendance', markAttendance); // Mark attendance
-// router.put('/attendance/:id', updateAttendance); // Edit attendance
-router.post('/attendance', async (req, res) => {
-  try {
-    const { date, studentDetails } = req.body;
-
-    // Validate reasons for absentees
-    for (let detail of studentDetails) {
-      if (detail.status === 'absent' && !detail.reason) {
-        return res.status(400).json({ error: 'Reason is required for all absent students.' });
-      }
-    }
-
-    const newAttendance = new Attendance({ date, studentDetails });
-    await newAttendance.save();
-
-    res.status(201).json({ message: 'Attendance saved successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to save attendance.' });
+    console.error('Unable to update attendance:', error);
+    return res.status(500).json({ message: 'Unable to update attendance.' });
   }
 });
 

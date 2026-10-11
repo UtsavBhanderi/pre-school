@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 /* ===============================
    API CONFIG
 ================================ */
-const API_BASE_URL = `http://localhost:5000`;
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 const api = axios.create({ baseURL: API_BASE_URL });
 

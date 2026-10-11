@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Fee = require('./Fee');
+const { STANDARD_FEES } = require('../config/standardFees');
 
 const MarkSchema = new mongoose.Schema({
   subject: { type: String },
@@ -80,129 +81,96 @@ const studentSchema = new mongoose.Schema({
 
 });
 
-// const standardFees = {
-//   "ENG Play Group": 23500,  19,900
-//   "ENG NR.": 23500,       19,900
-//   "ENG JR.": 25000,    20,900
-//   "ENG SR.": 25000,   20,900
-//   "GUJ Play Group": 20500,    14,500
-//   "GUJ NR.": 20500,   14,500 
-//   "GUJ JR.": 21500,   15000
-//   "GUJ SR.": 21500,   15000
-// };
-const standardFees = {
-  "ENG Play Group": 23500,
-  "ENG NR.": 23500,
-  "ENG JR.": 25000,
-  "ENG SR.": 25000,
-  "GUJ Play Group": 20500,
-  "GUJ NR.": 20500, 
-  "GUJ JR.": 21500,
-  "GUJ SR.": 21500,
-};
 studentSchema.pre('save', function (next) {
-  this.wasNew = this.isNew;  // Set a flag before saving
+  this.wasNew = this.isNew;
   next();
 });
 
-// Middleware to sync with fees collection on create
+// Initialize a fee record only when a student is first created.
 studentSchema.post('save', async function (doc) {
-  // studentSchema.post('createCollection', async function(doc) {
-  // Check if the document is newly created
-  // if (this.isNew) {
-  if (this.wasNew) {
+  if (!doc.wasNew) return;
 
-    // try {
-    //   // Only sync fees collection on document creation
-    //   await syncFeesCollection(doc);
-    // }
-    try {
-      const fees = standardFees[doc.standard]
+  try {
+    const totalStandardFees = Number(STANDARD_FEES[doc.standard] || 0);
+    const studentName = [doc.firstName, doc.middleName, doc.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
 
+    await Fee.findOneAndUpdate(
+      { stuNo: doc.stuNo },
+      {
+        $setOnInsert: {
+          studentName,
+          studentPhoneNumber: doc.phoneNumber || '',
+          ParentsMobileNumber: doc.FatherMobileNumber ? String(doc.FatherMobileNumber) : '',
+          ParentsPhoneNumber: doc.FatherPhoneNumber ? String(doc.FatherPhoneNumber) : '',
+          EmergencyMobileNumber: doc.EmergencyPhoneNumber ? String(doc.EmergencyPhoneNumber) : '',
+          parentEmail: doc.parentEmail || '',
+          batchYear: doc.batchYear || '',
+          standard: doc.standard || '',
+          stuNo: doc.stuNo,
+          totalStandardFees,
+          totalFeesPaid: 0,
+          totalFeesRemaining: totalStandardFees,
+          discount: 0,
+          paymentDetails: [],
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } catch (error) {
+    // Preserve the student record if fee initialization fails; log for administrators.
+    console.error('Unable to initialize the student fee record:', error);
+  }
+});
+
+// Keep the linked fee record in sync with student details without overwriting
+// payment history, discounts, or amounts already paid.
+studentSchema.post('findOneAndUpdate', async function (doc) {
+  if (!doc || !doc.stuNo) return;
+
+  try {
+    const feeRecord = await Fee.findOne({ stuNo: doc.stuNo });
+    const configuredFee = STANDARD_FEES[doc.standard];
+    const totalStandardFees = Number.isFinite(configuredFee)
+      ? configuredFee
+      : Number(feeRecord?.totalStandardFees || 0);
+    const totalFeesPaid = Number(feeRecord?.totalFeesPaid || 0);
+    const discount = Number(feeRecord?.discount || 0);
+    const studentName = [doc.firstName, doc.middleName, doc.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const feeFields = {
+      studentName,
+      studentPhoneNumber: doc.phoneNumber || '',
+      ParentsMobileNumber: doc.FatherMobileNumber ? String(doc.FatherMobileNumber) : '',
+      ParentsPhoneNumber: doc.FatherPhoneNumber ? String(doc.FatherPhoneNumber) : '',
+      EmergencyMobileNumber: doc.EmergencyPhoneNumber ? String(doc.EmergencyPhoneNumber) : '',
+      parentEmail: doc.parentEmail || '',
+      batchYear: doc.batchYear || '',
+      standard: doc.standard || '',
+      stuNo: doc.stuNo,
+      totalStandardFees,
+      totalFeesRemaining: Math.max(0, totalStandardFees - totalFeesPaid - discount),
+    };
+
+    if (!feeRecord) {
       await Fee.create({
-        studentName: doc.firstName + " " + doc.middleName + " " + doc.lastName,
-        studentPhoneNumber: doc.phoneNumber,
-        ParentsMobileNumber: doc.FatherMobileNumber,
-        ParentsPhoneNumber: doc.FatherPhoneNumber,
-        EmergencyPhoneNumber: doc.EmergencyPhoneNumber,
-        parentEmail: doc.parentEmail,
-        batchYear: doc.batchYear,
-        // batchYear: "2026-2027",
-
-        standard: doc.standard,
-        stuNo: doc.stuNo,
-        totalStandardFees: fees,
+        ...feeFields,
         totalFeesPaid: 0,
-        totalFeesRemaining: fees,
-        // totalFeesRemaining: fees - doc.totalFeesPaid - doc.discount,
-        // discount: doc.discount,
-        paymentDetails: []
-      });
-
-      // await syncFeesCollection(doc);
-    }
-    catch (error) {
-      console.error('Error creating fee record:', error);
-    }
-  }
-});
-
-// Middleware to sync with fees collection on update
-studentSchema.pre('findOneAndUpdate', async function (next) {
-
-  const update = this.getUpdate();
-  const studentNumber = update.stuNo;
-
-  // Find the updated student data
-  const updatedStudent = await this.model.findOne(this.getQuery());
-
-  const fees2 = standardFees[update.standard || updatedStudent.standard];
-
-  if (updatedStudent) {
-    try {
-      // Construct the update object for the fee document
-      const updatedFee = {
-        studentName: update.firstName + " " + update.middleName + " " + update.lastName || updatedStudent.firstName + " " + updatedStudent.middleName + " " + updatedStudent.lastName,
-        studentPhoneNumber: update.phoneNumber || updatedStudent.phoneNumber,
-        ParentsMobileNumber: update.FatherMobileNumber || updatedStudent.FatherMobileNumber,
-        ParentsPhoneNumber: update.FatherPhoneNumber || updatedStudent.FatherPhoneNumber,
-        EmergencyPhoneNumber: update.EmergencyPhoneNumber || updatedStudent.EmergencyPhoneNumber,
-        parentEmail: update.parentEmail || updatedStudent.parentEmail,
-        // batchYear: update.batchYear || updatedStudent.batchYear,
-        batchYear: "2026-2027",
-        standard: update.standard || updatedStudent.standard,
-        totalStandardFees: fees2,
-        totalFeesPaid: 0,
-        totalFeesRemaining: fees2,
-        // totalFeesRemaining: fees - doc.totalFeesPaid - doc.discount,
-        // discount: doc.discount,
+        totalFeesRemaining: totalStandardFees,
         discount: 0,
-        paymentDetails: []
-      }
-
-      // Update the corresponding fee document
-      await Fee.findOneAndUpdate(
-        { stuNo: studentNumber },
-        updatedFee,
-        { new: true }
-      );
-    } catch (error) {
-      console.error('Error updating fee record:', error);
+        paymentDetails: [],
+      });
+    } else {
+      await Fee.findByIdAndUpdate(feeRecord._id, { $set: feeFields }, { runValidators: true });
     }
+  } catch (error) {
+    console.error('Unable to synchronize the student fee record:', error);
   }
-  next();
 });
-
-// const sequenceSchema = new mongoose.Schema({
-//   year: { type: String, unique: true },
-//   sequenceNumber: { type: Number, default: 0 }
-// });
-
-// const Sequence = mongoose.model('Sequence', sequenceSchema);
-// const Student = mongoose.model('Student', studentSchema);
 
 module.exports = mongoose.model('Student', studentSchema);
-
-
-// module.exports = { Student, Sequence };
-// -------------------------------------------

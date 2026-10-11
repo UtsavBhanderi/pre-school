@@ -10,7 +10,7 @@ import { Modal } from "bootstrap";
 // import PizZipUtils from 'pizzip/utils/index.js';
 
 function NewTeacherRegister() {
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [teachers, setTeachers] = useState([]);
   const [teacher, setTeacher] = useState({
@@ -53,8 +53,13 @@ function NewTeacherRegister() {
   }, []);
 
   const fetchTeachers = async () => {
-    const response = await axios.get(`${linkone}` + "/api/teachers");
-    setTeachers(response.data);
+    try {
+      const response = await axios.get(`${linkone}/api/teachers`);
+      setTeachers(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Unable to load teachers:", error);
+      alert(error.response?.data?.message || "Unable to load teacher records.");
+    }
   };
 
   const handleChange = (e) => {
@@ -76,35 +81,23 @@ function NewTeacherRegister() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
-    for (const key in teacher) {
-      if (typeof teacher[key] === "object" && !(teacher[key] instanceof File)) {
-        formData.append(key, JSON.stringify(teacher[key]));
+    for (const [key, value] of Object.entries(teacher)) {
+      if (value === null || value === undefined || value === "") continue;
+      if (typeof File !== "undefined" && value instanceof File) {
+        formData.append(key, value);
       } else {
-        formData.append(key, teacher[key]);
+        formData.append(key, String(value));
       }
     }
     try {
       if (isEdit) {
-        await axios.put(
-          `${linkone}` + `/api/teachers/${currentTeacherId}`,
-          formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        alert("Teacher updated successfully");
+        await axios.put(`${linkone}/api/teachers/${currentTeacherId}`, formData);
+        alert("Teacher updated successfully.");
       } else {
-        await axios.post(`${linkone}` + "/api/teachers", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        alert("Teacher registered successfully");
-        window.location.reload();
+        await axios.post(`${linkone}/api/teachers`, formData);
+        alert("Teacher registered successfully.");
       }
-      fetchTeachers();
+      await fetchTeachers();
       resetForm();
     } catch (error) {
       console.error("There was an error!", error);
@@ -117,22 +110,19 @@ function NewTeacherRegister() {
     });
     setIsEdit(true);
     setCurrentTeacherId(teacher._id);
-    const modal = new Modal(modalRef.current);
+    const modal = Modal.getOrCreateInstance(modalRef.current);
     modal.show();
   };
 
   const handleDelete = async (id) => {
-    const password = prompt("Enter password to delete:");
-    if (password === "123") {
-      try {
-        await axios.delete(`${linkone}` + `/api/teachers/${id}`);
-        alert("Teacher deleted successfully");
-        fetchTeachers();
-      } catch (error) {
-        console.error("There was an error deleting the teacher!", error);
-      }
-    } else {
-      alert("Incorrect password");
+    if (!window.confirm("Delete this teacher record?")) return;
+    try {
+      await axios.delete(`${linkone}/api/teachers/${id}`);
+      alert("Teacher deleted successfully.");
+      await fetchTeachers();
+    } catch (error) {
+      console.error("Unable to delete teacher:", error);
+      alert(error.response?.data?.message || "Unable to delete teacher record.");
     }
   };
 
@@ -169,8 +159,8 @@ function NewTeacherRegister() {
     });
     setIsEdit(false);
     setCurrentTeacherId(null);
-    const modal = Modal.getInstance(modalRef.current);
-    modal.hide();
+    const modal = modalRef.current ? Modal.getInstance(modalRef.current) : null;
+    modal?.hide();
   };
 
   const [filter, setFilter] = useState({
@@ -188,11 +178,12 @@ function NewTeacherRegister() {
   };
   const filteredteachers = teachers.filter(
     (pdf) =>
-      pdf.firstName.includes(filter.firstName) &&
-      pdf.middleName.includes(filter.middleName) &&
-      pdf.standard.includes(filter.standard) &&
-      pdf.RegisterPhoneNumber.includes(filter.RegisterPhoneNumber) &&
-      pdf.GR_No.includes(filter.GR_No)
+      String(pdf.firstName ?? "").toLowerCase().includes(filter.firstName.toLowerCase()) &&
+      String(pdf.middleName ?? "").toLowerCase().includes(filter.middleName.toLowerCase()) &&
+      String(pdf.lastName ?? "").toLowerCase().includes(filter.lastName.toLowerCase()) &&
+      String(pdf.standard ?? "").includes(filter.standard) &&
+      String(pdf.RegisterPhoneNumber ?? "").includes(filter.RegisterPhoneNumber) &&
+      String(pdf.GR_No ?? "").includes(filter.GR_No)
   );
 
   const [selectedTeachers, setSelectedTeachers] = useState([]);

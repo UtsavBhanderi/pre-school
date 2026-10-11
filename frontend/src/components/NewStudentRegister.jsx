@@ -12,9 +12,9 @@ import * as XLSX from "xlsx";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import PizZipUtils from "pizzip/utils/index.js";
-import "./newStudentReg.css";
+import "./NewStudentReg.css";
 
-const API_URL = `http://localhost:5000`;
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 const EMPTY_STUDENT = {
     studentPhoto: null,
@@ -378,35 +378,17 @@ const NewStudentRegister = () => {
     // ============================================================
 
     const handleDelete = async (id) => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this student?"
-        );
+        const confirmed = window.confirm("Are you sure you want to delete this student?");
+        if (!confirmed) return;
 
-        if (!confirmed) {
-            return;
+        try {
+            await axios.delete(`${API_URL}/api/students/${id}`);
+            setSelectedStudents((prev) => prev.filter((studentId) => studentId !== id));
+            await fetchStudents();
+        } catch (error) {
+            console.error("Unable to delete student:", error);
+            alert(error.response?.data?.message || "Unable to delete student.");
         }
-
-        const password = prompt("Enter password to delete:");
-        if (password === "123") {
-            try {
-                await axios.delete(`${API_URL}/api/students/${id}`);
-                alert("Student deleted successfully.");
-
-                setSelectedStudents((prev) => prev.filter((studentId) => studentId !== id));
-                await fetchStudents();
-            } catch (error) {
-                console.error("There was an error deleting the student:", error);
-            }
-        }
-
-        else {
-            alert("Incorrect password");
-        }
-
-        //   alert(
-        //     error.response?.data?.message ||
-        //       "Unable to delete student. Please try again."
-        //   );
     };
 
     // ============================================================

@@ -3,10 +3,9 @@ import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 
 function AdminUsers() {
- const linkone = `http://localhost:5000`;
+ const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   
-  const [UsersData, setUsersData] = useState([]);
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -22,9 +21,18 @@ function AdminUsers() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    register(formData);
+    try {
+      await register(formData);
+      setFormData({ username: "", email: "", password: "", role: "teacher" });
+      const response = await axios.get(`${linkone}/api/userDetailsself`);
+      setUsers(Array.isArray(response.data) ? response.data : []);
+      alert("User created successfully.");
+    } catch (error) {
+      console.error("Unable to create user:", error);
+      alert(error.response?.data?.message || "Unable to create the user.");
+    }
   };
 
   const [users, setUsers] = useState([]);

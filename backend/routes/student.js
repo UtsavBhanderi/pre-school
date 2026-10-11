@@ -1,5 +1,7 @@
 const express = require('express');
 const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
 const mongoose = require("mongoose");
 const Student = require('../models/Student');
 const ReportCard = require("../models/ReportCard"); // to get Out Of Marks
@@ -11,14 +13,25 @@ const Sequence = require('../models/sequence');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/students');
+    const uploadDir = path.join(__dirname, '../uploads/students');
+    fs.mkdir(uploadDir, { recursive: true }, (error) => cb(error, uploadDir));
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+    const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}-${safeName}`);
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+      return cb(new Error('Student and parent photographs must be image files.'));
+    }
+    cb(null, true);
+  },
+});
 
 // Helper function to get next student number
 // const getNextStudentNumber = async () => {
@@ -47,20 +60,32 @@ const upload = multer({ storage: storage });
 //   return `${currentYear}${initials}${sequenceNumber}`;
 // }
 const generateStudentNumber = async (firstName, middleName, lastName) => {
-  const currentYear = new Date().getFullYear().toString().slice(-2);
-  const initials = `${firstName[0]}${middleName[0]}${lastName[0]}`.toUpperCase();
+  const year = String(new Date().getFullYear()).slice(-2);
+  const initials = [firstName, middleName, lastName]
+    .map((name) => String(name || '').trim().charAt(0) || 'X')
+    .join('')
+    .toUpperCase();
 
-  // Find or create the sequence for the current year
-  let sequence = await Sequence.findOne({ year: currentYear });
-  if (!sequence) {
-    sequence = new Sequence({ year: currentYear, seq: 0 });
+  let sequence;
+  try {
+    sequence = await Sequence.findOneAndUpdate(
+      { year },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true }
+    );
+  } catch (error) {
+    // Two first admissions can race while the current year's counter is being
+    // created. If the unique year index wins that race, retry the increment.
+    if (error.code !== 11000) throw error;
+    sequence = await Sequence.findOneAndUpdate(
+      { year },
+      { $inc: { seq: 1 } },
+      { new: true, runValidators: true }
+    );
+    if (!sequence) throw error;
   }
 
-  sequence.seq += 1;
-  await sequence.save();
-
-  const seqNumber = sequence.seq.toString().padStart(3, '0');
-  return `${currentYear}${initials}${seqNumber}`;
+  return `${year}${initials}${String(sequence.seq).padStart(3, '0')}`;
 };
 
 
@@ -79,59 +104,71 @@ router.get('/', async (req, res) => {
 });
 
 // Create a new student
-router.post('/', upload.fields([{ name: 'studentPhoto' }, { name: 'motherPhoto' }, { name: 'fatherPhoto' }]), async (req, res) => {
+router.post('/', upload.fields([
+  { name: 'studentPhoto', maxCount: 1 },
+  { name: 'motherPhoto', maxCount: 1 },
+  { name: 'fatherPhoto', maxCount: 1 },
+]), async (req, res) => {
   try {
-    // const stuNo = await getNextStudentNumber();
-    // const stuNo = await generateStudentNumber();
-    // --------
-    // const { firstName, middleName, lastName, ...rest } = req.body;
-    // const stuNo = await generateStudentNumber(firstName, middleName, lastName);
-    // ------------
-    const { firstName, middleName, lastName } = req.body;
-    const stuNo = await generateStudentNumber(firstName, middleName, lastName);
+    const { firstName, middleName, lastName, standard } = req.body;
+    if (!String(firstName || '').trim()) {
+      return res.status(400).json({ message: 'Student first name is required.' });
+    }
+    if (!String(standard || '').trim()) {
+      return res.status(400).json({ message: 'Student standard is required.' });
+    }
 
-    const batchYear = new Date().getFullYear() + '-' + (new Date().getFullYear() + 1);
+    const stuNo = await generateStudentNumber(firstName, middleName, lastName);
+    const year = new Date().getFullYear();
+    const batchYear = req.body.batchYear || `${year}-${year + 1}`;
+    const files = req.files || {};
 
     const newStudent = new Student({
       ...req.body,
-      studentPhoto: req.files.studentPhoto[0].path,
-      motherPhoto: req.files.motherPhoto[0].path,
-      fatherPhoto: req.files.fatherPhoto[0].path,
+      ...(files.studentPhoto?.[0] && { studentPhoto: `uploads/students/${files.studentPhoto[0].filename}` }),
+      ...(files.motherPhoto?.[0] && { motherPhoto: `uploads/students/${files.motherPhoto[0].filename}` }),
+      ...(files.fatherPhoto?.[0] && { fatherPhoto: `uploads/students/${files.fatherPhoto[0].filename}` }),
       stuNo,
-      batchYear
+      batchYear,
     });
+
     await newStudent.save();
-    res.status(201).send('Student registered successfully');
+    return res.status(201).json({ message: 'Student registered successfully', student: newStudent });
   } catch (error) {
-    console.log(error, "student.js catch routs backend post");
-    res.status(400).send(error);
+    console.error('Student registration failed:', error);
+    const status = error.code === 11000 ? 409 : 400;
+    return res.status(status).json({ message: status === 409 ? 'A record with this student number already exists.' : 'Unable to register student.' });
   }
 });
 
 // Update a student
-router.put('/:id', upload.fields([{ name: 'studentPhoto' }, { name: 'motherPhoto' }, { name: 'fatherPhoto' }]), async (req, res) => {
+router.put('/:id', upload.fields([
+  { name: 'studentPhoto', maxCount: 1 },
+  { name: 'motherPhoto', maxCount: 1 },
+  { name: 'fatherPhoto', maxCount: 1 },
+]), async (req, res) => {
   try {
-    const updatedStudent = {
-      batchYear: "2026-2027",
-      ...req.body,
-    };
-
-    if (req.files.studentPhoto) {
-      updatedStudent.studentPhoto = req.files.studentPhoto[0].path;
-    }
-    if (req.files.motherPhoto) {
-      updatedStudent.motherPhoto = req.files.motherPhoto[0].path;
-    }
-    if (req.files.fatherPhoto) {
-      updatedStudent.fatherPhoto = req.files.fatherPhoto[0].path;
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid student ID.' });
     }
 
-    await Student.findByIdAndUpdate(req.params.id, updatedStudent);
-    res.status(200).send('Student updated successfully');
+    const updatedStudent = { ...req.body };
+    const files = req.files || {};
+    if (files.studentPhoto?.[0]) updatedStudent.studentPhoto = `uploads/students/${files.studentPhoto[0].filename}`;
+    if (files.motherPhoto?.[0]) updatedStudent.motherPhoto = `uploads/students/${files.motherPhoto[0].filename}`;
+    if (files.fatherPhoto?.[0]) updatedStudent.fatherPhoto = `uploads/students/${files.fatherPhoto[0].filename}`;
+
+    const student = await Student.findByIdAndUpdate(
+      req.params.id,
+      { $set: updatedStudent },
+      { new: true, runValidators: true }
+    );
+
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+    return res.status(200).json({ message: 'Student updated successfully', student });
   } catch (error) {
-    console.log("error on updating ", error);
-
-    res.status(400).send(error);
+    console.error('Student update failed:', error);
+    return res.status(400).json({ message: 'Unable to update student.' });
   }
 });
 
@@ -145,83 +182,6 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-
-// Helper function to get start and end dates for filters
-const getStartAndEndDates = (dateFilter) => {
-  const now = new Date();
-  let start, end;
-
-  switch (dateFilter) {
-    case 'today':
-      start = new Date(now.setHours(0, 0, 0, 0));
-      end = new Date(now.setHours(23, 59, 59, 999));
-      break;
-    case 'thisWeek':
-      const dayOfWeek = now.getDay();
-      start = new Date(now.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)));
-      start.setHours(0, 0, 0, 0);
-      end = new Date(start);
-      end.setDate(end.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'thisMonth':
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    default:
-      // If a specific date is passed
-      start = new Date(dateFilter);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(start);
-      end.setHours(23, 59, 59, 999);
-      break;
-  }
-
-  return { start, end };
-};
-
-// // Route to get students' birthdays with filters
-// router.get('/birthdays', async (req, res) => {
-//   const { dob, middleName, standard, stuNo } = req.query;
-//   let filter = {};
-
-//   // console.log(req , "req birthday");
-
-
-//   if (dob) {
-//       const start = new Date(dob);
-//       const end = new Date(dob);
-//       // const start = new String(dob);
-//       // const end = new String(dob);
-//       end.setDate(end.getDate() + 1);
-
-//       filter.dateOfBirth = {
-//           $gte: start,
-//           $lt: end,
-//       };
-//   }
-// //   if (dob) {
-// //     const { start, end } = getStartAndEndDates(dob);
-// //     filter.dateOfBirth = {
-// //         $gte: start,
-// //         $lt: end,
-// //     };
-// // }
-
-//   if (middleName) filter.middleName = middleName;
-//   if (standard) filter.standard = standard;
-//   if (stuNo) filter.stuNo = stuNo;
-
-//   try {
-//       const students = await Student.find(filter);
-//       console.log(students,"students birthday.js");
-
-//       res.json(students);
-//   } catch (err) {
-//       res.status(500).json({ message: err.message });
-//   }
-// });
 
 router.get('/birthdays', async (req, res) => {
   try {

@@ -13,16 +13,15 @@ const TeacherDashboard = () => {
     dailyWorkReport: "",
     totalStudents:"",
   });
-  const { user, logout } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   useEffect(() => {
     const fetchReports = async () => {
       try {
         const { data } = await axios.get(`${linkone}` + "/api/dailyWorkReport", {
-          headers: { "x-auth-token": localStorage.getItem("token") },
-        });
+          });
         setReports(data);
       } catch (err) {
         console.error("Error fetching daily work reports:", err);
@@ -43,14 +42,10 @@ const TeacherDashboard = () => {
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${linkone}` + "/api/dailyWorkReport", formData, {
-        headers: { "x-auth-token": localStorage.getItem("token") },
-      });
-      alert("Daily work report submitted");
+      await axios.post(`${linkone}/api/dailyWorkReport`, formData);
+      alert("Daily work report submitted successfully.");
       // Fetch reports again to update the list
-      const { data } = await axios.get(`${linkone}` + "/api/dailyWorkReport", {
-        headers: { "x-auth-token": localStorage.getItem("token") },
-      });
+      const { data } = await axios.get(`${linkone}/api/dailyWorkReport`);
       setReports(data);
       setFormData({
         TimeIn: "",
@@ -63,6 +58,7 @@ const TeacherDashboard = () => {
       });
     } catch (err) {
       console.error("Error submitting daily work report:", err);
+      alert(err.response?.data?.message || "Unable to submit the daily work report.");
     }
   };
 
@@ -78,25 +74,20 @@ const TeacherDashboard = () => {
 
   const filteredReportsData = reports.filter(
     (pdf) =>
-      pdf.date.includes(filter.date) &&
-      pdf.subject.includes(filter.subject) &&
-      pdf.branch.includes(filter.branch) &&
-      pdf.standard.includes(filter.standard)
+      String(pdf.date ?? '').includes(filter.date) &&
+      String(pdf.subject ?? '').toLowerCase().includes(filter.subject.toLowerCase()) &&
+      String(pdf.branch ?? '').toLowerCase().includes(filter.branch.toLowerCase()) &&
+      String(pdf.standard ?? '').includes(filter.standard)
   );
 
   var sumValue = 0;
   for (var i = 0; i < filteredReportsData.length; i++) {
-    sumValue += parseFloat(filteredReportsData[i].todaysWorkingHours);
+    sumValue += Number(filteredReportsData[i].todaysWorkingHours) || 0;
   }
 
   return (
     <div>
-      <h2 className="p-2">
-        Teacher's Dashboard
-        <button onClick={logout} className="btn btn-danger btn-sm">
-          Logout
-        </button>
-      </h2>
+      <h2 className="p-2">Daily Work Report</h2>
       <form onSubmit={onSubmit}>
         <div className="p-3 d-flex flex-wrap justify-content-around gap-4">
           <div className="form-group col-3">

@@ -1,120 +1,101 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
-const Teacher = require('../models/DailyWorkReport');
-const Student = require('../models/Student');
 
-// Register
+const ALLOWED_ROLES = new Set(['teacher', 'admin', 'student']);
+
+const signToken = (user) => jwt.sign(
+  { user: { id: user.id, role: user.role } },
+  process.env.JWT_SECRET,
+  { expiresIn: '1h' }
+);
+
+// Public registration can create teacher accounts only. An authenticated
+// administrator may create accounts with any supported role.
 router.post('/register', async (req, res) => {
-  const { username, email, password, role } = req.body;
-
   try {
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: 'Authentication is not configured on the server.' });
     }
 
-    user = new User({
-      username,
-      email,
-      password,
-      role
+    const token = req.header('x-auth-token');
+    if (!token) {
+      return res.status(401).json({ message: 'Administrator authentication is required to create users.' });
+    }
+
+    let requester;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      requester = await User.findById(decoded?.user?.id).select('-password');
+    } catch {
+      return res.status(401).json({ message: 'Token is invalid or has expired.' });
+    }
+
+    if (!requester) return res.status(401).json({ message: 'The authenticated account no longer exists.' });
+    if (requester.role !== 'admin') {
+      return res.status(403).json({ message: 'Only an administrator can create user accounts.' });
+    }
+
+    const username = String(req.body.username || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    const requestedRole = String(req.body.role || 'teacher').toLowerCase();
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Username, email, and password are required.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must contain at least 8 characters.' });
+    }
+    if (!ALLOWED_ROLES.has(requestedRole)) {
+      return res.status(400).json({ message: 'Invalid user role.' });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: 'An account with this email already exists.' });
+    }
+
+    const user = await User.create({ username, email, password, role: requestedRole });
+    return res.status(201).json({
+      token: signToken(user),
+      user: { id: user.id, username: user.username, email: user.email, role: user.role },
     });
-
-    await user.save();
-
-    const payload = {
-      user: {
-        id: user.id,
-        role: user.role
-      }
-    };
-
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
-      if (err) throw err;
-      res.json({ token });
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'An account with this email already exists.' });
+    }
+    console.error('Registration failed:', error);
+    return res.status(500).json({ message: 'Unable to create the account.' });
   }
 });
 
-// Login
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
   try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required.' });
+    }
+
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-
-    const payload = {
-      user: {
-        id: user.id,
-        role: user.role
-      }
-    };
-
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
-      if (err) throw err;
-      // res.json({
-      //   token,
-      //   user: {
-      //     id: user.id,
-      //     name: user.name,
-      //     role: user.role,
-      //     email: user.email,
-      //   },
-      // });
-      res.json({token});
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    return res.json({ token: signToken(user) });
+  } catch (error) {
+    console.error('Login failed:', error);
+    return res.status(500).json({ message: 'Unable to log in right now.' });
   }
 });
 
-// Get authenticated user's details
 router.get('/me', auth, (req, res) => {
   res.json({ user: req.user });
-});
-
-// GET /api/teacher/:id - Get data for a specific teacher
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const teacher = await Teacher.findById(req.params.id);
-    if (!teacher) {
-      return res.status(404).json({ msg: 'Teacher not found' });
-    }
-    res.json(teacher);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// GET /api/student/:id - Get data for a specific student
-router.get('/student/:id', auth, async (req, res) => {
-  try {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-      return res.status(404).json({ msg: 'Student not found' });
-    }
-    res.json(student);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
 });
 
 module.exports = router;

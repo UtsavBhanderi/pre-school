@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const AdminVideo = () => {
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [videos, setVideos] = useState([]);
   const [editingVideo, setEditingVideo] = useState(null);
@@ -315,7 +315,7 @@ const AdminVideo = () => {
               <td>{video.chapter}</td>
               <td>
                 <a
-                  href={video.url || `/${video.filePath}`}
+                  href={video.url || `${linkone}/${String(video.filePath || "").replace(/^\/+/, "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

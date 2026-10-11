@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+frontend/dist/
+dist/
+coverage/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Runtime uploads/session artifacts and logs
+backend/uploads/
+uploads/
+backend/routes/cookies.json
+backend/routes/localStorage.json
+backend/routes/user_data/
+*.log
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

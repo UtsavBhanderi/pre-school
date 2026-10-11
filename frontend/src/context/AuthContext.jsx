@@ -1,73 +1,67 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const linkone = `http://localhost:5000`;
+
+  const fetchUserData = useCallback(async (token) => {
+    const response = await axios.get(`${API_BASE_URL}/api/auth/me`, {
+      headers: { "x-auth-token": token },
+    });
+    setUser(response.data.user);
+    return response.data.user;
+  }, []);
 
   useEffect(() => {
+    let active = true;
     const token = localStorage.getItem("token");
-    if (token) {
-      const fetchData = async () => {
-        try {
-          const { data } = await axios.get(
-            `${linkone}/api/auth/me`,
-            {
-              headers: { "x-auth-token": token },
-            }
-          );
-          setUser(data.user);
-        } catch (err) {
-          console.error("Error fetching user data:", err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchData();
-    } else {
+
+    if (!token) {
       setLoading(false);
+      return () => { active = false; };
     }
+
+    axios.get(`${API_BASE_URL}/api/auth/me`, {
+      headers: { "x-auth-token": token },
+    }).then(({ data }) => {
+      if (active) setUser(data.user);
+    }).catch(() => {
+      localStorage.removeItem("token");
+      if (active) setUser(null);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+
+    return () => { active = false; };
   }, []);
 
   const register = async (userData) => {
-    try {
-      const { data } = await axios.post(
-        `${linkone}/api/auth/register`,
-        userData
-      );
-      localStorage.setItem("token", data.token);
-      await fetchUserData(data.token); // Fetch user data after registration
-    } catch (err) {
-      console.error("Registration error:", err);
+    // Admins may create staff accounts; do not replace the admin's session with
+    // the newly-created user's token. Public registration creates teacher users.
+    const existingToken = localStorage.getItem("token");
+    const { data } = await axios.post(`${API_BASE_URL}/api/auth/register`, userData, {
+      headers: existingToken ? { "x-auth-token": existingToken } : {},
+    });
+
+    if (existingToken) {
+      return fetchUserData(existingToken);
     }
+
+    if (!data.token) throw new Error("Registration did not return an authentication token.");
+    localStorage.setItem("token", data.token);
+    return fetchUserData(data.token);
   };
 
-  const login = async (userData) => {
-    try {
-      const { data } = await axios.post(
-        `${linkone}/api/auth/login`,
-        userData
-      );
+  const login = async (credentials) => {
+    const { data } = await axios.post(`${API_BASE_URL}/api/auth/login`, credentials);
+    if (!data.token) throw new Error("Login did not return an authentication token.");
 
-      localStorage.setItem("token", data.token);
-      await fetchUserData(data.token); // Fetch user data after login
-    } catch (err) {
-      console.error("Login error:", err);
-    }
-  };
-
-  const fetchUserData = async (token) => {
-    try {
-      const { data } = await axios.get(`${linkone}/api/auth/me`, {
-        headers: { "x-auth-token": token },
-      });
-      setUser(data.user);
-    } catch (err) {
-      console.error("Error fetching user data:", err);
-    }
+    localStorage.setItem("token", data.token);
+    return fetchUserData(data.token);
   };
 
   const logout = () => {

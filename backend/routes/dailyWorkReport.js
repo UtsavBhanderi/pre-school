@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const adminOnly = require('../middleware/adminOnly');
 const DailyWorkReport = require('../models/DailyWorkReport');
 
 // POST /api/dailyWorkReport - Create a new daily work report
@@ -42,7 +43,7 @@ router.get('/', auth, async (req, res) => {
 
 // Get all fees
 // this is for teachers-Entry
-router.get('/all', async (req, res) => {
+router.get('/all', auth, adminOnly, async (req, res) => {
   try {
     const dailyWork = await DailyWorkReport.find();
     res.json(dailyWork);

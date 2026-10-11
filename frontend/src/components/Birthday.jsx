@@ -23,7 +23,7 @@ import {
 } from "react-icons/fa";
 
 
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 
 // Default placeholder avatar shown when a student has no photo on file.
