@@ -1,10 +1,12 @@
-import React, { useMemo, useState, useContext } from "react";
+import React, { useMemo, useState, useContext, useEffect } from "react";
+import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { Link } from "react-router-dom";
 import {
   MdArrowForward, MdFactCheck, MdCurrencyRupee, MdPersonAddAlt1,
   MdPeopleAlt, MdCalendarMonth, MdAssessment, MdPhotoLibrary,
   MdPictureAsPdf, MdVideoLibrary, MdSearch, MdHelpOutline,
-  MdOutlineTipsAndUpdates, MdOutlineSchool, MdOutlineChecklist,
+  MdOutlineTipsAndUpdates, MdOutlineSchool, MdOutlineChecklist, MdRefresh,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import "../operations.css";
@@ -137,6 +139,83 @@ export default function OperationsHome() {
     );
   }, [query]);
 
+  const [overview, setOverview] = useState({
+    studentCount: null,
+    attendanceCount: null,
+    collectionToday: null,
+    outstanding: null,
+  });
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+    const loadOverview = async () => {
+      setOverviewLoading(true);
+      setOverviewError(false);
+      const [studentsResult, attendanceResult, feesResult] = await Promise.allSettled([
+        axios.get(`${API_BASE_URL}/api/students`),
+        axios.get(`${API_BASE_URL}/api/attendance/attendances`, { params: { date } }),
+        axios.get(`${API_BASE_URL}/api/fees/fees-collection-data`),
+      ]);
+
+      if (!active) return;
+      const nextOverview = {
+        studentCount: null,
+        attendanceCount: null,
+        collectionToday: null,
+        outstanding: null,
+      };
+
+      if (studentsResult.status === "fulfilled" && Array.isArray(studentsResult.value.data)) {
+        nextOverview.studentCount = studentsResult.value.data.length;
+      }
+      if (attendanceResult.status === "fulfilled" && Array.isArray(attendanceResult.value.data)) {
+        const studentIds = new Set();
+        attendanceResult.value.data.forEach((record) => {
+          (record.studentDetails || []).forEach((entry) => {
+            const id = entry.studentId?._id || entry.studentId;
+            if (id) studentIds.add(String(id));
+          });
+        });
+        nextOverview.attendanceCount = studentIds.size;
+      }
+      if (feesResult.status === "fulfilled" && feesResult.value.data) {
+        const feeSummary = feesResult.value.data;
+        if (Number.isFinite(Number(feeSummary.today?.totalPaid))) {
+          nextOverview.collectionToday = Number(feeSummary.today?.totalPaid || 0);
+        }
+        if (Array.isArray(feeSummary.standardWise)) {
+          nextOverview.outstanding = feeSummary.standardWise.reduce((sum, standard) =>
+            sum + (Array.isArray(standard.students) ? standard.students.reduce((classSum, student) =>
+              classSum + Math.max(
+                0,
+                Number(student.totalStandardFees || 0) -
+                Number(student.discount ?? student.totalDiscount ?? 0) -
+                Number(student.totalPaid ?? student.totalFeesPaid ?? 0)
+              ), 0) : 0), 0);
+        }
+      }
+
+      setOverview(nextOverview);
+      setOverviewError(Object.values(nextOverview).every((value) => value === null));
+      setOverviewLoading(false);
+    };
+
+    loadOverview();
+    return () => { active = false; };
+  }, [refreshVersion]);
+
+  const formatMetricCurrency = (value) => new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
   return (
     <div className="ops-page">
       <section className="ops-welcome" aria-labelledby="ops-welcome-title">
@@ -155,6 +234,46 @@ export default function OperationsHome() {
           </div>
           <span className="ops-art-sparkle">✦</span>
         </div>
+      </section>
+
+      <section className="ops-overview" aria-labelledby="ops-overview-title">
+        <div className="ops-section-heading ops-overview-heading">
+          <div>
+            <h3 id="ops-overview-title">Today at your school</h3>
+            <p>Live totals from saved records. Each figure takes you to the related page.</p>
+          </div>
+          <button
+            type="button"
+            className="ops-refresh-button"
+            onClick={() => setRefreshVersion((version) => version + 1)}
+            disabled={overviewLoading}
+          >
+            <MdRefresh aria-hidden="true" /> {overviewLoading ? "Updating…" : "Refresh"}
+          </button>
+        </div>
+        <div className="ops-overview-grid" aria-live="polite">
+          <Link to="/dashboard/studentRegister" className="ops-overview-tile">
+            <span className="ops-overview-label">Children registered</span>
+            <strong className="ops-overview-value">{overviewLoading ? "…" : overview.studentCount === null ? "—" : overview.studentCount.toLocaleString("en-IN")}</strong>
+            <span className="ops-overview-note">{overview.studentCount === null && !overviewLoading ? "Could not load student count" : "View student records"} <MdArrowForward aria-hidden="true" /></span>
+          </Link>
+          <Link to="/dashboard/attendanceOverview" className="ops-overview-tile">
+            <span className="ops-overview-label">Children with attendance today</span>
+            <strong className="ops-overview-value">{overviewLoading ? "…" : overview.attendanceCount === null ? "—" : overview.attendanceCount.toLocaleString("en-IN")}</strong>
+            <span className="ops-overview-note">{overview.attendanceCount === null && !overviewLoading ? "Could not load attendance" : "Unique children with saved entries"} <MdArrowForward aria-hidden="true" /></span>
+          </Link>
+          <Link to="/dashboard/fees" className="ops-overview-tile">
+            <span className="ops-overview-label">Collected today</span>
+            <strong className="ops-overview-value">{overviewLoading ? "…" : overview.collectionToday === null ? "—" : formatMetricCurrency(overview.collectionToday)}</strong>
+            <span className="ops-overview-note">{overview.collectionToday === null && !overviewLoading ? "Could not load collection" : "View fees and payments"} <MdArrowForward aria-hidden="true" /></span>
+          </Link>
+          <Link to="/dashboard/feesOverview" className="ops-overview-tile">
+            <span className="ops-overview-label">Fees still due</span>
+            <strong className="ops-overview-value">{overviewLoading ? "…" : overview.outstanding === null ? "—" : formatMetricCurrency(overview.outstanding)}</strong>
+            <span className="ops-overview-note">{overview.outstanding === null && !overviewLoading ? "Could not load balances" : "Review outstanding balances"} <MdArrowForward aria-hidden="true" /></span>
+          </Link>
+        </div>
+        {overviewError && <p className="ops-overview-error" role="status">The summary could not be loaded. Check your connection or refresh; you can still open each task below.</p>}
       </section>
 
       <div className="ops-section-heading">
