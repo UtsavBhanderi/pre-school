@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { Link } from "react-router-dom";
 
 const SUMMARY_LABELS = {
@@ -16,7 +17,7 @@ const formatCurrency = (value) => new Intl.NumberFormat("en-IN", {
 }).format(Number(value) || 0);
 
 const FeesOverviewPage = () => {
- const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   const [feesData, setFeesData] = useState({});
   const [showModal, setShowModal] = useState(false);
