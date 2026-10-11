@@ -6,6 +6,8 @@ import { FaPowerOff, FaRegCircleCheck } from "react-icons/fa6";
 import { IoAnalyticsOutline } from "react-icons/io5";
 import { MdHelpOutline } from "react-icons/md";
 import TeacherHelp from "../../components/TeacherHelp.jsx";
+import AnnouncementsPage from "../../components/AnnouncementsPage.jsx";
+import { MdCampaign } from "react-icons/md";
 
 const TeacherDashboard = () => {
   const [activeComponent, setActiveComponent] = useState("WorkReport");
@@ -23,6 +25,15 @@ const TeacherDashboard = () => {
         >
           <IoAnalyticsOutline size={21} aria-hidden="true" />
           <span>Daily work report</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveComponent("Notices")}
+          className={"teacher-side-link" + (activeComponent === "Notices" ? " active" : "")}
+          aria-current={activeComponent === "Notices" ? "page" : undefined}
+        >
+          <MdCampaign size={21} aria-hidden="true" />
+          <span>School notices</span>
         </button>
         <button
           type="button"
@@ -56,17 +67,19 @@ const TeacherDashboard = () => {
       <main className="teacher-main">
         <div className="page-header">
           <div>
-            <h2 className="mb-0">{activeComponent === "AttEntry" ? "Attendance entry" : activeComponent === "Help" ? "Teacher quick help" : "Daily work report"}</h2>
+            <h2 className="mb-0">{activeComponent === "AttEntry" ? "Attendance entry" : activeComponent === "Help" ? "Teacher quick help" : activeComponent === "Notices" ? "School notices" : "Daily work report"}</h2>
             <p className="page-subtitle">
               {activeComponent === "AttEntry"
                 ? "Choose a class and date, then record each student’s attendance."
                 : activeComponent === "Help"
                   ? "Simple guidance for attendance, daily reports and safe record keeping."
-                  : "Submit classroom activity and working-time details for the school day."}
+                  : activeComponent === "Notices"
+                    ? "Read the latest reminders, school activities and staff updates."
+                    : "Submit classroom activity and working-time details for the school day."}
             </p>
           </div>
         </div>
-        {activeComponent === "AttEntry" ? <AttendanceEntryPage /> : activeComponent === "Help" ? <TeacherHelp /> : <WorkReport />}
+        {activeComponent === "AttEntry" ? <AttendanceEntryPage /> : activeComponent === "Help" ? <TeacherHelp /> : activeComponent === "Notices" ? <AnnouncementsPage readOnly /> : <WorkReport />}
       </main>
     </div>
   );
