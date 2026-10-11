@@ -10,7 +10,7 @@ import { Modal } from "bootstrap";
 // import PizZipUtils from 'pizzip/utils/index.js';
 
 function NewTeacherRegister() {
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
   const [teachers, setTeachers] = useState([]);
   const [teacher, setTeacher] = useState({
