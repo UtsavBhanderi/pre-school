@@ -1,0 +1,57 @@
+ body {
+            background: #f4f7fc;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .profile-img {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .parent-img {
+            width: 90px;
+            height: 90px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .day {
+            padding: 10px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .present {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .absent {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .leave {
+            background: #fff3cd;
+            color: #856404;
+        }

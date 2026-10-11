@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Student Profile</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            background: #f4f7fc;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .profile-img {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .parent-img {
+            width: 90px;
+            height: 90px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .day {
+            padding: 10px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .present {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .absent {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .leave {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container mt-4">
+
+        <div class="row">
+
+            <!-- LEFT PROFILE -->
+
+            <div class="col-lg-4">
+
+                <div class="card p-4 text-center">
+
+                    <img src="/images/student.jpg" class="profile-img mb-3" />
+
+                    <h4>Rahul Sharma</h4>
+
+                    <p class="text-muted">Student No : STU2025</p>
+
+                    <div class="row mt-3">
+
+                        <div class="col-6">
+                            <small>Standard</small>
+                            <h6>8</h6>
+                        </div>
+
+                        <div class="col-6">
+                            <small>Batch</small>
+                            <h6>2025</h6>
+                        </div>
+
+                        <div class="col-6">
+                            <small>Gender</small>
+                            <h6>Male</h6>
+                        </div>
+
+                        <div class="col-6">
+                            <small>Blood</small>
+                            <h6>O+</h6>
+                        </div>
+
+                    </div>
+
+                    <hr>
+
+                    <p><b>Phone</b><br>9876543210</p>
+
+                    <p><b>Address</b><br>Surat, Gujarat</p>
+
+                    <button class="btn btn-primary w-100">
+                        <i class="bi bi-download"></i> Download Report Card
+                    </button>
+
+                </div>
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Fees Details</h5>
+
+                    <div class="row text-center mb-4">
+
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h6>Total Fees</h6>
+                                <h4 class="text-primary">₹50,000</h4>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h6>Fees Paid</h6>
+                                <h4 class="text-success">₹35,000</h4>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h6>Remaining</h6>
+                                <h4 class="text-danger">₹15,000</h4>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h6>Discount</h6>
+                                <h4 class="text-warning">₹5,000</h4>
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Fees Progress -->
+
+                    <h6>Fees Payment Progress</h6>
+
+                    <div class="progress mb-4" style="height:20px">
+
+                        <div class="progress-bar bg-success" style="width:70%">
+                            70% Paid
+                        </div>
+
+                    </div>
+
+
+                    <!-- Payment History -->
+
+                    <h6>Payment History</h6>
+
+                    <table class="table table-bordered">
+
+                        <thead class="table-light">
+
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Amount</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            <tr>
+                                <td>12 Feb 2025</td>
+                                <td>10:30 AM</td>
+                                <td>₹10,000</td>
+                            </tr>
+
+                            <tr>
+                                <td>5 Mar 2025</td>
+                                <td>12:15 PM</td>
+                                <td>₹15,000</td>
+                            </tr>
+
+                            <tr>
+                                <td>20 Apr 2025</td>
+                                <td>09:45 AM</td>
+                                <td>₹10,000</td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            </div>
+
+
+            <!-- RIGHT SECTION -->
+
+            <div class="col-lg-8">
+
+
+                <!-- PERSONAL DETAILS -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Personal Information</h5>
+
+                    <div class="row">
+
+                        <div class="col-md-4">
+                            <label>DOB</label>
+                            <p>12 Aug 2012</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Religion</label>
+                            <p>Hindu</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Cast</label>
+                            <p>OBC</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Mother Tongue</label>
+                            <p>Gujarati</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Aadhar</label>
+                            <p>XXXX XXXX 4567</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Student Problem</label>
+                            <p>None</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PARENT DETAILS -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Parent Information</h5>
+
+                    <div class="row">
+
+                        <div class="col-md-6">
+
+                            <div class="d-flex">
+
+                                <img src="/images/father.jpg" class="parent-img me-3">
+
+                                <div>
+
+                                    <h6>Father</h6>
+
+                                    <p class="mb-1">Occupation : Business</p>
+                                    <p class="mb-1">Designation : Owner</p>
+                                    <p class="mb-1">Education : Graduate</p>
+                                    <p class="mb-1">Income : ₹5,00,000</p>
+                                    <p class="mb-1">Mobile : 9876543210</p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <div class="d-flex">
+
+                                <img src="/images/mother.jpg" class="parent-img me-3">
+
+                                <div>
+
+                                    <h6>Mother</h6>
+
+                                    <p class="mb-1">Name : Meena Sharma</p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- SIBLING -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Sibling Details</h5>
+
+                    <div class="row">
+
+                        <div class="col-md-3">
+                            <label>Name</label>
+                            <p>Riya Sharma</p>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label>Age</label>
+                            <p>10</p>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label>School</label>
+                            <p>XYZ School</p>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label>Standard</label>
+                            <p>5</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PREVIOUS EDUCATION -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Previous Education</h5>
+
+                    <div class="row">
+
+                        <div class="col-md-4">
+                            <label>School</label>
+                            <p>ABC School</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Board</label>
+                            <p>GSEB</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>Marks</label>
+                            <p>82%</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- MARKS CHART -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Subject Performance</h5>
+
+                    <canvas id="marksChart"></canvas>
+
+                </div>
+
+
+                <!-- TAB MARKS -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Exam Results</h5>
+
+                    <ul class="nav nav-tabs">
+
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#term1">Term 1</button>
+                        </li>
+
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#term2">Term 2</button>
+                        </li>
+
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#final">Final</button>
+                        </li>
+
+                    </ul>
+
+                    <div class="tab-content mt-3">
+
+                        <div class="tab-pane fade show active" id="term1">
+
+                            <table class="table table-bordered">
+
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Marks</th>
+                                    <th>Date</th>
+                                </tr>
+
+                                <tr>
+                                    <td>Math</td>
+                                    <td>85</td>
+                                    <td>12 Feb 2025</td>
+                                </tr>
+
+                                <tr>
+                                    <td>Science</td>
+                                    <td>78</td>
+                                    <td>12 Feb 2025</td>
+                                </tr>
+
+                                <tr>
+                                    <td>English</td>
+                                    <td>90</td>
+                                    <td>12 Feb 2025</td>
+                                </tr>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ATTENDANCE -->
+
+                <div class="card p-4 mb-4">
+
+                    <h5 class="section-title">Attendance - June 2025</h5>
+
+                    <div class="calendar">
+
+                        <div class="day present">1</div>
+                        <div class="day present">2</div>
+                        <div class="day absent">3</div>
+                        <div class="day present">4</div>
+                        <div class="day leave">5</div>
+                        <div class="day present">6</div>
+                        <div class="day present">7</div>
+
+                        <div class="day present">8</div>
+                        <div class="day present">9</div>
+                        <div class="day absent">10</div>
+                        <div class="day present">11</div>
+                        <div class="day present">12</div>
+                        <div class="day present">13</div>
+                        <div class="day leave">14</div>
+
+                    </div>
+
+                    <p class="mt-3">
+
+                        <span class="badge bg-success">Present</span>
+                        <span class="badge bg-danger">Absent</span>
+                        <span class="badge bg-warning text-dark">Leave</span>
+
+                    </p>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script>
+        new Chart(document.getElementById('marksChart'), {
+
+            type: 'bar',
+
+            data: {
+                labels: ['Math', 'Science', 'English', 'Gujarati', 'Social', 'Computer'],
+                datasets: [{
+                    label: 'Marks',
+                    data: [85, 78, 90, 80, 75, 88],
+                    backgroundColor: '#4e73df'
+                }]
+            },
+
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+            }
+
+        })
+
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>
