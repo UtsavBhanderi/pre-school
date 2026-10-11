@@ -1,12 +1,13 @@
 // import React, { useState, useEffect, useRef } from "react";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 
 
 const Fees = () => {
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   const [feesData, setFeesData] = useState([]);
   const [loadingFees, setLoadingFees] = useState(true);
