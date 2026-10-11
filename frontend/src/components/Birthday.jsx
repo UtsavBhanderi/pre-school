@@ -5,6 +5,7 @@ import React, {
   useCallback,
 } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import * as XLSX from "xlsx";
 import {
   FaBirthdayCake,
@@ -23,7 +24,7 @@ import {
 } from "react-icons/fa";
 
 
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
 
 // Default placeholder avatar shown when a student has no photo on file.
