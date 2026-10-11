@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 
 const AttendanceEntryPage = () => {
   const [students, setStudents] = useState([]);
@@ -12,7 +13,7 @@ const AttendanceEntryPage = () => {
   const [submittingAttendance, setSubmittingAttendance] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   // Fetch students based on selected standard
   useEffect(() => {
