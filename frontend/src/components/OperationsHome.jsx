@@ -6,7 +6,7 @@ import {
   MdArrowForward, MdFactCheck, MdCurrencyRupee, MdPersonAddAlt1,
   MdPeopleAlt, MdCalendarMonth, MdAssessment, MdPhotoLibrary,
   MdPictureAsPdf, MdVideoLibrary, MdSearch, MdHelpOutline,
-  MdOutlineTipsAndUpdates, MdOutlineSchool, MdOutlineChecklist, MdRefresh,
+  MdOutlineTipsAndUpdates, MdOutlineSchool, MdOutlineChecklist, MdRefresh, MdCampaign,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import "../operations.css";
@@ -51,6 +51,14 @@ const ACTIONS = [
     Icon: MdCalendarMonth,
     group: "Plan ahead",
     keywords: "event holiday function festival schedule date calendar",
+  },
+  {
+    title: "Share a school notice",
+    description: "Publish a reminder or update for teachers and staff.",
+    to: "/dashboard/notices",
+    Icon: MdCampaign,
+    group: "Plan ahead",
+    keywords: "notice announcement memo staff teacher reminder communication",
   },
   {
     title: "Prepare report cards",
