@@ -14,7 +14,7 @@ import Docxtemplater from "docxtemplater";
 import PizZipUtils from "pizzip/utils/index.js";
 import "./newStudentReg.css";
 
-const API_URL = "https://api.kidzeranursery.com";
+const API_URL = `http://localhost:5000`;
 
 const EMPTY_STUDENT = {
     studentPhoto: null,
