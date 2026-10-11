@@ -3,7 +3,7 @@ import axios from "axios";
 
 
 function TeacherBirthday() {
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
     const [teachers, setTeachers] = useState([]);
     const [filteredTeachers, setFilteredTeachers] = useState([]);
