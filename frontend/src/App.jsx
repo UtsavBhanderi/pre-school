@@ -30,6 +30,7 @@ import TeacherWorkReport from "./components/TeachersEntry.jsx";
 import AdminUsers from "./components/AdminUsers.jsx";
 import OperationsHome from "./components/OperationsHome.jsx";
 import HelpCenter from "./components/HelpCenter.jsx";
+import AnnouncementsPage from "./components/AnnouncementsPage.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -76,6 +77,7 @@ const App = () => (
           <Route index element={<Navigate to="/dashboard/home" replace />} />
           <Route path="home" element={<OperationsHome />} />
           <Route path="help" element={<HelpCenter />} />
+          <Route path="notices" element={<AnnouncementsPage />} />
           <Route path="feesOverview" element={<FeesOverviewPage />} />
           <Route path="attendanceOverview" element={<AttendancePage />} />
           <Route path="fees" element={<Fees />} />
