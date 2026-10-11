@@ -1,6 +1,6 @@
 import React from "react";
 import { MdFactCheck, MdOutlineChecklist, MdLockOutline, MdSupportAgent } from "react-icons/md";
-import "../../src/operations.css";
+import "../operations.css";
 
 const TEACHER_GUIDES = [
   {
