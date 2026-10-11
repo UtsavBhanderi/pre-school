@@ -289,3 +289,52 @@
 .ops-teacher-help-safety > svg { flex: 0 0 auto; margin-top: .1rem; color: #287450; font-size: 1.45rem; }
 .ops-teacher-help-safety strong { display: block; color: #27513e; font-size: .9rem; font-weight: 850; margin-bottom: .25rem; }
 .ops-teacher-help-safety p { color: #5c7869; font-size: .84rem; line-height: 1.65; margin: 0; }
+
+
+/* Staff notice board: high readability, careful status cues, mobile-safe forms. */
+.ops-notices-hero { margin-bottom: 1.25rem; }
+.ops-notice-compose, .ops-notice-list-section { min-width: 0; }
+.ops-notice-compose .ops-section-heading { align-items: center; }
+.ops-notice-compose .ops-section-heading p, .ops-notice-list-section .ops-section-heading p { color: #6a7890; font-size: .85rem; margin: .3rem 0 0; line-height: 1.55; }
+.ops-notice-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .95rem; align-items: start; }
+.ops-notice-field { min-width: 0; }
+.ops-notice-field .form-label { display: block; margin-bottom: .4rem; }
+.ops-notice-field small { display: block; margin-top: .35rem; color: #818da1; font-size: .74rem; }
+.ops-notice-title-field { grid-column: span 2; }
+.ops-notice-message-field { grid-column: 1 / -1; }
+.ops-notice-field textarea { resize: vertical; min-height: 115px; line-height: 1.65; }
+.ops-notice-list-section { margin-top: 1.4rem; }
+.ops-notice-search { display: flex; align-items: center; gap: .65rem; margin: .8rem 0 1rem; padding: .75rem .9rem; border: 1px solid #dce4f0; border-radius: 12px; background: white; color: #6d7c94; }
+.ops-notice-search > svg { flex: 0 0 auto; font-size: 1.25rem; }
+.ops-notice-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #1c2d49; }
+.ops-notice-search:focus-within { border-color: #8da1ee; box-shadow: 0 0 0 .2rem rgba(54,85,206,.1); }
+.ops-notice-list { display: grid; gap: .85rem; }
+.ops-notice-card { min-width: 0; padding: 1.15rem 1.2rem; border: 1px solid #dfe7f2; border-radius: 16px; background: white; box-shadow: 0 4px 16px rgba(27,48,87,.03); }
+.ops-notice-card.is-archived { background: #f7f8fb; opacity: .78; }
+.ops-notice-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.ops-notice-title-group { display: flex; align-items: center; flex-wrap: wrap; gap: .42rem; min-width: 0; }
+.ops-notice-title-group h4 { flex-basis: 100%; margin: .18rem 0 0; font-size: 1.02rem; line-height: 1.45; font-weight: 850; overflow-wrap: anywhere; }
+.ops-priority-pill, .ops-archived-pill { display: inline-flex; align-items: center; padding: .24rem .52rem; border-radius: 99px; font-size: .68rem; font-weight: 850; }
+.ops-priority-pill.priority-normal { color: #53657c; background: #eef2f7; }
+.ops-priority-pill.priority-important { color: #895e12; background: #fff2d9; }
+.ops-priority-pill.priority-urgent { color: #a42b3c; background: #ffe9ec; }
+.ops-archived-pill { color: #69768a; background: #e5e9f0; }
+.ops-notice-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; flex-shrink: 0; }
+.ops-notice-actions .btn { display: inline-flex; align-items: center; gap: .3rem; }
+.ops-notice-message { margin: .9rem 0 1rem; color: #455772; font-size: .9rem; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ops-notice-meta { display: flex; flex-wrap: wrap; gap: .55rem 1rem; padding-top: .75rem; border-top: 1px solid #edf1f7; color: #7b899d; font-size: .73rem; line-height: 1.5; }
+.ops-notice-meta > span { display: inline-flex; align-items: center; gap: .3rem; }
+.ops-notice-meta svg { font-size: .98rem; color: #7588bc; }
+@media (max-width: 900px) {
+  .ops-notice-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .ops-notice-form-grid { grid-template-columns: 1fr; }
+  .ops-notice-title-field, .ops-notice-message-field { grid-column: 1; }
+  .ops-notice-card { padding: .95rem; }
+  .ops-notice-card-top { flex-direction: column; }
+  .ops-notice-actions { justify-content: flex-start; }
+  .ops-notice-actions .btn { flex: 1; justify-content: center; }
+  .ops-notice-meta { display: grid; grid-template-columns: 1fr; }
+  .ops-notice-compose .ops-section-heading { align-items: flex-start; }
+}
