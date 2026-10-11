@@ -5,14 +5,14 @@ import {
   MdDashboard, MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
-  MdHomeRounded, MdHelpOutline,
+  MdHome, MdHelpOutline,
 } from "react-icons/md";
 
 const navigation = [
   {
     label: "GET STARTED",
     items: [
-      { to: "/dashboard/home", label: "Start here", icon: MdHomeRounded },
+      { to: "/dashboard/home", label: "Start here", icon: MdHome },
       { to: "/dashboard/feesOverview", label: "Fee overview", icon: MdDashboard },
     ],
   },
