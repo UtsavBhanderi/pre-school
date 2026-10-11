@@ -254,3 +254,26 @@
 @media (prefers-reduced-motion: reduce) {
   .ops-overview-tile { transition: none; }
 }
+
+
+/* Quick, visible feedback for a class attendance session. */
+.ops-attendance-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  margin: .9rem 0;
+  border: 1px solid #dce8df;
+  border-radius: 13px;
+  background: #f5fbf7;
+}
+.ops-attendance-toolbar > div { display: grid; gap: .2rem; min-width: 0; }
+.ops-attendance-toolbar strong { color: #27513e; font-size: .89rem; font-weight: 800; }
+.ops-attendance-toolbar span { color: #5c7869; font-size: .81rem; line-height: 1.55; }
+.ops-attendance-toolbar .btn { flex: 0 0 auto; }
+.admin-main-content input[type="radio"], .admin-main-content input[type="checkbox"] { accent-color: #3655ce; width: 17px; height: 17px; vertical-align: middle; cursor: pointer; }
+@media (max-width: 575.98px) {
+  .ops-attendance-toolbar { align-items: stretch; flex-direction: column; }
+  .ops-attendance-toolbar .btn { width: 100%; }
+}
