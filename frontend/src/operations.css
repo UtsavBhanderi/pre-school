@@ -277,3 +277,15 @@
   .ops-attendance-toolbar { align-items: stretch; flex-direction: column; }
   .ops-attendance-toolbar .btn { width: 100%; }
 }
+
+
+.ops-guide-heading-row { display: flex; align-items: center; gap: .85rem; padding: 1rem 1rem 0; }
+.ops-guide-heading-row .ops-guide-icon { flex-shrink: 0; }
+.ops-guide-heading-row .ops-guide-heading { display: grid; gap: .25rem; }
+.ops-guide-heading-row .ops-guide-heading strong { color: #1f3151; font-size: 1rem; font-weight: 850; }
+.ops-guide-heading-row .ops-guide-heading span { color: #65758f; font-size: .84rem; line-height: 1.5; }
+.ops-teacher-guide-card .ops-guide-content { padding-top: .9rem; }
+.ops-teacher-help-safety { display: flex; align-items: flex-start; gap: .9rem; margin-top: 1.1rem; padding: 1.1rem 1.2rem; border: 1px solid #dce8df; border-radius: 15px; background: #f5fbf7; }
+.ops-teacher-help-safety > svg { flex: 0 0 auto; margin-top: .1rem; color: #287450; font-size: 1.45rem; }
+.ops-teacher-help-safety strong { display: block; color: #27513e; font-size: .9rem; font-weight: 850; margin-bottom: .25rem; }
+.ops-teacher-help-safety p { color: #5c7869; font-size: .84rem; line-height: 1.65; margin: 0; }
