@@ -25,6 +25,13 @@ const parseDateOnly = (value) => {
     ? date
     : null;
 };
+ 
+const parseDateInput = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(text)) return parseDateOnly(text);
+  return toDate(text);
+};
 const toDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -95,7 +102,7 @@ router.get('/attendances', async (req, res) => {
     const filter = {};
 
     if (date) {
-      const parsedDate = toDate(date);
+      const parsedDate = parseDateInput(date);
       if (!parsedDate) return res.status(400).json({ message: 'Invalid attendance date.' });
       const dayStart = new Date(parsedDate);
       dayStart.setUTCHours(0, 0, 0, 0);
@@ -139,7 +146,7 @@ router.get('/attendances', async (req, res) => {
 
 router.post('/attendance', async (req, res) => {
   try {
-    const inputDate = toDate(req.body.date);
+    const inputDate = parseDateInput(req.body.date);
     const studentDetails = req.body.studentDetails;
 
     if (!inputDate) return res.status(400).json({ message: 'A valid attendance date is required.' });
