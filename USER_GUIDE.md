@@ -11,8 +11,9 @@ After signing in, open **Start here** in the left menu. It is a launchpad for th
 1. Open **Take attendance**.
 2. Select the correct date and class.
 3. Mark each child present or absent. Add a reason for an absence when asked.
+4. If attendance has already been saved for that date, the saved statuses load automatically. Correct what needs changing and save again; existing entries are updated instead of duplicated.
 4. Check the class and date once more.
-5. Save and wait for the confirmation message.
+5. Save and wait for the confirmation message. If you change the class or date after making unsaved changes, the screen asks before discarding them.
 
 ## Register a child
 
