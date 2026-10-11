@@ -7,7 +7,7 @@ import axios from "axios";
 
 const StudentAttendance = () => {
   //   const [date, setDate] = useState('');
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
   const [date, setDate] = useState(() => {
     // Initialize with today's date in YYYY-MM-DD format
