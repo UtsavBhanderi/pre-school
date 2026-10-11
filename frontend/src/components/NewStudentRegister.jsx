@@ -6,6 +6,7 @@ import React, {
     useState,
 } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { Modal } from "bootstrap";
 import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
@@ -14,7 +15,7 @@ import Docxtemplater from "docxtemplater";
 import PizZipUtils from "pizzip/utils/index.js";
 import "./NewStudentReg.css";
 
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+const API_URL = API_BASE_URL;
 
 const EMPTY_STUDENT = {
     studentPhoto: null,
