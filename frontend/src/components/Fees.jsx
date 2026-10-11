@@ -5,21 +5,11 @@ import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 
 
-const standardFees = {
-  "ENG Play Group": 19900,
-  "ENG NR.": 19900,
-  "ENG JR.": 20900,
-  "ENG SR.": 20900,
-  "GUJ Play Group": 14500,
-  "GUJ NR.": 14500,
-  "GUJ JR.": 15000,
-  "GUJ SR.": 15000,
-};
-
 const Fees = () => {
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [feesData, setFeesData] = useState([]);
+  const [standardFees, setStandardFees] = useState({});
   const [formData, setFormData] = useState({
     studentName: "",
     studentPhoneNumber: "",
@@ -36,13 +26,22 @@ const Fees = () => {
 
   useEffect(() => {
     fetchFeesData();
+    fetchStandardFees();
   }, []);
+
+  const fetchStandardFees = async () => {
+    try {
+      const response = await axios.get(`${linkone}/api/fees/standard-fees`);
+      setStandardFees(response.data || {});
+    } catch (error) {
+      console.error("Unable to load standard fees:", error);
+    }
+  };
 
   const fetchFeesData = async () => {
     try {
-      // const response = await axios.get(`https://kidzera.vedantclasses.org.in/api/fees/all`);
       const response = await axios.get(`${linkone}/api/fees/all`);
-      setFeesData(response.data);
+      setFeesData(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Error fetching fees data:", error);
     }
@@ -71,12 +70,10 @@ const Fees = () => {
     try {
       if (editMode) {
         await axios.put(
-          // `https://kidzera.vedantclasses.org.in/api/fees/update/${editId}`,
           `${linkone}/api/fees/update/${editId}`,
           formData
         );
       } else {
-        // await axios.post(`https://kidzera.vedantclasses.org.in/api/fees/create`, formData);
         await axios.post(`${linkone}/api/fees/create`, formData);
       }
       fetchFeesData();
@@ -113,18 +110,14 @@ const Fees = () => {
   };
 
   const confirmDelete = async () => {
-    const password = prompt("Enter password to delete:");
-    if (password === "123") {
-      try {
-        // await axios.delete(`https://kidzera.vedantclasses.org.in/api/fees/delete/${deleteId}`);
-        await axios.delete(`${linkone}/api/fees/delete/${deleteId}`);
-        fetchFeesData();
-        setDeleteId(null);
-      } catch (error) {
-        console.error("Error deleting fees record:", error);
-      }
-    } else {
-      alert("Incorrect password");
+    if (!deleteId) return;
+    try {
+      await axios.delete(`${linkone}/api/fees/delete/${deleteId}`);
+      await fetchFeesData();
+      setDeleteId(null);
+    } catch (error) {
+      console.error("Unable to delete fee record:", error);
+      alert(error.response?.data?.message || "Unable to delete fee record.");
     }
   };
 
@@ -144,7 +137,7 @@ const Fees = () => {
 
   const addPaymentDetail = () => {
     const newPaymentDetail = {
-      date: new Date().toLocaleDateString(),
+      date: (() => { const now = new Date(); return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`; })(),
       time: new Date().toLocaleTimeString(),
       amount: 0,
     };
@@ -180,9 +173,9 @@ const Fees = () => {
   // const filteredfeesData = feesData;
   const filteredfeesData = feesData.filter(
     (pdf) =>
-      pdf.stuNo.includes(filter.stuNo) &&
-      pdf.studentName.includes(filter.studentName) &&
-      pdf.standard.includes(filter.standard)
+      String(pdf.stuNo ?? "").includes(filter.stuNo) &&
+      String(pdf.studentName ?? "").toLowerCase().includes(filter.studentName.toLowerCase()) &&
+      String(pdf.standard ?? "").includes(filter.standard)
   );
 
   const [selectedStudents, setSelectedStudents] = useState([]);

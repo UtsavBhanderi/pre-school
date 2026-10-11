@@ -1,283 +1,67 @@
+'use strict';
+
 const express = require('express');
-const router = express.Router();
-const Fees = require('../models/Fee');
-const axios = require('axios');
-//const puppeteer = require('puppeteer');
-const puppeteer = require('puppeteer-core');
-const fs = require('fs');
-const path = require('path');
+const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
+const Fees = require('../models/Fee');
+const { STANDARD_FEES } = require('../config/standardFees');
+const { asAmount, calculateRemaining } = require('../utils/feeMath');
 
-const dotenv = require('dotenv');
-dotenv.config();// Load environment variables from .env file
+const router = express.Router();
 
-async function loadSessionData(page) {
-  const cookiesPath = path.resolve(__dirname, 'cookies.json');
-  const localStoragePath = path.resolve(__dirname, 'localStorage.json');
+const formatPaymentMessage = (fee) => {
+  const lastPayment = Array.isArray(fee.paymentDetails) && fee.paymentDetails.length
+    ? fee.paymentDetails[fee.paymentDetails.length - 1]
+    : null;
 
-  // Load cookies
-  if (fs.existsSync(cookiesPath)) {
-    const cookies = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'));
-    await page.setCookie(...cookies);
-    console.log('Cookies loaded.');
-  }
-
-  // Load local storage
-  if (fs.existsSync(localStoragePath)) {
-    const localStorageData = JSON.parse(fs.readFileSync(localStoragePath, 'utf-8'));
-    await page.evaluate((data) => {
-      for (let key in data) {
-        localStorage.setItem(key, data[key]);
-      }
-    }, localStorageData);
-    console.log('Local storage data loaded.');
-  }
-}
-
-async function sendSMS(phoneNumber, message) {
-  let browser;
-  // "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
-
-  try {
-    browser = await puppeteer.launch({
-      headless: false, // Show the browser for debugging purposes
-      // executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', // Path to Chrome executable
-      executablePath: 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', // Path to Chrome executable
-      userDataDir: path.resolve(__dirname, 'user_data'), // Specify a directory to store session data
-      args: ['--remote-debugging-port=9222'],
-    });
-    // browser = await puppeteer.launch({
-    //   headless: true, // Run in headless mode for production
-    //   executablePath: '/usr/bin/chromium-browser', // Path to Chromium executable
-    //   // executablePath: 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', // Path to Chromium executable
-    //   userDataDir: path.resolve(__dirname, 'user_data'), // Specify a directory to store session data
-    //   // args: ['--remote-debugging-port=9222'],
-
-    //   args: ['--no-sandbox', '--disable-setuid-sandbox'], // Necessary flags for running as root or in Docker
-    // });
-
-    // //------------- open new window then scan QR then message will send
-    // browser = await puppeteer.launch({ headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-
-    // const page = await browser.newPage();
-    // await page.goto('https://messages.google.com/web/', { waitUntil: 'networkidle2' });
-    // //-------------------------------
-    // // -------------------
-    const pages = await browser.pages();
-    let page = pages.find(p => p.url().includes('messages.google.com/web'));
-
-    if (!page) {
-      page = await browser.newPage();
-      await page.goto('https://messages.google.com/web/');
-      console.log('Navigating to Google Messages Web.');
-
-      // Load session data
-      await loadSessionData(page);
-
-      // Ensure the page is fully loaded
-      // await page.waitForSelector('mw-fab-link[label="Start chat"]', { timeout: 10000 });
-      await page.waitForSelector('a[queryparamshandling="merge"]');
-      console.log('Loaded Google Messages Web with session data.');
-    } else {
-      console.log('Using existing Google Messages Web page.');
-    }
-    // // -------------------
-    console.log('Page loaded, waiting for QR code to be scanned...');
-
-    // await page.waitForSelector('mw-fab-link[label="Start chat"]',{ timeout: 6000 });
-    await page.waitForSelector('a[queryparamshandling="merge"]');
-    console.log('QR code scanned, starting new conversation...');
-
-    // Click on "New conversation"
-    // await page.click('mw-fab-link[label="Start chat"]');
-    await page.click('a[queryparamshandling="merge"]');
-    console.log("done button clicked");
-
-    await page.waitForSelector('mw-fab-link[label="Start chat"]', { timeout: 4000 });
-    await page.click('mw-fab-link[label="Start chat"]');
-
-    // Wait for the input to appear and type the phone number
-    await page.waitForSelector('input[type="text"]', { visible: true });
-    console.log('New conversation button clicked, input field found.');
-
-    await page.type('input[type="text"]', phoneNumber).then(
-      await page.keyboard.press('Enter')
-    );
-    await page.keyboard.press('Enter');
-    console.log('Phone number entered.');
-
-    // await page.waitForTimeout(2000);
-    // await page.type('input[type="text"]', phoneNumber, { delay: 100 });
-    // await page.keyboard.press('Enter');
-    // console.log('Phone number entered, waiting for message input...');
-
-    // Wait for the message input to appear and type the message
-    await page.waitForSelector('textarea[class="input"]', { visible: true });
-    console.log('Message input field found.');
-
-    // Split the message by \n and type each part, followed by Shift+Enter for new line
-    const messageLines = message.split('\n');
-    for (const line of messageLines) {
-      await page.type('textarea[class="input"]', line);
-      await page.keyboard.down('Shift');
-      await page.keyboard.press('Enter');
-      await page.keyboard.up('Shift');
-    }
-    await page.keyboard.press('Enter');
-
-    // // await page.type('div[aria-label="Message"]', message);
-    // await page.type('textarea[class="input"]', message);
-    await page.keyboard.press('Enter');
-  } catch (error) {
-    console.error('Error sending SMS:', error);
-    throw error; // Propagate the error to the caller
-  }
-  finally {
-    if (browser) {
-      // await browser.disconnect();
-      await browser.close();
-    }
-  }
-}
-
-async function sendEmail(email, message) {
-  // Validate input
-  if (!email) {
-    return res.status(400).send('Name and email are required');
-  }
-
-  // Read the email template
-  fs.readFile(path.join(__dirname, '../views', 'email.html'), 'utf8', (err, data) => {
-    if (err) {
-      // return res.status(500).send('Error reading email template.');
-      console.log(err);
-      return ('Error reading email template.');
-    }
-    const htmlContent = data.replace('{{message}}', message);
-
-    // Render the email template with the message
-    // const htmlContent = await ejs.renderFile(path.join(__dirname, 'views', 'email.html'), { message });
-    // Set up transporter with your email provider's settings
-    let transporter = nodemailer.createTransport({
-      service: 'gmail',
-      // port: 465,
-      // secure: true,
-      // secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-
-    // Set up email options
-    let mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'KidzEra Fees alert',
-      // text: message
-      html: htmlContent,
-    }
-    return transporter.sendMail(mailOptions);
-  })
-}
-
-const EmailMessage = (fees) => {
-  const remainingFees = fees.totalStandardFees - fees.totalFeesPaid;
-  const lastPaymentDetail = fees.paymentDetails[fees.paymentDetails.length - 1];
-  return `Student Name: ${fees.studentName}<br />
-  GR No.: ${fees.stuNo}<br />
-  Standard: ${fees.standard}<br />
-  Standard Fees: ${fees.totalStandardFees}<br />
-  Date: ${new Date().toLocaleDateString()}<br />
-  Time: ${new Date().toLocaleTimeString()}<br />
-  Current Fees Paid: ${lastPaymentDetail.amount}<br />
-  Total Fees Paid: ${fees.totalFeesPaid}<br />
-  Total Remaining Fees: ${remainingFees}`;
-};
-// Function to format the message
-const SMSMessage = (fees) => {
-  const remainingFees = fees.totalStandardFees - fees.totalFeesPaid;
-  const lastPaymentDetail = fees.paymentDetails[fees.paymentDetails.length - 1];
-  return `Student Name: ${fees.studentName}\nGR No.: ${fees.stuNo}\nStandard: ${fees.standard}\nStandard Fees: ${fees.totalStandardFees}\nDate: ${new Date().toLocaleDateString()}\nTime: ${new Date().toLocaleTimeString()}\nCurrent Fees Paid: ${lastPaymentDetail.amount}\nTotal Fees Paid: ${fees.totalFeesPaid}\nTotal Remaining Fees: ${remainingFees}`;
+  return [
+    `Student: ${fee.studentName || 'N/A'}`,
+    `GR No.: ${fee.stuNo || 'N/A'}`,
+    `Standard: ${fee.standard || 'N/A'}`,
+    `Standard fees: ₹${asAmount(fee.totalStandardFees)}`,
+    `Latest payment: ₹${asAmount(lastPayment?.amount)}`,
+    `Total paid: ₹${asAmount(fee.totalFeesPaid)}`,
+    `Discount: ₹${asAmount(fee.discount)}`,
+    `Remaining: ₹${calculateRemaining(fee.totalStandardFees, fee.totalFeesPaid, fee.discount)}`,
+  ].join('\n');
 };
 
-// Get all fees
-router.get('/all', async (req, res) => {
-  try {
-    const fees = await Fees.find();
-    res.json(fees);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+async function sendFeeEmail(fee) {
+  if (!fee?.parentEmail || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    return false;
   }
-});
 
-// Create new fees record
-router.post('/create', async (req, res) => {
-  const newFees = new Fees(req.body);
-  try {
-    const savedFees = await newFees.save();
-    const message = formatMessage(savedFees);
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+  });
 
-    // Send WhatsApp messages
-    // await sendWhatsAppMessage(savedFees.studentPhoneNumber, message);
-    // await sendWhatsAppMessage('+91 7990094848', message); // Replace with your phone number (YOUR_PHONE_NUMBER)
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: fee.parentEmail,
+    subject: 'Pre-School fee payment update',
+    text: formatPaymentMessage(fee),
+  });
+  return true;
+}
 
-    res.json(savedFees);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+const sumPaymentDetails = (details) =>
+  (Array.isArray(details) ? details : []).reduce((sum, detail) => sum + asAmount(detail?.amount), 0);
 
-// Update fees record
-router.put('/update/:id', async (req, res) => {
-  try {
-    const updatedFees = await Fees.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    // const message = formatMessage(updatedFees);
-
-    const Email = EmailMessage(updatedFees);
-    const SMS = SMSMessage(updatedFees);
-
-    // console.log(message, " message fees route");
-    // Send WhatsApp messages
-    // await sendWhatsAppMessage(updatedFees.studentPhoneNumber, message);
-    // console.log(sendWhatsAppMessage , " sendWhatsAppMessage 1");
-
-    // await sendWhatsAppMessage('+91 7990094848', message); // Replace with your phone number (YOUR_PHONE_NUMBER)
-    // await sendSMS('9586049783', message);
-    // await sendSMS('9925602108', message);
-
-    // await sendSMS(updatedFees.studentPhoneNumber, SMS);
-    await sendEmail(updatedFees.parentEmail, Email);
-
-    res.json(updatedFees);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Delete fees record
-router.delete('/delete/:id', async (req, res) => {
-  try {
-    await Fees.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Fees record deleted' });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-
-// Helper functions for date ranges
 const getDateRange = (daysOffset = 0) => {
   const date = new Date();
   date.setDate(date.getDate() + daysOffset);
-  const start = new Date(date.setHours(0, 0, 0, 0));
-  const end = new Date(date.setHours(23, 59, 59, 999));
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
   return { start, end };
 };
 
 const getWeekRange = (weekOffset = 0) => {
   const date = new Date();
-  const start = new Date(date.setDate(date.getDate() - date.getDay() + 7 * weekOffset));
+  date.setDate(date.getDate() - date.getDay() + 7 * weekOffset);
+  const start = new Date(date);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
@@ -286,33 +70,33 @@ const getWeekRange = (weekOffset = 0) => {
 };
 
 const getMonthRange = (monthOffset = 0) => {
-  const date = new Date();
-  const start = new Date(date.getFullYear(), date.getMonth() + monthOffset, 1);
-  const end = new Date(date.getFullYear(), date.getMonth() + 1 + monthOffset, 0);
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0);
   end.setHours(23, 59, 59, 999);
   return { start, end };
 };
 
-/// latest
-// Aggregate payments based on date range
 const aggregatePayments = async (start, end) => {
-  const result = await Fees.aggregate([
+  const [summary] = await Fees.aggregate([
     { $unwind: '$paymentDetails' },
     {
       $project: {
-        studentName: '$studentName',
-        // discount: '$discount',
-        stuNo: "$stuNo",
-        standard: "$standard",
+        studentName: 1,
+        stuNo: 1,
+        standard: 1,
+        discount: { $ifNull: ['$discount', 0] },
+        totalStandardFees: { $ifNull: ['$totalStandardFees', 0] },
         paymentDetails: {
           date: {
             $dateFromString: {
-              dateString: '$paymentDetails.date',
-              // format: '%m/%d/%Y', // Assuming "M/DD/YYYY" format
-              // format: '%d/%m/%Y', // Assuming "M/DD/YYYY" format
+              dateString: { $toString: '$paymentDetails.date' },
+              format: '%m/%d/%Y',
+              onError: null,
+              onNull: null,
             },
           },
-          amount: '$paymentDetails.amount',
+          amount: { $convert: { input: '$paymentDetails.amount', to: 'double', onError: 0, onNull: 0 } },
         },
       },
     },
@@ -320,144 +104,218 @@ const aggregatePayments = async (start, end) => {
     {
       $group: {
         _id: null,
-        // _id: "$standard", 
         totalPaid: { $sum: '$paymentDetails.amount' },
         totalDiscount: { $sum: '$discount' },
         students: {
           $push: {
             studentName: '$studentName',
             discount: '$discount',
-            stuNo: "$stuNo",
-            amount: "$paymentDetails.amount",
-            standard: "$standard",
-            paymentDate: "$paymentDetails.date"
-          }
-        }
-      }
+            stuNo: '$stuNo',
+            amount: '$paymentDetails.amount',
+            totalPaid: '$paymentDetails.amount',
+            totalStandardFees: '$totalStandardFees',
+            standard: '$standard',
+            paymentDate: '$paymentDetails.date',
+          },
+        },
+      },
     },
   ]);
 
-  // return result.length > 0 ? result[0].totalPaid : 0;
-  return result.length > 0 ? result[0] : 0;
+  return summary || { totalPaid: 0, totalDiscount: 0, students: [] };
 };
 
-// Route for fetching fees collection data including standard-wise, today's, this week's, and this month's collection
+// Fee schedule endpoint keeps the frontend form in sync with the server-side schedule.
+router.get('/standard-fees', (req, res) => res.json(STANDARD_FEES));
+
+router.get('/all', async (req, res) => {
+  try {
+    const fees = await Fees.find().sort({ studentName: 1 }).lean();
+    return res.json(fees);
+  } catch (error) {
+    console.error('Failed to fetch fee records:', error);
+    return res.status(500).json({ message: 'Unable to fetch fee records.' });
+  }
+});
+
+router.post('/create', async (req, res) => {
+  try {
+    const totalStandardFees = asAmount(req.body.totalStandardFees);
+    const discount = asAmount(req.body.discount);
+    const paymentDetails = Array.isArray(req.body.paymentDetails) ? req.body.paymentDetails : [];
+    const totalFeesPaid = paymentDetails.length
+      ? sumPaymentDetails(paymentDetails)
+      : asAmount(req.body.totalFeesPaid);
+
+    const fee = await Fees.create({
+      ...req.body,
+      totalStandardFees,
+      totalFeesPaid,
+      discount,
+      paymentDetails,
+      totalFeesRemaining: calculateRemaining(totalStandardFees, totalFeesPaid, discount),
+    });
+    return res.status(201).json(fee);
+  } catch (error) {
+    console.error('Failed to create fee record:', error);
+    return res.status(400).json({ message: 'Unable to create fee record.' });
+  }
+});
+
+router.put('/update/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid fee record ID.' });
+    }
+
+    const existing = await Fees.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Fee record not found.' });
+
+    const paymentDetails = Array.isArray(req.body.paymentDetails)
+      ? req.body.paymentDetails
+      : existing.paymentDetails;
+    const totalStandardFees = asAmount(req.body.totalStandardFees, asAmount(existing.totalStandardFees));
+    const discount = asAmount(req.body.discount, asAmount(existing.discount));
+    const totalFeesPaid = Array.isArray(req.body.paymentDetails)
+      ? sumPaymentDetails(paymentDetails)
+      : asAmount(req.body.totalFeesPaid, asAmount(existing.totalFeesPaid));
+
+    const { _id, __v, ...payload } = req.body;
+    const updates = {
+      ...payload,
+      paymentDetails,
+      totalStandardFees,
+      totalFeesPaid,
+      discount,
+      totalFeesRemaining: calculateRemaining(totalStandardFees, totalFeesPaid, discount),
+    };
+
+    const updatedFees = await Fees.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    // Do not fail a valid fee update because the optional email integration is unavailable.
+    if (totalFeesPaid > asAmount(existing.totalFeesPaid)) {
+      try {
+        await sendFeeEmail(updatedFees);
+      } catch (emailError) {
+        console.error('Fee record saved, but email notification failed:', emailError.message);
+      }
+    }
+
+    return res.json(updatedFees);
+  } catch (error) {
+    console.error('Failed to update fee record:', error);
+    return res.status(400).json({ message: 'Unable to update fee record.' });
+  }
+});
+
+router.delete('/delete/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid fee record ID.' });
+    }
+    const deleted = await Fees.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Fee record not found.' });
+    return res.json({ message: 'Fee record deleted.' });
+  } catch (error) {
+    console.error('Failed to delete fee record:', error);
+    return res.status(500).json({ message: 'Unable to delete fee record.' });
+  }
+});
+
 router.get('/fees-collection-data', async (req, res) => {
   try {
-    // Date range calculations
-    const { start: todayStart, end: todayEnd } = getDateRange();
-    const { start: yesterdayStart, end: yesterdayEnd } = getDateRange(-1);
-    const { start: weekStart, end: weekEnd } = getWeekRange();
-    const { start: prevWeekStart, end: prevWeekEnd } = getWeekRange(-1);
-    const { start: monthStart, end: monthEnd } = getMonthRange();
-    const { start: prevMonthStart, end: prevMonthEnd } = getMonthRange(-1);
+    const today = await aggregatePayments(...Object.values(getDateRange()));
+    const yesterday = await aggregatePayments(...Object.values(getDateRange(-1)));
+    const thisWeek = await aggregatePayments(...Object.values(getWeekRange()));
+    const prevWeek = await aggregatePayments(...Object.values(getWeekRange(-1)));
+    const thisMonth = await aggregatePayments(...Object.values(getMonthRange()));
+    const prevMonth = await aggregatePayments(...Object.values(getMonthRange(-1)));
 
-    // Get total fees for each date range
-    const todayFees = await aggregatePayments(todayStart, todayEnd);
-    const yesterdayFees = await aggregatePayments(yesterdayStart, yesterdayEnd);
-    const thisWeekFees = await aggregatePayments(weekStart, weekEnd);
-    const prevWeekFees = await aggregatePayments(prevWeekStart, prevWeekEnd);
-    const thisMonthFees = await aggregatePayments(monthStart, monthEnd);
-    const prevMonthFees = await aggregatePayments(prevMonthStart, prevMonthEnd);
-
-
-    // Standard-wise collection
-    const standardWiseCollection = await Fees.aggregate([
+    const standardWise = await Fees.aggregate([
       {
         $group: {
-          _id: "$standard",  // Group by standard
-          totalPaid: { $sum: "$totalFeesPaid" },
-          totalDiscount: { $sum: "$discount" },
-          totalStandardFees: { $sum: "$totalStandardFees" },
+          _id: '$standard',
+          totalPaid: { $sum: { $ifNull: ['$totalFeesPaid', 0] } },
+          totalDiscount: { $sum: { $ifNull: ['$discount', 0] } },
+          totalStandardFees: { $sum: { $ifNull: ['$totalStandardFees', 0] } },
           students: {
             $push: {
-              studentName: "$studentName",
-              rollNo: "$stuNo",
-              totalPaid: "$totalFeesPaid",
-              totalDiscount: "$discount",
-              paymentDetails: "$paymentDetails"
-            }
-          }
-        }
-      }
+              studentName: '$studentName',
+              stuNo: '$stuNo',
+              standard: '$standard',
+              totalPaid: { $ifNull: ['$totalFeesPaid', 0] },
+              totalFeesPaid: { $ifNull: ['$totalFeesPaid', 0] },
+              totalStandardFees: { $ifNull: ['$totalStandardFees', 0] },
+              discount: { $ifNull: ['$discount', 0] },
+              totalDiscount: { $ifNull: ['$discount', 0] },
+              paymentDetails: { $ifNull: ['$paymentDetails', []] },
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
     ]);
 
-   // Example for today's collection
-    // const today = new Date().toLocaleDateString("en-US");  // Format as M/DD/YYYY
-    // const todayCollection = await Fees.aggregate([
-    //   { $unwind: "$paymentDetails" },
-    //   {
-    //     $match: {
-    //       "paymentDetails.date": today
-    //     }
-    //   },
-    //   {
-    //     $group: {
-    //       _id: null,
-    //       totalPaid: { $sum: "$paymentDetails.amount" },
-    //       students: {
-    //         $push: {
-    //           studentName: "$studentName",
-    //           rollNo: "$stuNo",
-    //           amount: "$paymentDetails.amount",
-    //           standard: "$standard",
-    //           paymentDate: "$paymentDetails.date"
-    //         }
-    //       }
-    //     }
-    //   }
-    // ]);
-    // console.log(todayCollection);
-
-    // res.json({
-    // today: todayFees,
-    // standardWise: standardWiseFees,
-    // });
-
-    res.json({
-      today: todayFees,
-      yesterday: yesterdayFees,
-      thisWeek: thisWeekFees,
-      prevWeek: prevWeekFees,
-      thisMonth: thisMonthFees,
-      prevMonth: prevMonthFees,
-      // standardWise: standardWiseFees,
-      standardWise: standardWiseCollection,
-      // today: todayCollection[0]?.totalPaid || 0,
-      // todayStudents: todayCollection[0]?.students || []
-    });
-    
+    return res.json({ today, yesterday, thisWeek, prevWeek, thisMonth, prevMonth, standardWise });
   } catch (error) {
-    console.error('Error fetching fees data:', error);
-    res.status(500).send('Server error');
+    console.error('Failed to calculate fee collection overview:', error);
+    return res.status(500).json({ message: 'Unable to calculate fee collection overview.' });
   }
 });
 
 router.get('/fees-by-date', async (req, res) => {
-  const { date } = req.query; // Assume date is in 'MM/DD/YYYY' format
+  const value = String(req.query.date || '').trim();
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) {
+    return res.status(400).json({ message: 'Payment date must be in MM/DD/YYYY format.' });
+  }
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const start = new Date(year, month - 1, day);
+  if (start.getFullYear() !== year || start.getMonth() !== month - 1 || start.getDate() !== day) {
+    return res.status(400).json({ message: 'Invalid payment date.' });
+  }
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
   try {
     const fees = await Fees.aggregate([
       { $unwind: '$paymentDetails' },
       {
-        $match: {
-          'paymentDetails.date': date,
+        $addFields: {
+          parsedPaymentDate: {
+            $dateFromString: {
+              dateString: { $toString: '$paymentDetails.date' },
+              format: '%m/%d/%Y',
+              onError: null,
+              onNull: null,
+            },
+          },
         },
       },
+      { $match: { parsedPaymentDate: { $gte: start, $lt: end } } },
       {
         $project: {
           studentName: 1,
           standard: 1,
-          // stuNO: 1,
-          rollNo: "$stuNo",
-          totalPaid: '$paymentDetails.amount',
-          totalDiscount: '$discount',
+          rollNo: '$stuNo',
+          totalPaid: { $ifNull: ['$paymentDetails.amount', 0] },
+          totalDiscount: { $ifNull: ['$discount', 0] },
+          paymentDate: '$parsedPaymentDate',
         },
       },
     ]);
-    res.json(fees);
+    return res.json(fees);
   } catch (error) {
-    console.error('Error fetching date-specific fees:', error);
-    res.status(500).send('Server error');
+    console.error('Failed to fetch date-specific fee collection:', error);
+    return res.status(500).json({ message: 'Unable to fetch fee collection for this date.' });
   }
 });
 
@@ -467,27 +325,28 @@ router.get('/fees-month-collection', async (req, res) => {
       { $unwind: '$paymentDetails' },
       {
         $project: {
-          month: { $month: { $dateFromString: { dateString: '$paymentDetails.date', format: '%m/%d/%Y' } } },
-          amount: '$paymentDetails.amount',
+          month: {
+            $month: {
+              $dateFromString: {
+                dateString: { $toString: '$paymentDetails.date' },
+                format: '%m/%d/%Y',
+                onError: null,
+                onNull: null,
+              },
+            },
+          },
+          amount: { $convert: { input: '$paymentDetails.amount', to: 'double', onError: 0, onNull: 0 } },
         },
       },
-      {
-        $group: {
-          _id: '$month',
-          totalCollection: { $sum: '$paymentDetails.amount' },
-         },
-      },
-      {
-        $sort: { _id: 1 } // Sorting by month number (Jan = 1, Feb = 2, etc.)
-      },
+      { $match: { month: { $ne: null } } },
+      { $group: { _id: '$month', totalCollection: { $sum: '$amount' } } },
+      { $sort: { _id: 1 } },
     ]);
-
-    res.json(monthsData);
+    return res.json(monthsData);
   } catch (error) {
-    console.error('Error fetching month collection data:', error);
-    res.status(500).send('Server error');
+    console.error('Failed to fetch monthly fee collection:', error);
+    return res.status(500).json({ message: 'Unable to fetch monthly fee collection.' });
   }
 });
-
 
 module.exports = router;

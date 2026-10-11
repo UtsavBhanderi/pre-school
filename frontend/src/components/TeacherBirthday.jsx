@@ -3,7 +3,7 @@ import axios from "axios";
 
 
 function TeacherBirthday() {
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
     const [teachers, setTeachers] = useState([]);
     const [filteredTeachers, setFilteredTeachers] = useState([]);
@@ -43,30 +43,34 @@ function TeacherBirthday() {
   
       if (filters.date || filters.dob) {
         const { start, end } = getStartAndEndDates(filters.date || filters.dob);
-        filtered = filtered.filter(teacher => {
-            const customDate = new Date(teacher.dob);
-            // Compare only month and date, ignore the year
-            return (
-                (customDate.getMonth() > start.getMonth() || 
-                (customDate.getMonth() === start.getMonth() && customDate.getDate() >= start.getDate())) &&
-                (customDate.getMonth() < end.getMonth() || 
-                (customDate.getMonth() === end.getMonth() && customDate.getDate() <= end.getDate()))
-            );
+        filtered = filtered.filter((teacher) => {
+            const birthday = new Date(teacher.dob);
+            if (!teacher.dob || Number.isNaN(birthday.getTime())) return false;
+
+            // Compare recurring birthdays by month/day, including ranges crossing
+            // December to January.
+            const birthdayKey = (birthday.getMonth() + 1) * 100 + birthday.getDate();
+            const startKey = (start.getMonth() + 1) * 100 + start.getDate();
+            const endKey = (end.getMonth() + 1) * 100 + end.getDate();
+
+            return startKey <= endKey
+                ? birthdayKey >= startKey && birthdayKey <= endKey
+                : birthdayKey >= startKey || birthdayKey <= endKey;
         });
     }
   
       if (filters.middleName) {
           filtered = filtered.filter(teacher =>
-              teacher.middleName.toLowerCase().includes(filters.middleName.toLowerCase())
+              String(teacher.middleName || '').toLowerCase().includes(filters.middleName.toLowerCase())
           );
       }
   
       if (filters.standard) {
-          filtered = filtered.filter(teacher => teacher.standard === filters.standard);
+          filtered = filtered.filter(teacher => String(teacher.standard || '') === filters.standard);
       }
   
       if (filters.GR_No) {
-          filtered = filtered.filter(teacher => teacher.GR_No === filters.GR_No);
+          filtered = filtered.filter(teacher => String(teacher.GR_No || '') === filters.GR_No);
       }
   
       setFilteredTeachers(filtered);

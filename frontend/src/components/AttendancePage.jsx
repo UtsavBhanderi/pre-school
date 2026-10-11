@@ -9,15 +9,14 @@ const AttendancePage = () => {
   const [middleName, setMiddleName] = useState("");
   const [stuNo, setStuNo] = useState("");
   const [status, setStatus] = useState("");
-  const [reason, setReason] = useState("");
   const [statistics, setStatistics] = useState({ present: 0, absent: 0 });
   const [editingStatus, setEditingStatus] = useState({});
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   // Fetch attendance data on mount and when date or standard changes
   useEffect(() => {
     fetchAttendance();
-  }, [date, standard, middleName, stuNo, status, reason]);
+  }, [date, standard, middleName, stuNo, status]);
 
   // Fetch attendance records with optional date and standard filters
   const fetchAttendance = async () => {
@@ -28,7 +27,6 @@ const AttendancePage = () => {
       if (middleName) params.middleName = middleName;
       if (stuNo) params.stuNo = stuNo;
       if (status) params.status = status;
-      if (reason) params.reason = reason;
 
       const response = await axios.get(
         `${linkone}` + "/api/attendance/attendances",
@@ -100,6 +98,10 @@ const AttendancePage = () => {
     return `${day}-${month}-${year}`;
   }
 
+  const totalAttendance = statistics.present + statistics.absent;
+  const presentPercentage = totalAttendance ? (statistics.present / totalAttendance) * 100 : 0;
+  const absentPercentage = totalAttendance ? (statistics.absent / totalAttendance) * 100 : 0;
+
   return (
     <div className="">
       {/* Attendance Summary */}
@@ -110,11 +112,7 @@ const AttendancePage = () => {
           <div
             className="progress-bar bg-success"
             style={{
-              width: `${
-                // (statistics.present / calculateStatistics.length) * 100
-                // (statistics.present / (statistics.present + statistics.absent)) * 100
-                (statistics.present / 1) * 100
-              }%`,
+              width: `${presentPercentage}%`,
             }}
           >
             {statistics.present} Present
@@ -122,11 +120,7 @@ const AttendancePage = () => {
           <div
             className="progress-bar bg-danger"
             style={{
-              width: `${
-                // (statistics.absent / calculateStatistics.length) * 100
-                // (statistics.absent / (statistics.present + statistics.absent)) * 100
-                (statistics.absent / 1) * 100
-              }%`,
+              width: `${absentPercentage}%`,
             }}
           >
             {statistics.absent} Absent

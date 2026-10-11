@@ -1,93 +1,79 @@
 import React, { useState, useContext } from "react";
-import axios from "axios";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login, user } = useContext(AuthContext);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setErrorMessage("");
+    setSubmitting(true);
+
     try {
-      // ---------------- redirect to only admin
-      await login({ email, password });
-      if (user.role === "admin") {
-        navigate("/dashboard"); // Redirect to dashboard after successful login
-      } else if (user.role === "teacher") {
-        navigate("/teacher-dashboard"); // Redirect to dashboard after successful login
+      // Use the user returned by login instead of stale React state.
+      const loggedInUser = await login({ email: email.trim(), password });
+      if (loggedInUser?.role === "admin") {
+        navigate("/dashboard", { replace: true });
+      } else if (loggedInUser?.role === "teacher") {
+        navigate("/teacher-dashboard", { replace: true });
       } else {
-        alert("role is not define");
-        navigate("/login"); // Redirect to dashboard after successful login
+        setErrorMessage("This account does not have access to a dashboard.");
       }
-    } catch (err) {
-      console.error("Login failed:", err);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || "Login failed. Check your email and password.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
- 
   return (
-    <>
-     
-
-      <div
-        className="container w-100 d-flex align-items-center justify-content-center"
-        style={{ minHeight: "calc(100vh - 100px)" }}
-      >
-        <div className="wrapper d-flex align-items-center justify-content-center h-100">
-          <div
-            className="card login-form"
-            style={{ width: "300px", padding: "1rem 1rem 1rem" }}
-          >
-            <div className="card-body">
-              <h5 className="card-title text-center">Login Form</h5>
-              <form
-                className="p-3 text-start"
-                // onSubmit={onSubmit}
-                onSubmit={handleSubmit}
-              >
-                <div className="mb-3">
-                  <label htmlFor="exampleInputEmail1" className="form-label">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    className="form-control"
-                    id="exampleInputEmail1"
-                    aria-describedby="emailHelp"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    // onChange={onChange}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="exampleInputPassword1" className="form-label">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    className="form-control"
-                    id="exampleInputPassword1"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    // onChange={onChange}
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary w-100">
-                  Submit
-                </button>
-                {/* <div className="sign-up mt-4">
-            Don't have an account? <a href="#">Create One</a>
-          </div> */}
-              </form>
-            </div>
+    <div className="container w-100 d-flex align-items-center justify-content-center" style={{ minHeight: "calc(100vh - 100px)" }}>
+      <div className="wrapper d-flex align-items-center justify-content-center h-100">
+        <div className="card login-form" style={{ width: "300px", padding: "1rem" }}>
+          <div className="card-body">
+            <h5 className="card-title text-center">Login Form</h5>
+            <form className="p-3 text-start" onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <label htmlFor="login-email" className="form-label">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  className="form-control"
+                  id="login-email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="login-password" className="form-label">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  className="form-control"
+                  id="login-password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </div>
+              {errorMessage && <div className="alert alert-danger py-2" role="alert">{errorMessage}</div>}
+              <button type="submit" className="btn btn-primary w-100" disabled={submitting}>
+                {submitting ? "Signing in..." : "Sign in"}
+              </button>
+            </form>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

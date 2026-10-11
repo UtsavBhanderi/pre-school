@@ -8,7 +8,7 @@ import { Modal, Button, Form } from "react-bootstrap";
 import "./CalendarPage.css"; // Optional: custom CSS for additional tweaks
 
 const CalendarPage = () => {
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -24,8 +24,15 @@ const CalendarPage = () => {
   // Fetch events from the database
   useEffect(() => {
     axios
-      .get(`${linkone}` + "/api/events")
-      .then((response) => setEvents(response.data))
+      .get(`${linkone}/api/events`)
+      .then((response) => {
+        const rows = Array.isArray(response.data) ? response.data : [];
+        setEvents(rows.map((event) => ({
+          ...event,
+          id: event._id || event.id,
+          color: event.color || "#3788d8",
+        })));
+      })
       .catch((error) => console.error("Error fetching events:", error));
   }, []);
 
@@ -45,7 +52,7 @@ const CalendarPage = () => {
   const handleEventClick = (clickInfo) => {
     // id: clickInfo.event._id,
     setModalEvent({
-      id: clickInfo.event._def.extendedProps._id,
+      id: clickInfo.event.id || clickInfo.event._def.extendedProps._id,
       title: clickInfo.event.title,
       start: clickInfo.event.startStr || clickInfo.event.start,
       end: clickInfo.event.endStr || clickInfo.event.startStr,
@@ -55,58 +62,30 @@ const CalendarPage = () => {
     setShowModal(true);
   };
 
-  // // Save or update the event
-  // const handleSaveEvent = async () => {
-  //   const { title, start, end, color, isEdit, id } = modalEvent;
-
-  //   if (title.trim() === '') return alert('Event title is required');
-
-  //   const eventData = { title, start, end, color };
-
-  //   if (isEdit) {
-  //     // Update event
-  //     await axios.put(`/api/events/${id}`, eventData);
-  //     setEvents(events.map(event => (event.id === id ? { ...eventData, id } : event)));
-  //   } else {
-  //     // Create event
-  //     const response = await axios.post('/api/events', eventData);
-  //     setEvents([...events, response.data]);
-  //   }
-
-  //   setShowModal(false);
-  // };
-
   const handleSaveEvent = async () => {
     const { title, start, end, color, isEdit, id } = modalEvent;
-
-    if (title.trim() === "") return alert("Event title is required");
-
-    const eventData = { title, start, end, color };
-
-    if (isEdit) {
-      // Update existing event
-      await axios
-        .put(`${linkone}` + `/api/events/${id}`, eventData)
-        .then((response) => {
-          setEvents(
-            events.map((event) =>
-              event.id === id ? { ...response.data, id } : event
-            )
-          );
-          window.location.reload();
-        })
-        .catch((error) => console.error("Error updating event:", error));
-    } else {
-      // Create new event
-      await axios
-        .post(`${linkone}` + "/api/events", eventData)
-        .then((response) => {
-          setEvents([...events, response.data]);
-        })
-        .catch((error) => console.error("Error creating event:", error));
+    if (!title.trim()) {
+      alert("Event title is required.");
+      return;
     }
 
-    setShowModal(false);
+    const eventData = { title: title.trim(), start, end, color };
+    try {
+      if (isEdit) {
+        const response = await axios.put(`${linkone}/api/events/${id}`, eventData);
+        const savedEvent = { ...response.data, id: response.data._id || id };
+        setEvents((previous) => previous.map((event) =>
+          String(event._id || event.id) === String(id) ? savedEvent : event
+        ));
+      } else {
+        const response = await axios.post(`${linkone}/api/events`, eventData);
+        setEvents((previous) => [...previous, { ...response.data, id: response.data._id }]);
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error("Unable to save calendar event:", error);
+      alert(error.response?.data?.message || "Unable to save the calendar event.");
+    }
   };
 
   // Delete an event
@@ -122,17 +101,19 @@ const CalendarPage = () => {
 
   const handleEventDelete = async () => {
     if (!modalEvent.id) {
-      alert("No event ID found for deletion!");
+      alert("No event ID is available for deletion.");
       return;
     }
 
     try {
-      await axios.delete(`${linkone}` + `/api/events/${modalEvent.id}`);
-      setEvents(events.filter((event) => event.id !== modalEvent.id));
+      await axios.delete(`${linkone}/api/events/${modalEvent.id}`);
+      setEvents((previous) => previous.filter(
+        (event) => String(event._id || event.id) !== String(modalEvent.id)
+      ));
       setShowModal(false);
-      window.location.reload();
     } catch (error) {
-      console.error("Error deleting event:", error);
+      console.error("Unable to delete calendar event:", error);
+      alert(error.response?.data?.message || "Unable to delete the calendar event.");
     }
   };
 
@@ -152,13 +133,11 @@ const CalendarPage = () => {
       });
 
       // Update the event in the local state to reflect the new date
-      setEvents(
-        events.map((event) =>
-          event.id === id
-            ? { ...event, start: startStr, end: endStr || startStr }
-            : event
-        )
-      );
+      setEvents((previous) => previous.map((event) =>
+        String(event._id || event.id) === String(id)
+          ? { ...event, start: startStr, end: endStr || startStr }
+          : event
+      ));
     } catch (error) {
       console.error("Error updating event after drag:", error);
       info.revert(); // Revert to the original date if the update fails

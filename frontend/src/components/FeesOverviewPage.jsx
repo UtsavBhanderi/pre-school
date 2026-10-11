@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const FeesOverviewPage = () => {
- const linkone = `http://localhost:5000`;
+ const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   const [feesData, setFeesData] = useState({});
   const [showModal, setShowModal] = useState(false);
@@ -26,9 +26,9 @@ const FeesOverviewPage = () => {
     // Add total fees remaining to each student
     const updatedDetails = {
       ...details,
-      students: details.students.map(student => (
+      students: (details.students || []).map(student => (
         {
-          Discount: student.totalStandardFees - student.totalPaid - (student.discount || 0),
+          remainingFees: Math.max(0, Number(student.totalStandardFees || 0) - Number(student.totalPaid || 0) - Number(student.discount || 0)),
           ...student
         }))
     };
@@ -48,8 +48,8 @@ const FeesOverviewPage = () => {
   const handleDateFilter = (e) => {
     const selectedDate = e.target.value;
 
-    const [year, month, day] = selectedDate.split("-");
-    const formattedDate = `${parseInt(month)}/${day}/${year}`;
+        const date = new Date(`${selectedDate}T00:00:00`);
+    const formattedDate = `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
 
     axios
       .get(`${linkone}` + `/api/fees/fees-by-date?date=${formattedDate}`)
@@ -78,9 +78,6 @@ const FeesOverviewPage = () => {
 
   const totalPaidTable =
     feesData.standardWise?.map((standard) => standard.totalPaid) || "0";
-
-  const totalDiscountTable =
-    feesData.standardWise?.map((standard) => standard.totalDiscount) || "0";
 
   const totalRemainingTable =
     feesData.standardWise?.map((standard) => standard.totalStandardFees - standard.totalPaid - (standard.totalDiscount || 0)

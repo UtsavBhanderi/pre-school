@@ -1,24 +1,31 @@
-// models/Attendance.js
+'use strict';
+
 const mongoose = require('mongoose');
 
-const StudentDetails = new mongoose.Schema({
+const StudentDetailsSchema = new mongoose.Schema({
   studentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',
+    required: true,
   },
-  // standard: { type: String, required: true }, // Adding standard for easier filtering
   status: {
-    type: String, // "present" or "absent"
-    enum: ['present', 'absent']
+    type: String,
+    enum: ['present', 'absent'],
+    required: true,
   },
-  reason: { type: String, default: "0" } // field for absence reason
+  reason: { type: String, default: '' },
 });
 
 const AttendanceSchema = new mongoose.Schema({
-  date: {
-    type: Date
+  date: { type: Date, required: true, index: true },
+  studentDetails: {
+    type: [StudentDetailsSchema],
+    required: true,
+    validate: {
+      validator: (details) => Array.isArray(details) && details.length > 0,
+      message: 'Attendance must include at least one student.',
+    },
   },
-  studentDetails: [StudentDetails],
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Attendance', AttendanceSchema);

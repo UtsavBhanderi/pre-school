@@ -16,7 +16,7 @@ exports.createVideo = async (req, res) => {
   const { title, standard, subject, chapter, url } = req.body;
   let filePath = '';
   if (req.file) {
-    filePath = path.join('uploads/video', req.file.filename);
+    filePath = `uploads/video/${req.file.filename}`;
   }
 
   const video = new Video({
@@ -44,27 +44,29 @@ exports.updateVideo = async (req, res) => {
     }
 
     const { title, standard, subject, chapter, url } = req.body;
-    video.title = title;
-    video.standard = standard;
-    video.subject = subject;
-    video.chapter = chapter;
+    video.title = title ?? video.title;
+    video.standard = standard ?? video.standard;
+    video.subject = subject ?? video.subject;
+    video.chapter = chapter ?? video.chapter;
 
     if (req.file) {
-      // Delete the old file if exists
       if (video.filePath) {
-        fs.unlinkSync(video.filePath);
+        const oldPath = path.resolve(__dirname, '..', video.filePath);
+        const uploadRoot = path.resolve(__dirname, '../uploads/video');
+        if (oldPath.startsWith(uploadRoot) && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
-      video.filePath = path.join('uploads/video', req.file.filename);
+      video.filePath = `uploads/video/${req.file.filename}`;
       video.url = '';
-    } else {
-      video.url = url;
+    } else if (typeof url === 'string' && url.trim()) {
+      video.url = url.trim();
       video.filePath = '';
     }
 
     const updatedVideo = await video.save();
-    res.json(updatedVideo);
+    return res.json(updatedVideo);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    console.error('Video resource update failed:', err);
+    return res.status(400).json({ message: 'Unable to update video resource.' });
   }
 };
 

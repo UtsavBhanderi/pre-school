@@ -1,30 +1,28 @@
+'use strict';
+
 const mongoose = require('mongoose');
 
 const PaymentDetailSchema = new mongoose.Schema({
-  date: { type: String, required: false },
-  time: { type: String, required: false },
-  amount: { type: Number, required: false },
+  date: { type: String, default: '' },
+  time: { type: String, default: '' },
+  amount: { type: Number, min: 0, default: 0 },
 });
 
 const FeesSchema = new mongoose.Schema({
-  studentName: { type: String, required: false },
-  studentPhoneNumber: { type: String, required: false },
-  ParentsPhoneNumber: { type: String, required: false },
-  ParentsMobileNumber: { type: String, required: false },
-  EmergencyMobileNumber: { type: String, required: false },
-  parentEmail: { type: String, required: false },
-  batchYear: { type: String, required: false },
-  standard: { type: String, required: false },
-  stuNo: { type: String, required: false },
-  totalStandardFees: { type: Number, required: false },
-  totalFeesPaid: { type: Number, required: false },
-  totalFeesRemaining: { type: Number, required: false },
-  paymentDetails: [PaymentDetailSchema],
-  discount: {type: Number, default:0}
-});
+  studentName: { type: String, default: '' },
+  studentPhoneNumber: { type: String, default: '' },
+  ParentsPhoneNumber: { type: String, default: '' },
+  ParentsMobileNumber: { type: String, default: '' },
+  EmergencyMobileNumber: { type: String, default: '' },
+  parentEmail: { type: String, default: '' },
+  batchYear: { type: String, default: '' },
+  standard: { type: String, default: '' },
+  stuNo: { type: String, default: '', index: true },
+  totalStandardFees: { type: Number, min: 0, default: 0 },
+  totalFeesPaid: { type: Number, min: 0, default: 0 },
+  totalFeesRemaining: { type: Number, min: 0, default: 0 },
+  paymentDetails: { type: [PaymentDetailSchema], default: [] },
+  discount: { type: Number, min: 0, default: 0 },
+}, { timestamps: true });
 
 module.exports = mongoose.model('Fees', FeesSchema);
-
-
-// ParentsPhoneNumber: MotherMobileNumber
-// ParentsMobileNumber: FatherMobileNumber

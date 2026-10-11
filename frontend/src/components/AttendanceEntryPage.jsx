@@ -10,7 +10,7 @@ const AttendanceEntryPage = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [errors, setErrors] = useState({});
   const [statistics, setStatistics] = useState({ present: 0, absent: 0 });
-  const linkone = `http://localhost:5000`;
+  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   // Fetch students based on selected standard
   useEffect(() => {
@@ -68,12 +68,12 @@ const AttendanceEntryPage = () => {
     });
     setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
   };
-  // const inputDateString = new Date(selectedDate);
-  const inputDateString = selectedDate;
-
-  const formatDate = (date) => {
+  const formatDate = (value) => {
+    if (!value) return "";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
@@ -91,9 +91,7 @@ const AttendanceEntryPage = () => {
     try {
       
       await axios.post(`${linkone}` + "/api/attendance/attendance", {
-        // // date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
-        // date: selectedDate ? formatDate(inputDateString) : "",
-        date: selectedDate ,
+        date: selectedDate,
         studentDetails: attendanceData,
       });
 
@@ -101,7 +99,7 @@ const AttendanceEntryPage = () => {
       setSelectedDate(null);
       setStandard("");
       setStudents([]);
-      setStatistics(0, 0, 0);
+      setStatistics({ present: 0, absent: 0 });
     } catch (error) {
       console.error("Error submitting attendance:", error);
       alert("Failed to submit attendance");
@@ -120,7 +118,7 @@ const AttendanceEntryPage = () => {
     const validationErrors = {};
 
     attendanceData.forEach((item) => {
-      if (item.status === "absent" && !item.reason.trim()) {
+      if (item.status === "absent" && !String(item.reason || "").trim()) {
         validationErrors[item.studentId] =
           "Reason is required for absent students.";
       }
@@ -140,14 +138,14 @@ const AttendanceEntryPage = () => {
           <div
             className="progress-bar bg-success"
             style={{
-              width: `${(statistics.present / students.length) * 100}%`,
+              width: `${students.length ? (statistics.present / students.length) * 100 : 0}%`,
             }}
           >
             {statistics.present} Present
           </div>
           <div
             className="progress-bar bg-danger"
-            style={{ width: `${(statistics.absent / students.length) * 100}%` }}
+            style={{ width: `${students.length ? (statistics.absent / students.length) * 100 : 0}%` }}
           >
             {statistics.absent} Absent
           </div>
