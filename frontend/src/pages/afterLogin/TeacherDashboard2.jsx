@@ -4,6 +4,8 @@ import AttendanceEntryPage from "../../components/AttendanceEntryPage";
 import WorkReport from "./TeacherDashboard";
 import { FaPowerOff, FaRegCircleCheck } from "react-icons/fa6";
 import { IoAnalyticsOutline } from "react-icons/io5";
+import { MdHelpOutline } from "react-icons/md";
+import TeacherHelp from "../../components/TeacherHelp.jsx";
 
 const TeacherDashboard = () => {
   const [activeComponent, setActiveComponent] = useState("WorkReport");
@@ -21,6 +23,15 @@ const TeacherDashboard = () => {
         >
           <IoAnalyticsOutline size={21} aria-hidden="true" />
           <span>Daily work report</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveComponent("Help")}
+          className={"teacher-side-link" + (activeComponent === "Help" ? " active" : "")}
+          aria-current={activeComponent === "Help" ? "page" : undefined}
+        >
+          <MdHelpOutline size={21} aria-hidden="true" />
+          <span>Quick help</span>
         </button>
         <button
           type="button"
@@ -45,15 +56,17 @@ const TeacherDashboard = () => {
       <main className="teacher-main">
         <div className="page-header">
           <div>
-            <h2 className="mb-0">{activeComponent === "AttEntry" ? "Attendance entry" : "Daily work report"}</h2>
+            <h2 className="mb-0">{activeComponent === "AttEntry" ? "Attendance entry" : activeComponent === "Help" ? "Teacher quick help" : "Daily work report"}</h2>
             <p className="page-subtitle">
               {activeComponent === "AttEntry"
                 ? "Choose a class and date, then record each student’s attendance."
-                : "Submit classroom activity and working-time details for the school day."}
+                : activeComponent === "Help"
+                  ? "Simple guidance for attendance, daily reports and safe record keeping."
+                  : "Submit classroom activity and working-time details for the school day."}
             </p>
           </div>
         </div>
-        {activeComponent === "AttEntry" ? <AttendanceEntryPage /> : <WorkReport />}
+        {activeComponent === "AttEntry" ? <AttendanceEntryPage /> : activeComponent === "Help" ? <TeacherHelp /> : <WorkReport />}
       </main>
     </div>
   );
