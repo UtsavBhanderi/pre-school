@@ -5,42 +5,50 @@ import {
   MdDashboard, MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
+  MdHome, MdHelpOutline,
 } from "react-icons/md";
 
 const navigation = [
   {
-    label: "OVERVIEW",
+    label: "GET STARTED",
     items: [
-      { to: "/dashboard/feesOverview", label: "Dashboard", icon: MdDashboard },
-      { to: "/dashboard/attendanceOverview", label: "Attendance overview", icon: MdFactCheck },
+      { to: "/dashboard/home", label: "Start here", icon: MdHome },
+      { to: "/dashboard/feesOverview", label: "Fee overview", icon: MdDashboard },
     ],
   },
   {
-    label: "SCHOOL MANAGEMENT",
+    label: "DAILY SCHOOL WORK",
+    items: [
+      { to: "/dashboard/attendanceEntryPage", label: "Take attendance", icon: MdChecklist },
+      { to: "/dashboard/fees", label: "Fees & payments", icon: MdCurrencyRupee },
+      { to: "/dashboard/calendar", label: "School calendar", icon: MdCalendarMonth },
+      { to: "/dashboard/attendanceOverview", label: "Attendance records", icon: MdFactCheck },
+    ],
+  },
+  {
+    label: "PEOPLE",
     items: [
       { to: "/dashboard/studentRegister", label: "Students", icon: MdPeople },
       { to: "/dashboard/teacherRegister", label: "Teachers", icon: MdSchool },
-      { to: "/dashboard/fees", label: "Fees & payments", icon: MdCurrencyRupee },
-      { to: "/dashboard/attendanceEntryPage", label: "Take attendance", icon: MdChecklist },
-      { to: "/dashboard/calendar", label: "School calendar", icon: MdCalendarMonth },
-    ],
-  },
-  {
-    label: "SCHOOL COMMUNITY",
-    items: [
       { to: "/dashboard/studentBirthday", label: "Student birthdays", icon: MdCake },
       { to: "/dashboard/teacherBirthday", label: "Teacher birthdays", icon: MdCake },
-      { to: "/dashboard/teacherWorkReport", label: "Work reports", icon: MdAssessment },
       { to: "/dashboard/users", label: "User access", icon: MdManageAccounts },
     ],
   },
   {
-    label: "LEARNING & MEDIA",
+    label: "LEARNING & SCHOOL LIFE",
     items: [
+      { to: "/dashboard/createReport", label: "Report cards", icon: MdAssessment },
+      { to: "/dashboard/teacherWorkReport", label: "Teacher work reports", icon: MdAssessment },
       { to: "/dashboard/pdf", label: "PDF resources", icon: MdPictureAsPdf },
       { to: "/dashboard/video", label: "Video resources", icon: MdVideoLibrary },
       { to: "/dashboard/gallery", label: "Photo gallery", icon: MdPhotoLibrary },
-      { to: "/dashboard/createReport", label: "Report cards", icon: MdAssessment },
+    ],
+  },
+  {
+    label: "HELP",
+    items: [
+      { to: "/dashboard/help", label: "Help & guides", icon: MdHelpOutline },
     ],
   },
 ];
@@ -68,6 +76,7 @@ export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
                 <li key={to}>
                   <NavLink
                     to={to}
+                    end
                     onClick={onNavigate}
                     className={({ isActive }) => "sidebar-nav-link" + (isActive ? " active" : "")}
                   >
