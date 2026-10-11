@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const Attendance = require('../models/Attendance');
 const Student = require('../models/Student');
+const { reconcileAttendanceEntries } = require('../utils/attendanceReconciliation');
 
 const VALID_STATUSES = new Set(['present', 'absent']);
 
@@ -188,38 +189,12 @@ router.post('/attendance', async (req, res) => {
       'studentDetails.studentId': { $in: [...uniqueStudentIds] },
     }).sort({ updatedAt: -1, createdAt: -1 });
 
-    const latestEntryByStudent = new Map();
-    for (const record of records) {
-      for (const entry of record.studentDetails) {
-        const studentId = String(entry.studentId);
-        if (uniqueStudentIds.has(studentId) && !latestEntryByStudent.has(studentId)) {
-          latestEntryByStudent.set(studentId, { record, entry });
-        }
-      }
-    }
-
-    const recordsToSave = new Map();
-    const newEntries = [];
-
-    for (const detail of studentDetails) {
-      const studentId = String(detail.studentId);
-      const existing = latestEntryByStudent.get(studentId);
-      const reason = detail.status === 'absent' ? String(detail.reason || '').trim() : '';
-
-      if (existing) {
-        existing.entry.status = detail.status;
-        existing.entry.reason = reason;
-        recordsToSave.set(String(existing.record._id), existing.record);
-      } else {
-        newEntries.push({ studentId: detail.studentId, status: detail.status, reason });
-      }
-    }
+    const { recordsToSave, newEntries, updatedCount } =
+      reconcileAttendanceEntries(studentDetails, records);
 
     // Validate everything before writing, then save each existing attendance
     // document once even when multiple children belong to it.
-    const updatedRecords = await Promise.all(
-      [...recordsToSave.values()].map((record) => record.save())
-    );
+    const updatedRecords = await Promise.all(recordsToSave.map((record) => record.save()));
 
     let createdRecord = null;
     if (newEntries.length) {
@@ -229,7 +204,6 @@ router.post('/attendance', async (req, res) => {
       });
     }
 
-    const updatedCount = studentDetails.length - newEntries.length;
     const message = updatedCount && newEntries.length
       ? `Attendance saved. ${updatedCount} existing entries updated and ${newEntries.length} new entries added.`
       : updatedCount
