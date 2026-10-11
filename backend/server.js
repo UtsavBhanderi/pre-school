@@ -27,6 +27,7 @@ const attendanceRoutes = require('./routes/attendance');
 const reportCardRoutes = require('./routes/reportCard');
 const reportDocxRoutes = require('./reportDocx');
 const eventRoutes = require('./routes/calendar');
+const announcementsRoutes = require('./routes/announcements');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
 
@@ -66,6 +67,7 @@ app.use('/api/auth', authRoutes);
 // Teachers can submit and view their own work reports; administrative listing
 // is separately protected inside the report router.
 app.use('/api/dailyWorkReport', dailyWorkReportRoutes);
+app.use('/api/announcements', auth, staffOnly, announcementsRoutes);
 
 // All school-management APIs require an authenticated administrator.
 // Media URLs remain statically served for browser image/video elements.
