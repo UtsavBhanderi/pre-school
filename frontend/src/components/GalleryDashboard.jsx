@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 const EMPTY_FORM = { title: "", description: "", photo: null, sequence: "" };
 
 export default function GalleryDashboard() {
