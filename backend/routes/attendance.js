@@ -7,6 +7,24 @@ const Attendance = require('../models/Attendance');
 const Student = require('../models/Student');
 
 const VALID_STATUSES = new Set(['present', 'absent']);
+
+const getUtcDayBounds = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { start, end };
+};
+
+const parseDateOnly = (value) => {
+  const text = String(value || '').trim();
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(text)) return null;
+  const date = new Date(`${text}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text
+    ? date
+    : null;
+};
 const toDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -14,14 +32,57 @@ const toDate = (value) => {
 
 router.get('/students', async (req, res) => {
   const standard = String(req.query.standard || '').trim();
+  const dateText = String(req.query.date || '').trim();
   if (!standard) return res.status(400).json({ message: 'A standard is required.' });
+
+  const attendanceDate = dateText ? parseDateOnly(dateText) : null;
+  if (dateText && !attendanceDate) {
+    return res.status(400).json({ message: 'Choose a valid attendance date.' });
+  }
 
   try {
     const students = await Student.find({ standard })
       .select('stuNo firstName middleName lastName standard')
       .sort({ middleName: 1 })
       .lean();
-    return res.json(students);
+
+    const attendanceByStudent = new Map();
+    if (attendanceDate && students.length) {
+      const { start, end } = getUtcDayBounds(attendanceDate);
+      const studentIds = students.map((student) => student._id);
+      const records = await Attendance.find({
+        date: { $gte: start, $lt: end },
+        'studentDetails.studentId': { $in: studentIds },
+      })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select('studentDetails')
+        .lean();
+
+      // If older data already contains duplicate records, prefer the most
+      // recently updated status and avoid creating additional duplicates.
+      for (const record of records) {
+        for (const detail of record.studentDetails || []) {
+          const studentId = String(detail.studentId);
+          if (!attendanceByStudent.has(studentId)) {
+            attendanceByStudent.set(studentId, {
+              status: detail.status,
+              reason: detail.reason || '',
+              attendanceRecordId: String(record._id),
+            });
+          }
+        }
+      }
+    }
+
+    return res.json(students.map((student) => {
+      const saved = attendanceByStudent.get(String(student._id));
+      return {
+        ...student,
+        attendanceStatus: saved?.status || '',
+        attendanceReason: saved?.reason || '',
+        attendanceRecordId: saved?.attendanceRecordId || '',
+      };
+    }));
   } catch (error) {
     console.error('Unable to load attendance students:', error);
     return res.status(500).json({ message: 'Unable to load students.' });
@@ -78,23 +139,27 @@ router.get('/attendances', async (req, res) => {
 
 router.post('/attendance', async (req, res) => {
   try {
-    const date = toDate(req.body.date);
+    const inputDate = toDate(req.body.date);
     const studentDetails = req.body.studentDetails;
 
-    if (!date) return res.status(400).json({ message: 'A valid attendance date is required.' });
+    if (!inputDate) return res.status(400).json({ message: 'A valid attendance date is required.' });
     if (!Array.isArray(studentDetails) || studentDetails.length === 0) {
       return res.status(400).json({ message: 'At least one student is required.' });
     }
 
+    const day = getUtcDayBounds(inputDate);
+    const date = day.start;
     const uniqueStudentIds = new Set();
+
     for (const detail of studentDetails) {
       if (!detail || !mongoose.Types.ObjectId.isValid(detail.studentId)) {
         return res.status(400).json({ message: 'An attendance entry contains an invalid student ID.' });
       }
-      if (uniqueStudentIds.has(String(detail.studentId))) {
+      const studentId = String(detail.studentId);
+      if (uniqueStudentIds.has(studentId)) {
         return res.status(400).json({ message: 'A student can appear only once in an attendance entry.' });
       }
-      uniqueStudentIds.add(String(detail.studentId));
+      uniqueStudentIds.add(studentId);
 
       if (!VALID_STATUSES.has(detail.status)) {
         return res.status(400).json({ message: 'Each student must be marked present or absent.' });
@@ -109,16 +174,67 @@ router.post('/attendance', async (req, res) => {
       return res.status(400).json({ message: 'One or more students do not exist.' });
     }
 
-    const record = await Attendance.create({
-      date,
-      studentDetails: studentDetails.map((detail) => ({
-        studentId: detail.studentId,
-        status: detail.status,
-        reason: detail.status === 'absent' ? String(detail.reason).trim() : '',
-      })),
-    });
+    // Reconcile with records already saved for this day. Re-submitting a class
+    // updates its saved statuses instead of creating duplicate student entries.
+    const records = await Attendance.find({
+      date: { $gte: day.start, $lt: day.end },
+      'studentDetails.studentId': { $in: [...uniqueStudentIds] },
+    }).sort({ updatedAt: -1, createdAt: -1 });
 
-    return res.status(201).json({ message: 'Attendance saved successfully.', attendance: record });
+    const latestEntryByStudent = new Map();
+    for (const record of records) {
+      for (const entry of record.studentDetails) {
+        const studentId = String(entry.studentId);
+        if (uniqueStudentIds.has(studentId) && !latestEntryByStudent.has(studentId)) {
+          latestEntryByStudent.set(studentId, { record, entry });
+        }
+      }
+    }
+
+    const recordsToSave = new Map();
+    const newEntries = [];
+
+    for (const detail of studentDetails) {
+      const studentId = String(detail.studentId);
+      const existing = latestEntryByStudent.get(studentId);
+      const reason = detail.status === 'absent' ? String(detail.reason || '').trim() : '';
+
+      if (existing) {
+        existing.entry.status = detail.status;
+        existing.entry.reason = reason;
+        recordsToSave.set(String(existing.record._id), existing.record);
+      } else {
+        newEntries.push({ studentId: detail.studentId, status: detail.status, reason });
+      }
+    }
+
+    // Validate everything before writing, then save each existing attendance
+    // document once even when multiple children belong to it.
+    const updatedRecords = await Promise.all(
+      [...recordsToSave.values()].map((record) => record.save())
+    );
+
+    let createdRecord = null;
+    if (newEntries.length) {
+      createdRecord = await Attendance.create({
+        date,
+        studentDetails: newEntries,
+      });
+    }
+
+    const updatedCount = studentDetails.length - newEntries.length;
+    const message = updatedCount && newEntries.length
+      ? `Attendance saved. ${updatedCount} existing entries updated and ${newEntries.length} new entries added.`
+      : updatedCount
+        ? `Attendance saved. ${updatedCount} existing entries updated; no duplicate records were created.`
+        : `Attendance saved for ${newEntries.length} students.`;
+
+    return res.status(createdRecord ? 201 : 200).json({
+      message,
+      attendance: createdRecord || updatedRecords[0] || null,
+      createdCount: newEntries.length,
+      updatedCount,
+    });
   } catch (error) {
     console.error('Unable to save attendance:', error);
     return res.status(500).json({ message: 'Unable to save attendance.' });
