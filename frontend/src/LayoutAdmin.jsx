@@ -23,6 +23,7 @@ const PAGE_META = [
   ["/dashboard/video", "Video resources", "Manage classroom video resources."],
   ["/dashboard/gallery", "Photo gallery", "Keep the school photo collection organized."],
   ["/dashboard/createReport", "Report cards", "Prepare student progress reports."],
+  ["/dashboard/students", "Student report", "Enter marks and review a student report card."],
 ];
 
 const COMMANDS = [
