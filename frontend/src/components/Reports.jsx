@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 /* ===============================
    API CONFIG
 ================================ */
-const API_BASE_URL = `https://api.kidzeranursery.com`;
+const API_BASE_URL = `http://localhost:5000`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
