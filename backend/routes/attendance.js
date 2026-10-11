@@ -6,6 +6,7 @@ const router = express.Router();
 const Attendance = require('../models/Attendance');
 const Student = require('../models/Student');
 const { reconcileAttendanceEntries } = require('../utils/attendanceReconciliation');
+const { parseDateOnly: parseDateOnlyShared, parseDateInput: parseDateInputShared, getUtcDayBounds: getUtcDayBoundsShared } = require('../utils/dateOnly');
 
 const VALID_STATUSES = new Set(['present', 'absent']);
 
@@ -43,7 +44,7 @@ router.get('/students', async (req, res) => {
   const dateText = String(req.query.date || '').trim();
   if (!standard) return res.status(400).json({ message: 'A standard is required.' });
 
-  const attendanceDate = dateText ? parseDateOnly(dateText) : null;
+  const attendanceDate = dateText ? parseDateOnlyShared(dateText) : null;
   if (dateText && !attendanceDate) {
     return res.status(400).json({ message: 'Choose a valid attendance date.' });
   }
@@ -56,7 +57,7 @@ router.get('/students', async (req, res) => {
 
     const attendanceByStudent = new Map();
     if (attendanceDate && students.length) {
-      const { start, end } = getUtcDayBounds(attendanceDate);
+      const { start, end } = getUtcDayBoundsShared(attendanceDate);
       const studentIds = students.map((student) => student._id);
       const records = await Attendance.find({
         date: { $gte: start, $lt: end },
@@ -103,7 +104,7 @@ router.get('/attendances', async (req, res) => {
     const filter = {};
 
     if (date) {
-      const parsedDate = parseDateInput(date);
+      const parsedDate = parseDateInputShared(date);
       if (!parsedDate) return res.status(400).json({ message: 'Invalid attendance date.' });
       const dayStart = new Date(parsedDate);
       dayStart.setUTCHours(0, 0, 0, 0);
@@ -147,7 +148,7 @@ router.get('/attendances', async (req, res) => {
 
 router.post('/attendance', async (req, res) => {
   try {
-    const inputDate = parseDateInput(req.body.date);
+    const inputDate = parseDateInputShared(req.body.date);
     const studentDetails = req.body.studentDetails;
 
     if (!inputDate) return res.status(400).json({ message: 'A valid attendance date is required.' });
@@ -155,7 +156,7 @@ router.post('/attendance', async (req, res) => {
       return res.status(400).json({ message: 'At least one student is required.' });
     }
 
-    const day = getUtcDayBounds(inputDate);
+    const day = getUtcDayBoundsShared(inputDate);
     const date = day.start;
     const uniqueStudentIds = new Set();
 
