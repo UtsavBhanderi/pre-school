@@ -28,11 +28,19 @@ import GalleryDashboard from "./components/GalleryDashboard.jsx";
 import CreateReport from "./components/Reports.jsx";
 import TeacherWorkReport from "./components/TeachersEntry.jsx";
 import AdminUsers from "./components/AdminUsers.jsx";
+import OperationsHome from "./components/OperationsHome.jsx";
+import HelpCenter from "./components/HelpCenter.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="p-4" role="status" aria-live="polite">
+        Loading your school workspace…
+      </div>
+    );
+  }
   if (!user || (roles && !roles.includes(user.role))) {
     return <Navigate to="/login" replace />;
   }
@@ -65,7 +73,9 @@ const App = () => (
             </PrivateRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard/feesOverview" replace />} />
+          <Route index element={<Navigate to="/dashboard/home" replace />} />
+          <Route path="home" element={<OperationsHome />} />
+          <Route path="help" element={<HelpCenter />} />
           <Route path="feesOverview" element={<FeesOverviewPage />} />
           <Route path="attendanceOverview" element={<AttendancePage />} />
           <Route path="fees" element={<Fees />} />
@@ -82,7 +92,7 @@ const App = () => (
           <Route path="teacherWorkReport" element={<TeacherWorkReport />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="students/:standard/:reportId" element={<StudentsReport />} />
-          <Route path="*" element={<Navigate to="/dashboard/feesOverview" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard/home" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />
