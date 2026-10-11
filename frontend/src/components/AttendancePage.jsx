@@ -12,7 +12,7 @@ const AttendancePage = () => {
   const [reason, setReason] = useState("");
   const [statistics, setStatistics] = useState({ present: 0, absent: 0 });
   const [editingStatus, setEditingStatus] = useState({});
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
   // Fetch attendance data on mount and when date or standard changes
   useEffect(() => {
