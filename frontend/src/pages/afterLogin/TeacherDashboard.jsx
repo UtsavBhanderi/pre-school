@@ -15,7 +15,7 @@ const TeacherDashboard = () => {
   });
   const { user, logout } = useContext(AuthContext);
   
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
   useEffect(() => {
     const fetchReports = async () => {
