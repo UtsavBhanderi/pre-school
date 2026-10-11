@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const AdminPdf = () => {
-  const linkone = `https://api.kidzeranursery.com`;
-  // const linkone = `http://localhost:5000`;
+  const linkone = `http://localhost:5000`;
 
   const [pdfs, setPdfs] = useState([]);
   const [editingPdf, setEditingPdf] = useState(null);
