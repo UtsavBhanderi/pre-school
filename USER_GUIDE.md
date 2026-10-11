@@ -30,6 +30,17 @@ After signing in, open **Start here** in the left menu. It is a launchpad for th
 4. Review the amount due after payment.
 5. Save once and wait for confirmation. Avoid repeatedly pressing Save if the page is still processing.
 
+## Print a fee payment receipt
+
+1. Open **Fees & payments** and find the correct child.
+2. Check the child’s name, GR number and class before opening the receipt.
+3. Choose **Receipt** on that fee record.
+4. If the child has multiple saved payments, choose the payment you need.
+5. Review the payment date, amount and student details, then choose **Print receipt**.
+6. In the print dialog, select your printer or choose “Save as PDF”.
+
+Receipts are generated only from saved payment entries. The displayed balance is the current balance, so it may include payments recorded after an older payment. Verify the details before handing a printed copy to a parent or guardian.
+
 ## Prepare a report card
 
 1. Open **Report cards** and select or create the relevant class report.
