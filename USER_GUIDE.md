@@ -61,6 +61,22 @@ Receipts are generated only from saved payment entries. The displayed balance is
 
 Use **PDF resources** for PDF/worksheet material, **Video resources** for videos, and **Photo gallery** for school activity photos. Add a useful title and the class/subject information available on the form. After saving, check that the new item appears in the list.
 
+## Share or read school notices
+
+**Administrators**
+1. Open **School notices** from the menu or use the task finder.
+2. Choose **Write a notice** and enter a clear title and simple message.
+3. Choose the audience (all staff or teachers), importance and start date. You can optionally choose when the notice should stop appearing.
+4. Preview the details, then choose **Publish notice**.
+5. Use **Edit** to correct a message or **Archive** to hide an old notice without permanently deleting its history.
+
+**Teachers**
+1. Open **School notices** in the teacher workspace.
+2. Read the latest active notices and check any dates or instructions.
+3. Contact the administrator if a notice seems incorrect or unclear.
+
+The notice board is internal to this software. It does not send WhatsApp, SMS or email messages.
+
 ## If something goes wrong
 
 - **Can't sign in:** check spelling and Caps Lock. Ask the administrator to verify your account if it persists.
