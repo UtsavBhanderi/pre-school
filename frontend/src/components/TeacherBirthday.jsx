@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 
 
 function TeacherBirthday() {
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
 
