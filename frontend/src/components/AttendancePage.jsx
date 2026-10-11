@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api.js";
 import { format } from "date-fns";
 
 const AttendancePage = () => {
@@ -15,7 +16,7 @@ const AttendancePage = () => {
   const [savingStatus, setSavingStatus] = useState(false);
   const [pageError, setPageError] = useState("");
   const [loadingRecords, setLoadingRecords] = useState(true);
-  const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const linkone = API_BASE_URL;
 
   // Fetch attendance data on mount and when date or standard changes
   useEffect(() => {
