@@ -23,7 +23,7 @@ import {
 } from "react-icons/fa";
 
 
-  const linkone = `https://api.kidzeranursery.com`;
+  const linkone = `http://localhost:5000`;
 
 
 // Default placeholder avatar shown when a student has no photo on file.
