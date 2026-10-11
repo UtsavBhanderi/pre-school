@@ -849,10 +849,13 @@ const NewStudentRegister = () => {
           PAGE HEADER
       ====================================================== */}
 
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <h2 className="mb-0">Student Registration</h2>
+            <div className="page-header">
+                <div>
+                    <h2 className="mb-0">Student records</h2>
+                    <p className="page-subtitle">Keep student profiles, contact details, and class information up to date.</p>
+                </div>
 
-                <div className="d-flex gap-2 flex-wrap">
+                <div className="page-actions">
                     <button
                         type="button"
                         className="btn btn-primary"
@@ -863,24 +866,25 @@ const NewStudentRegister = () => {
 
                     <button
                         type="button"
-                        className="btn btn-success"
+                        className="btn btn-outline-primary"
                         onClick={() =>
-                            window.confirm("Confirm download?") &&
+                            window.confirm("Export the complete student list?") &&
                             exportToExcel()
                         }
                     >
-                        All List
+                        Export all
                     </button>
 
                     <button
                         type="button"
-                        className="btn btn-success"
+                        className="btn btn-outline-primary"
+                        disabled={selectedStudents.length === 0}
                         onClick={() =>
-                            window.confirm("Confirm download?") &&
+                            window.confirm("Export the selected student records?") &&
                             exportCheckedToExcel()
                         }
                     >
-                        Select List
+                        Export selected
                     </button>
                 </div>
             </div>
@@ -889,7 +893,7 @@ const NewStudentRegister = () => {
           FILTERS
       ====================================================== */}
 
-            <div className="row g-2 mb-3">
+            <div className="filter-panel mb-3" aria-label="Filter student records">
                 <div className="col-lg-2 col-md-4">
                     <input
                         type="text"
@@ -967,7 +971,7 @@ const NewStudentRegister = () => {
           STUDENT COUNT
       ====================================================== */}
 
-            <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="selection-summary">
                 <small className="text-muted">
                     Showing {filteredStudents.length} of {students.length} students
                 </small>
@@ -983,7 +987,7 @@ const NewStudentRegister = () => {
           TABLE
       ====================================================== */}
 
-            <div className="overflow-auto">
+            <div className="table-responsive">
                 <table className="table table-bordered table-striped align-middle">
                     <thead>
                         <tr>
@@ -1033,7 +1037,7 @@ const NewStudentRegister = () => {
                         ) : filteredStudents.length === 0 ? (
                             <tr>
                                 <td colSpan="14" className="text-center py-4">
-                                    No students found.
+                                    No students match these filters. Clear or change the filters, or add a new student.
                                 </td>
                             </tr>
                         ) : (

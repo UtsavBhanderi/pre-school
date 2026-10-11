@@ -440,33 +440,32 @@ function NewTeacherRegister() {
 
   return (
     <div className="mt-1">
-      <h2>Teacher Registration</h2>
-      <div className="column-gap-3 d-flex">
+      <div className="page-header">
+        <div>
+          <h2 className="mb-0">Teacher records</h2>
+          <p className="page-subtitle">Manage staff details, contact information, and classroom assignments.</p>
+        </div>
+        <div className="page-actions">
         <button
           type="button"
           className="btn btn-primary mb-3"
           onClick={() => {
-            setIsEdit(false);
-            const modal = new Modal(modalRef.current);
+            resetForm();
+            const modal = Modal.getOrCreateInstance(modalRef.current);
             modal.show();
           }}
         >
           Add Teacher
         </button>
-        {/* <button className="btn btn-primary mb-3" onClick={exportToExcel}>
-        All List
-      </button>
-      <button className="btn btn-primary mb-3" onClick={exportCheckedToExcel}>
-        Select List
-      </button> */}
+        </div>
       </div>
 
-      <div className="row mb-3">
+      <div className="filter-panel mb-3" aria-label="Filter teacher records">
         <div className="col">
           <input
             type="text"
             name="GR_No"
-            placeholder="GR_No"
+            placeholder="GR number"
             className="form-control"
             value={filter.GR_No}
             onChange={handleFilterChange}
@@ -474,7 +473,7 @@ function NewTeacherRegister() {
         </div>
         <div className="col">
           <input
-            type="Number"
+            type="tel"
             name="RegisterPhoneNumber"
             placeholder="Register Mobile Number"
             className="form-control"
@@ -521,8 +520,8 @@ function NewTeacherRegister() {
         </select> */}
         </div>
       </div>
-      <div className="overflow-auto">
-        <table className="table table-bordered table-striped">
+      <div className="page-card p-0 table-responsive">
+        <table className="table table-hover align-middle">
           <thead>
             <tr>
               <th>
@@ -568,7 +567,7 @@ function NewTeacherRegister() {
                 <td>{teacher.GR_No}</td>
                 <td>
                   <img
-                    src={`${linkone}/` + teacher.selfPhoto}
+                    src={teacher.selfPhoto ? (String(teacher.selfPhoto).startsWith("http") ? teacher.selfPhoto : linkone + "/" + String(teacher.selfPhoto).replace(/^\/+/, "")) : "https://ui-avatars.com/api/?name=" + encodeURIComponent(teacher.middleName || "Teacher")}
                     // src={`https://kidzera.vedantclasses.org.in/` + student.selfPhoto}
                     alt={teacher.middleName}
                     style={{ width: "50px", height: "50px" }}

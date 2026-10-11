@@ -2,7 +2,7 @@ name: Project checks
 
 on:
   push:
-    branches: [main, "fix/**"]
+    branches: [main, "fix/**", "ux/**"]
   pull_request:
     branches: [main]
 

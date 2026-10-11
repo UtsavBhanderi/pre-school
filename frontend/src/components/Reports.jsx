@@ -24,16 +24,23 @@ const Reports = () => {
   const [standard, setStandard] = useState("");
   const [outOfMarks, setOutOfMarks] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
 
   /* ===============================
      FETCH REPORTS
   ================================ */
   const fetchReports = useCallback(async () => {
+    setLoadingReports(true);
     try {
       const { data } = await api.get("/api/reportCard");
-      setReports(data);
+      setReports(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching reports:", err);
+      setPageError(err.response?.data?.message || "Unable to load report cards.");
+    } finally {
+      setLoadingReports(false);
     }
   }, []);
 
@@ -55,14 +62,15 @@ const Reports = () => {
         description: outOfMarks,
       });
 
-      alert("Report Successfully Created");
+      setPageSuccess("Report template created successfully.");
+      setPageError("");
       setReportName("");
       setStandard("");
       setOutOfMarks("");
       fetchReports();
     } catch (err) {
       console.error("Error creating report:", err);
-      alert("Failed to create report");
+      setPageError(err.response?.data?.message || "Unable to create the report template.");
     } finally {
       setLoading(false);
     }
@@ -77,8 +85,11 @@ const Reports = () => {
     try {
       await api.delete(`/api/reportCard/${id}`);
       setReports((prev) => prev.filter((r) => r._id !== id));
+      setPageSuccess("Report template deleted.");
+      setPageError("");
     } catch (err) {
       console.error("Error deleting report:", err);
+      setPageError(err.response?.data?.message || "Unable to delete the report template.");
     }
   };
 
@@ -133,13 +144,15 @@ const Reports = () => {
      UI
   ================================ */
   return (
-    <div className="d-flex flex-column">
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
       {/* CREATE REPORT */}
       <div className="mt-3">
-        <h2>Create New Report</h2>
+        <div className="page-header"><div><h2 className="mb-0">Report cards</h2><p className="page-subtitle">Create report templates for a class, then enter marks and export student results.</p></div></div>
 
-        <form onSubmit={handleSubmit} className="d-flex gap-3">
-          <div className="col">
+        <form onSubmit={handleSubmit} className="page-card report-create-form">
+          <div className="report-field">
             <label>Report Name</label>
             <input
               type="text"
@@ -150,7 +163,7 @@ const Reports = () => {
             />
           </div>
 
-          <div className="col">
+          <div className="report-field">
             <label>Standard</label>
             <select
               className="form-control"
@@ -189,7 +202,7 @@ const Reports = () => {
 
           <button
             type="submit"
-            className="btn btn-primary btn-sm align-self-end"
+            className="btn btn-primary align-self-end"
             disabled={loading}
           >
             {loading ? "Creating..." : "Create Report"}
@@ -199,9 +212,9 @@ const Reports = () => {
 
       {/* REPORT LIST */}
       <div className="mt-4">
-        <h2>Reports</h2>
+        <div className="section-heading"><h3>Report templates</h3><span className="muted small">{reports.length} templates</span></div>
 
-        <table className="table table-bordered">
+        <div className="table-responsive"><table className="table table-hover align-middle">
           <thead>
             <tr>
               <th>#</th>
@@ -213,7 +226,11 @@ const Reports = () => {
           </thead>
 
           <tbody>
-            {reports.map((report, index) => (
+            {loadingReports ? (
+              <tr><td colSpan={5} className="text-center py-5">Loading report templates…</td></tr>
+            ) : reports.length === 0 ? (
+              <tr><td colSpan={5}><div className="empty-state"><strong>No report templates yet</strong>Create a template above to start preparing student progress reports.</div></td></tr>
+            ) : reports.map((report, index) => (
               <tr key={report._id}>
                 <td>{index + 1}</td>
                 <td>{report.reportName}</td>
@@ -227,14 +244,6 @@ const Reports = () => {
                     Next
                   </button>
 
-                  <button
-                    className="btn btn-warning btn-sm mx-2"
-                    onClick={() =>
-                      navigate(`/edit-report/${report._id}`)
-                    }
-                  >
-                    Edit
-                  </button>
 
                   <button
                     className="btn btn-danger btn-sm me-2"
@@ -253,15 +262,8 @@ const Reports = () => {
               </tr>
             ))}
 
-            {reports.length === 0 && (
-              <tr>
-                <td colSpan="5" className="text-center">
-                  No Reports Found
-                </td>
-              </tr>
-            )}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

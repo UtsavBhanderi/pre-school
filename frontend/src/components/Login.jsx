@@ -1,10 +1,12 @@
-import React, { useState, useContext } from "react";
+import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { MdSchool, MdVisibility, MdVisibilityOff, MdLockOutline, MdAlternateEmail } from "react-icons/md";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { login } = useContext(AuthContext);
@@ -12,68 +14,126 @@ const Login = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setErrorMessage("");
     setSubmitting(true);
 
     try {
-      // Use the user returned by login instead of stale React state.
       const loggedInUser = await login({ email: email.trim(), password });
       if (loggedInUser?.role === "admin") {
         navigate("/dashboard", { replace: true });
       } else if (loggedInUser?.role === "teacher") {
         navigate("/teacher-dashboard", { replace: true });
       } else {
-        setErrorMessage("This account does not have access to a dashboard.");
+        setErrorMessage("This account does not have access to a dashboard. Contact your administrator.");
       }
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || "Login failed. Check your email and password.");
+      setErrorMessage(error.response?.data?.message || "We couldn't sign you in. Check your email and password, then try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="container w-100 d-flex align-items-center justify-content-center" style={{ minHeight: "calc(100vh - 100px)" }}>
-      <div className="wrapper d-flex align-items-center justify-content-center h-100">
-        <div className="card login-form" style={{ width: "300px", padding: "1rem" }}>
-          <div className="card-body">
-            <h5 className="card-title text-center">Login Form</h5>
-            <form className="p-3 text-start" onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="login-email" className="form-label">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  className="form-control"
-                  id="login-email"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="login-password" className="form-label">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  className="form-control"
-                  id="login-password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </div>
-              {errorMessage && <div className="alert alert-danger py-2" role="alert">{errorMessage}</div>}
-              <button type="submit" className="btn btn-primary w-100" disabled={submitting}>
-                {submitting ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
+    <main className="container-fluid d-flex align-items-center justify-content-center py-3 py-md-5">
+      <section className="login-shell" aria-label="Sign in to the school management system">
+        <div className="login-brand-panel">
+          <div>
+            <div className="login-brand-mark"><MdSchool size={28} aria-hidden="true" /></div>
+            <div className="login-brand-label">School administration</div>
+          </div>
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <h1>A smoother school day starts here.</h1>
+            <p>One simple workspace for student records, attendance, fees, reports, and the people who make your school special.</p>
+          </div>
+          <div className="small" style={{ color: "#d4dfff", position: "relative", zIndex: 1 }}>
+            Organized records. More time for children.
           </div>
         </div>
-      </div>
-    </div>
+
+        <div className="login-form-panel">
+          <div className="login-form-inner">
+            <div className="d-inline-flex align-items-center rounded-pill px-3 py-2 mb-3" style={{ background: "#edf2ff", color: "#3659c9", fontSize: "0.78rem", fontWeight: 700 }}>
+              SECURE SCHOOL ACCESS
+            </div>
+            <h2>Welcome back</h2>
+            <p className="muted mb-4">Sign in with the account provided by your school administrator.</p>
+
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="mb-3">
+                <label htmlFor="login-email" className="form-label">Email address</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-white" style={{ borderColor: "#d9e0eb", borderRadius: "10px 0 0 10px", color: "#667085" }}>
+                    <MdAlternateEmail size={19} aria-hidden="true" />
+                  </span>
+                  <input
+                    type="email"
+                    name="email"
+                    className="form-control"
+                    style={{ borderRadius: "0 10px 10px 0" }}
+                    id="login-email"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck="false"
+                    placeholder="you@school.com"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    aria-describedby={errorMessage ? "login-error" : undefined}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="login-password" className="form-label">Password</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-white" style={{ borderColor: "#d9e0eb", borderRadius: "10px 0 0 10px", color: "#667085" }}>
+                    <MdLockOutline size={19} aria-hidden="true" />
+                  </span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    className="form-control"
+                    style={{ borderRadius: 0, borderRight: 0 }}
+                    id="login-password"
+                    autoComplete="current-password"
+                    placeholder="Enter your password"
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="input-group-text bg-white"
+                    style={{ borderColor: "#d9e0eb", borderRadius: "0 10px 10px 0", color: "#667085", cursor: "pointer" }}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                  >
+                    {showPassword ? <MdVisibilityOff size={19} /> : <MdVisibility size={19} />}
+                  </button>
+                </div>
+              </div>
+
+              {errorMessage && (
+                <div id="login-error" className="alert alert-danger py-3 mt-3" role="alert">
+                  {errorMessage}
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary w-100 mt-3" disabled={submitting}>
+                {submitting ? (
+                  <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Signing you in…</>
+                ) : "Sign in securely"}
+              </button>
+            </form>
+
+            <div className="login-footer-note">
+              Having trouble signing in? Please contact your school administrator.
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 };
 

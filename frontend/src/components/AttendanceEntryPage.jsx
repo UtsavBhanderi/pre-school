@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-// import DatePicker from "react-datepicker";
-// import "react-datepicker/dist/react-datepicker.css";
 
 const AttendanceEntryPage = () => {
   const [students, setStudents] = useState([]);
@@ -10,6 +8,10 @@ const AttendanceEntryPage = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [errors, setErrors] = useState({});
   const [statistics, setStatistics] = useState({ present: 0, absent: 0 });
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [submittingAttendance, setSubmittingAttendance] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
   const linkone = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
 
   // Fetch students based on selected standard
@@ -20,6 +22,9 @@ const AttendanceEntryPage = () => {
   }, [standard]);
 
   const fetchStudentsByStandard = async (standard) => {
+    setLoadingStudents(true);
+    setPageError("");
+    setPageSuccess("");
     try {
       const response = await axios.get(
         `${linkone}` + "/api/attendance/students",
@@ -37,6 +42,12 @@ const AttendanceEntryPage = () => {
       calculateStatistics(initialAttendance);
     } catch (error) {
       console.error("Error fetching students:", error);
+      setPageError(error.response?.data?.message || "Unable to load students for this class.");
+      setStudents([]);
+      setAttendanceData([]);
+      setStatistics({ present: 0, absent: 0 });
+    } finally {
+      setLoadingStudents(false);
     }
   };
 
@@ -79,30 +90,39 @@ const AttendanceEntryPage = () => {
   };
 
   const handleSubmitAttendance = async () => {
+    if (!standard) {
+      setPageError("Choose a class before submitting attendance.");
+      return;
+    }
     if (!selectedDate) {
-      alert("select date");
+      setPageError("Choose the date before submitting attendance.");
+      return;
+    }
+    if (!validateForm()) {
+      setPageError("Please add a reason for each student marked absent.");
       return;
     }
 
-    if (!validateForm()) {
-      alert("Please fix the errors before submitting.");
-      return;
-    }
+    setSubmittingAttendance(true);
+    setPageError("");
+    setPageSuccess("");
     try {
-      
-      await axios.post(`${linkone}` + "/api/attendance/attendance", {
-        date: selectedDate,
+      await axios.post(linkone + "/api/attendance/attendance", {
+        date: formatDate(selectedDate),
         studentDetails: attendanceData,
       });
-
-      alert("Attendance submitted successfully");
+      setPageSuccess("Attendance has been saved successfully.");
       setSelectedDate(null);
       setStandard("");
       setStudents([]);
+      setAttendanceData([]);
       setStatistics({ present: 0, absent: 0 });
+      setErrors({});
     } catch (error) {
       console.error("Error submitting attendance:", error);
-      alert("Failed to submit attendance");
+      setPageError(error.response?.data?.message || "Attendance could not be saved. Please try again.");
+    } finally {
+      setSubmittingAttendance(false);
     }
   };
 
@@ -129,10 +149,13 @@ const AttendanceEntryPage = () => {
   };
 
   return (
-    <div className="mt-4">
+    <div>
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
+      <div className="page-header"><div><h2 className="mb-0">Mark attendance</h2><p className="page-subtitle">Choose a class and date, then mark each student present or absent.</p></div></div>
       {/* Attendance Summary */}
-      <div className="mt-4">
-        <h4>Attendance Summary</h4>
+      <div className="page-card mb-4">
+        <div className="section-heading mt-0"><h3>Class summary</h3><span className="muted small">Updates as you mark attendance</span></div>
 
         <div className="progress mb-3">
           <div
@@ -155,11 +178,9 @@ const AttendanceEntryPage = () => {
           Absent: {statistics.absent}
         </p>
       </div>
-      <h2>Mark Attendance</h2>
-
       {/* Standard Dropdown */}
-      <div className="d-flex gap-3">
-        <div className="form-group col-3">
+      <div className="page-card mb-4"><div className="row g-3">
+        <div className="form-group col-12 col-md-6 col-lg-3">
           <label>Select Standard</label>
           <select
             value={standard}
@@ -179,7 +200,7 @@ const AttendanceEntryPage = () => {
         </div>
 
         {/* Date Picker */}
-        <div className="form-group col-3 d-flex flex-column">
+        <div className="form-group col-12 col-md-6 col-lg-3 d-flex flex-column">
           <label>Select Date</label>
           {/* <DatePicker
             selected={selectedDate}
@@ -203,11 +224,15 @@ const AttendanceEntryPage = () => {
           /> */}
 
         </div>
-      </div>
+      </div></div>
 
       {/* Student Attendance Form */}
-      {students.length > 0 && (
-        <table className="table mt-4 table-striped">
+      {loadingStudents ? (
+        <div className="page-card text-center py-5"><span className="spinner-border spinner-border-sm text-primary" role="status" /><p className="muted mt-3 mb-0">Loading students for this class…</p></div>
+      ) : standard && students.length === 0 ? (
+        <div className="page-card"><div className="empty-state"><strong>No students found for this class</strong>Choose another class or contact the administrator if this seems incorrect.</div></div>
+      ) : students.length > 0 && (
+        <div className="table-responsive"><table className="table mt-0 table-hover align-middle">
           <thead>
             <tr>
               <th>#</th>
@@ -223,7 +248,7 @@ const AttendanceEntryPage = () => {
             {students.map((student, index) => (
               <tr key={student._id}>
                 <td>{index + 1}</td>
-                <td>{student.middleName}</td>
+                <td>{[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "—"}</td>
                 <td>{student.standard}</td>
                 <td>{student.stuNo}</td>
                 <td>
@@ -258,8 +283,8 @@ const AttendanceEntryPage = () => {
                   {/* <input
                     type="text"
                     className="form-control"
-                    placeholder="Enter reason"
-                    value={student.reason}
+                    placeholder="Required when absent"
+                    value={attendanceData.find((item) => item.studentId === student._id)?.reason || ""}
                     onChange={(e) =>
                       handleReasonChange(student._id, e.target.value)
                     }
@@ -270,11 +295,11 @@ const AttendanceEntryPage = () => {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Enter reason"
-                    value={student.reason}
-                    onChange={(e) =>
-                      handleReasonChange(student._id, e.target.value)
-                    }
+                    placeholder="Required when absent"
+                    aria-label={"Absence reason for " + [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")}
+                    disabled={attendanceData.find((item) => item.studentId === student._id)?.status !== "absent"}
+                    value={attendanceData.find((item) => item.studentId === student._id)?.reason || ""}
+                    onChange={(e) => handleReasonChange(student._id, e.target.value)}
                   />
                   {/* )} */}
 
@@ -285,16 +310,18 @@ const AttendanceEntryPage = () => {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {/* Submit Button */}
       {students.length > 0 && (
         <button
+          type="button"
           className="btn btn-primary mt-3"
+          disabled={submittingAttendance || loadingStudents || !selectedDate || !standard}
           onClick={handleSubmitAttendance}
         >
-          Submit Attendance
+          {submittingAttendance ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Saving attendance…</> : "Save attendance"}
         </button>
       )}
     </div>
