@@ -6,6 +6,7 @@ const Student = require('../models/Student');
 const TenantClass = require('../models/TenantClass');
 const Guardian = require('../models/Guardian');
 const ChildGuardian = require('../models/ChildGuardian');
+const OrganizationMembership = require('../models/OrganizationMembership');
 const Attendance = require('../models/Attendance');
 const FeeInvoice = require('../models/FeeInvoice');
 const FeeTransaction = require('../models/FeeTransaction');
@@ -715,23 +716,68 @@ router.post('/children', requireBranchContext, async (req, res) => {
 router.put('/children/:id', requireBranchContext, async (req, res) => {
   if (!allowed(req, CHILD_WRITE_ROLES, res)) return;
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid child record.' });
+
   const allowedFields = ['firstName', 'middleName', 'lastName', 'gender', 'standard', 'batchYear', 'dob', 'address'];
   const updates = {};
   for (const field of allowedFields) {
-    if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
-      const value = typeof req.body[field] === 'string' ? req.body[field].trim() : '';
-      if (field === 'firstName' && !value) return res.status(400).json({ message: 'Child first name cannot be empty.' });
-      if (field === 'gender' && value && !VALID_GENDER.has(value)) return res.status(400).json({ message: 'Choose a valid gender.' });
-      if (field === 'standard' && !value) return res.status(400).json({ message: 'Choose a configured class.' });
-      if (field === 'dob' && value && !parseDateOnly(value)) return res.status(400).json({ message: 'Enter a real date of birth.' });
-      updates[field] = value;
-    }
+    if (!Object.prototype.hasOwnProperty.call(req.body || {}, field)) continue;
+    const value = typeof req.body[field] === 'string' ? req.body[field].trim() : '';
+    if (field === 'firstName' && !value) return res.status(400).json({ message: 'Child first name cannot be empty.' });
+    if (field === 'gender' && value && !VALID_GENDER.has(value)) return res.status(400).json({ message: 'Choose a valid gender.' });
+    if (field === 'standard' && !value) return res.status(400).json({ message: 'Choose a configured class.' });
+    if (field === 'dob' && value && !parseDateOnly(value)) return res.status(400).json({ message: 'Enter a real date of birth.' });
+    updates[field] = value;
   }
-  if (!Object.keys(updates).length) return res.status(400).json({ message: 'There are no valid child fields to update.' });
   if (updates.batchYear && (!/^\d{4}-\d{4}$/.test(updates.batchYear) || Number(updates.batchYear.slice(5)) !== Number(updates.batchYear.slice(0, 4)) + 1)) {
     return res.status(400).json({ message: 'Enter a valid academic year.' });
   }
+
+  let primaryGuardianUpdate = null;
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'primaryGuardian')) {
+    const input = req.body.primaryGuardian;
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      return res.status(400).json({ message: 'Enter valid primary guardian details.' });
+    }
+    const fullName = clean(input.fullName, 120);
+    const phone = clean(input.phone, 24);
+    const email = clean(input.email, 254).toLowerCase();
+    const relationship = clean(input.relationship, 20).toLowerCase();
+    const schoolCommunication = clean(input.consent?.schoolCommunication || 'unknown', 20);
+    const photoUse = clean(input.consent?.photoUse || 'unknown', 20);
+    const consentNotes = clean(input.consent?.notes, 500);
+
+    if (fullName.length < 2) return res.status(400).json({ message: 'Guardian name must contain at least 2 characters.' });
+    if (!/^\+?[0-9 ()-]{7,24}$/.test(phone)) return res.status(400).json({ message: 'Enter a valid guardian phone number.' });
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: 'Enter a valid guardian email address.' });
+    if (!VALID_RELATIONSHIPS.has(relationship)) return res.status(400).json({ message: 'Choose a valid guardian relationship.' });
+    if (!['unknown', 'granted', 'withdrawn'].includes(schoolCommunication)) {
+      return res.status(400).json({ message: 'Choose a valid school-communication consent state.' });
+    }
+    if (!['unknown', 'granted', 'withdrawn'].includes(photoUse)) {
+      return res.status(400).json({ message: 'Choose a valid photo-use consent state.' });
+    }
+    for (const field of ['authorizedPickup', 'receivesSchoolUpdates', 'isBillingContact', 'isEmergencyContact']) {
+      if (typeof input[field] !== 'boolean') return res.status(400).json({ message: 'Choose a valid setting for ' + field + '.' });
+    }
+
+    primaryGuardianUpdate = {
+      fullName,
+      phone,
+      email,
+      relationship,
+      authorizedPickup: input.authorizedPickup,
+      receivesSchoolUpdates: input.receivesSchoolUpdates,
+      isBillingContact: input.isBillingContact,
+      isEmergencyContact: input.isEmergencyContact,
+      consent: { schoolCommunication, photoUse, notes: consentNotes },
+    };
+  }
+
+  if (!Object.keys(updates).length && !primaryGuardianUpdate) {
+    return res.status(400).json({ message: 'There are no child or guardian changes to save.' });
+  }
   updates.updatedBy = req.user._id;
+  const auditReason = clean(req.body?.reason, 500);
 
   try {
     if (updates.standard) {
@@ -743,6 +789,7 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
       });
       if (!configuredClass) return res.status(400).json({ message: 'Choose an active class configured for this branch.' });
     }
+
     const updated = await inTransaction(async (session) => {
       if (updates.standard) {
         const activeClass = await TenantClass.findOneAndUpdate(
@@ -761,6 +808,7 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
           throw inactiveClass;
         }
       }
+
       const child = await Student.findOneAndUpdate(
         { _id: req.params.id, organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id },
         { $set: updates },
@@ -771,21 +819,98 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
         notFound.code = 'NOT_FOUND';
         throw notFound;
       }
+
+      const changedFields = Object.keys(updates).filter((field) => field !== 'updatedBy');
+      if (primaryGuardianUpdate) {
+        const link = await ChildGuardian.findOne({
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          childId: child._id,
+          isPrimaryContact: true,
+        }).session(session);
+        if (!link) {
+          const missingGuardian = new Error('This child does not have a primary guardian link. Add or correct the guardian link before updating family details.');
+          missingGuardian.code = 'PRIMARY_GUARDIAN_NOT_FOUND';
+          throw missingGuardian;
+        }
+
+        const guardian = await Guardian.findOne({
+          _id: link.guardianId,
+          organizationId: req.tenant.organization._id,
+        }).session(session);
+        if (!guardian) {
+          const missingGuardian = new Error('The primary guardian record could not be found in this organization.');
+          missingGuardian.code = 'PRIMARY_GUARDIAN_NOT_FOUND';
+          throw missingGuardian;
+        }
+
+        const nextEmail = primaryGuardianUpdate.email;
+        if (nextEmail !== String(guardian.email || '').toLowerCase()) {
+          const connectedParent = await OrganizationMembership.findOne({
+            organizationId: req.tenant.organization._id,
+            role: 'parent',
+            status: 'active',
+            guardianIds: guardian._id,
+          }).select('_id').session(session).lean();
+          if (connectedParent) {
+            const verifiedParentLink = new Error('This guardian email is linked to an active parent portal account. Do not change it until the parent identity has been re-verified and the account link has been updated.');
+            verifiedParentLink.code = 'GUARDIAN_EMAIL_HAS_PORTAL';
+            throw verifiedParentLink;
+          }
+        }
+
+        const consentChanged =
+          link.consent?.schoolCommunication !== primaryGuardianUpdate.consent.schoolCommunication ||
+          link.consent?.photoUse !== primaryGuardianUpdate.consent.photoUse ||
+          String(link.consent?.notes || '') !== primaryGuardianUpdate.consent.notes;
+        const nextConsent = primaryGuardianUpdate.consent;
+        const nextConsentIsRecorded = nextConsent.schoolCommunication !== 'unknown' || nextConsent.photoUse !== 'unknown';
+
+        guardian.fullName = primaryGuardianUpdate.fullName;
+        guardian.phone = primaryGuardianUpdate.phone;
+        guardian.email = primaryGuardianUpdate.email;
+        await guardian.save({ session });
+
+        link.relationship = primaryGuardianUpdate.relationship;
+        link.authorizedPickup = primaryGuardianUpdate.authorizedPickup;
+        link.receivesSchoolUpdates = primaryGuardianUpdate.receivesSchoolUpdates;
+        link.isBillingContact = primaryGuardianUpdate.isBillingContact;
+        link.isEmergencyContact = primaryGuardianUpdate.isEmergencyContact;
+        link.consent = {
+          schoolCommunication: nextConsent.schoolCommunication,
+          photoUse: nextConsent.photoUse,
+          notes: nextConsent.notes,
+          consentRecordedAt: consentChanged && nextConsentIsRecorded ? new Date() : (nextConsentIsRecorded ? link.consent?.consentRecordedAt : null),
+          consentRecordedBy: consentChanged && nextConsentIsRecorded ? req.user._id : (nextConsentIsRecorded ? link.consent?.consentRecordedBy : null),
+        };
+        await link.save({ session });
+        changedFields.push('guardian.contact', 'guardian.permissions');
+        if (consentChanged) changedFields.push('guardian.consent');
+      }
+
       await createAudit(req, session, {
-        action: 'child.updated', resourceType: 'student', resourceId: child._id,
-        summary: 'Child record updated.',
-        changedFields: Object.keys(updates).filter((field) => field !== 'updatedBy'),
-        reason: clean(req.body.reason, 500),
+        action: primaryGuardianUpdate ? 'child.and_guardian.updated' : 'child.updated',
+        resourceType: 'student',
+        resourceId: child._id,
+        summary: primaryGuardianUpdate ? 'Child and primary guardian details updated.' : 'Child record updated.',
+        changedFields,
+        reason: auditReason,
       });
       return child;
     });
-    const result = await serializeChildren([updated.toObject ? updated.toObject() : updated], req.tenant.organization._id, req.tenant.branch._id);
-    return res.json({ message: 'Child record updated.', child: result[0] });
+
+    const result = await serializeChildren(
+      [updated.toObject ? updated.toObject() : updated],
+      req.tenant.organization._id,
+      req.tenant.branch._id
+    );
+    return res.json({ message: 'Child and family details saved.', child: result[0] });
   } catch (error) {
     if (error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
-    if (error.code === 'NOT_FOUND') return res.status(404).json({ message: error.message });
+    if (error.code === 'NOT_FOUND' || error.code === 'PRIMARY_GUARDIAN_NOT_FOUND') return res.status(404).json({ message: error.message });
+    if (error.code === 'GUARDIAN_EMAIL_HAS_PORTAL') return res.status(409).json({ message: error.message });
     console.error('Unable to update tenant child:', error.message);
-    return res.status(503).json({ message: 'Child record could not be updated safely.' });
+    return res.status(503).json({ message: 'Child or guardian record could not be updated safely.' });
   }
 });
 
