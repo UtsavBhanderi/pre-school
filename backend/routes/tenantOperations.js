@@ -19,6 +19,7 @@ const { hasTenantRole } = require('../utils/tenantAuthorization');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
 const { createCsv } = require('../utils/reportCsv');
+const { validateReportRange } = require('../utils/reportRange');
 const { evaluateClassEligibility } = require('../utils/classEligibility');
 const {
   MAX_MONEY_PAISE,
@@ -1186,19 +1187,6 @@ async function serializeInvoices(invoices, req) {
   });
 }
 
-function validateReportRange(fromText, toText, maximumDays = 366) {
-  const fromDate = parseDateOnly(fromText);
-  const toDate = parseDateOnly(toText);
-  if (!fromDate || !toDate || fromDate > toDate) {
-    return { valid: false, message: 'Choose a valid start and end date.' };
-  }
-  const dayCount = Math.round((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-  if (dayCount > maximumDays) {
-    return { valid: false, message: 'Choose a date range of ' + maximumDays + ' days or fewer.' };
-  }
-  return { valid: true, fromDate, toDate };
-}
-
 function formatDateInTimeZone(value, timeZone) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -1269,7 +1257,7 @@ router.get('/reports/attendance.csv', requireBranchContext, async (req, res) => 
       const date = record.date ? new Date(record.date).toISOString().slice(0, 10) : '';
       for (const entry of record.studentDetails || []) {
         const student = studentsById.get(String(entry.studentId));
-        if (!student || student.standard !== record.standard) continue;
+        if (!student) continue;
         rows.push([
           date,
           record.standard || '',
