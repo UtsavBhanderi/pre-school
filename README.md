@@ -11,6 +11,7 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 - Subject setup, assessment marks, report cards, printing, and spreadsheet exports
 - School calendar, student/teacher birthdays, gallery, PDF/video learning resources
 - Teacher daily-work reports and student report-document generation
+- Tenant-scoped teacher work reports with class assignment checks, administrator review, follow-up notes and locked review history
 - Internal school notices with scheduled visibility, staff targeting, editing and archiving
 - Organization/branch-scoped school calendar with holidays, trips, meetings, staff/parent audiences, cancellation history and audit entries
 - Child arrival and authorized pickup register with transactional presence state, ID-check confirmation, refusal logging and family-safe history
@@ -26,7 +27,7 @@ The codebase now includes the first foundation models for organizations, branche
 
 See [the SaaS rollout gates](docs/SAAS_ROLLOUT.md) for endpoints, tenant/branch header rules, migration steps and launch blockers. Do not set the SaaS registration flags to `true` just to enable sign-up: both the core data routes and student media need tenant-aware authorization first.
 
-Organization creation, branch creation, tenant child/guardian registration, attendance, fee transactions, calendar events and handover state changes use MongoDB transactions. The production database must support transactions (for example, a correctly configured replica set). Remaining launch gates include organization-aware migration of legacy data routes, private-media authorization tied to tenant/branch membership, integration tests across two organizations, and a verified backup/restore and data-migration plan.
+Organization creation, branch creation, tenant child/guardian registration, attendance, fee transactions, calendar events, handover state changes and teacher work-report submissions/reviews use MongoDB transactions. The production database must support transactions (for example, a correctly configured replica set). Remaining launch gates include organization-aware migration of legacy data routes, private-media authorization tied to tenant/branch membership, integration tests across two organizations, and a verified backup/restore and data-migration plan.
 
 
 
