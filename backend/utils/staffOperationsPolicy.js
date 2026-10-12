@@ -81,7 +81,7 @@ function validateLeaveDecision(currentStatus, requestedStatus, decisionNote) {
 }
 
 function canSelfPunch(membership) {
-  return activeRole(membership, STAFF_ROLES.filter((role) => !['organization_owner', 'head_office_admin', 'branch_admin'].includes(role)));
+  return activeRole(membership, STAFF_ROLES);
 }
 
 function decideCheckIn(record) {
