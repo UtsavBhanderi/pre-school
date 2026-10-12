@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const {
   MEDIA_TOKEN_TTL_SECONDS,
   parsePrivateMediaReference,
@@ -46,6 +47,21 @@ test('signed photo links are short lived and restricted to a specific user and f
   assert.equal(claims.filename, 'child-1.jpg');
   assert.equal(verifyPrivateMediaToken(token, 'a-different-secret'), null);
   assert.equal(verifyPrivateMediaToken('not-a-token', secret), null);
+});
+
+test('expired tokens fail verification even when the signature is correct', () => {
+  const expiredToken = jwt.sign(
+    {
+      sub: userId,
+      type: 'students',
+      filename: 'child-1.jpg',
+      iat: Math.floor(Date.now() / 1000) - 600,
+      exp: Math.floor(Date.now() / 1000) - 300,
+    },
+    secret,
+    { issuer: 'preschool-private-media', audience: 'school-photo', algorithm: 'HS256' },
+  );
+  assert.equal(verifyPrivateMediaToken(expiredToken, secret), null);
 });
 
 test('token signing refuses paths and extensions outside the allowlist', () => {
