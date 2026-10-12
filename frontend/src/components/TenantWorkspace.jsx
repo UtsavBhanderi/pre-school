@@ -850,6 +850,67 @@ export default function TenantWorkspace() {
     }
   };
 
+  const downloadTenantReport = async (reportType) => {
+    if (!branchId) {
+      setErrorMessage("Choose the branch you want to report on.");
+      return;
+    }
+    if (!reportFrom || !reportTo || reportFrom > reportTo) {
+      setErrorMessage("Choose a valid start date and end date.");
+      return;
+    }
+    if (reportType === "attendance" && !canViewAttendanceReports) {
+      setErrorMessage("Your account does not have permission to export attendance.");
+      return;
+    }
+    if (reportType === "fees" && !canViewFeeReports) {
+      setErrorMessage("Your account does not have permission to export fee transactions.");
+      return;
+    }
+
+    setReportDownloading(reportType);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const endpoint = reportType === "attendance"
+        ? "/api/saas/operations/reports/attendance.csv"
+        : "/api/saas/operations/reports/fees.csv";
+      const response = await axios.get(API_BASE_URL + endpoint, {
+        headers: tokenHeaders(organizationId, branchId),
+        params: { from: reportFrom, to: reportTo },
+        responseType: "blob",
+      });
+      const fileName = (reportType === "attendance" ? "attendance-" : "fee-transactions-") +
+        reportFrom + "-to-" + reportTo + ".csv";
+      const blob = new Blob([response.data], { type: response.headers?.["content-type"] || "text/csv;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setSuccessMessage((reportType === "attendance" ? "Attendance" : "Fee transaction") +
+        " report exported for " + reportFrom + " through " + reportTo + ". The export was recorded in the audit history.");
+    } catch (error) {
+      let message = displayError(error);
+      const responseData = error.response?.data;
+      if (responseData instanceof Blob) {
+        try {
+          const payload = JSON.parse(await responseData.text());
+          if (payload?.message) message = payload.message;
+        } catch {
+          // Keep the ordinary request error if the response is not JSON.
+        }
+      }
+      setErrorMessage(message);
+    } finally {
+      setReportDownloading("");
+    }
+  };
+
   const updateNoticeDraft = (event) => {
     const { name, value } = event.target;
     setNoticeDraft((draft) => ({ ...draft, [name]: value }));
