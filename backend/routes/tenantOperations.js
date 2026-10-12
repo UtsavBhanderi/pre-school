@@ -418,6 +418,13 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
         notFound.code = 'CLASS_NOT_FOUND';
         throw notFound;
       }
+      const nextMinAge = Object.prototype.hasOwnProperty.call(updates, 'minAgeMonths') ? updates.minAgeMonths : current.minAgeMonths;
+      const nextMaxAge = Object.prototype.hasOwnProperty.call(updates, 'maxAgeMonths') ? updates.maxAgeMonths : current.maxAgeMonths;
+      if (nextMinAge !== null && nextMinAge !== undefined && nextMaxAge !== null && nextMaxAge !== undefined && nextMinAge > nextMaxAge) {
+        const invalidRange = new Error('Minimum age must not be greater than maximum age.');
+        invalidRange.code = 'CLASS_AGE_RANGE';
+        throw invalidRange;
+      }
       if (updates.status === 'inactive' && current.status !== 'inactive') {
         const studentCount = await Student.countDocuments({
           organizationId: req.tenant.organization._id,
@@ -452,6 +459,7 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
       classroom: serializeClass(classroom, req.tenant.organization.currency || 'INR'),
     });
   } catch (error) {
+    if (error.code === 'CLASS_AGE_RANGE') return res.status(400).json({ message: error.message });
     if (error.code === 'CLASS_NOT_FOUND') return res.status(404).json({ message: error.message });
     if (error.code === 'CLASS_HAS_CHILDREN') return res.status(409).json({ message: error.message });
     console.error('Unable to update class settings:', error.message);
