@@ -62,7 +62,8 @@ function parseStoredPhotoPath(value, expectedFolder, origin) {
     try {
       const parsed = new URL(raw);
       // Stored uploads from a previous API hostname still belong to this
-      // private media namespace; never leave a bare student/teacher upload URL.
+      // private namespace, but arbitrary external image URLs must remain external.
+      if (!/^\/uploads\/(?:students|teachers)\//.test(parsed.pathname)) return null;
       pathValue = parsed.pathname;
     } catch {
       return null;
