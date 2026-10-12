@@ -85,7 +85,16 @@ function verifyPrivateMediaToken(token, secret) {
 function mediaFieldToSignedUrl(value, userId, secret, publicBaseUrl) {
   const reference = parsePrivateMediaReference(value);
   if (!reference) return value;
-  // A valid but unsupported image extension must never fall back to a public URL.
+  // Never turn a URL from an unrelated host into a local file capability.
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      if (new URL(value).origin !== new URL(publicBaseUrl).origin) return value;
+    } catch {
+      return value;
+    }
+  }
+  // A valid local path with an unsupported media extension must never fall back
+  // to a public static URL.
   if (!reference.serveable) return '';
   const token = signPrivateMediaToken({
     userId,
