@@ -9,18 +9,22 @@ const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (character
 function getFrontendBaseUrl() {
   const explicit = String(process.env.FRONTEND_URL || '').trim();
   const firstAllowed = String(process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',')[0].trim();
-  const candidate = explicit || firstAllowed;
-  try {
-    const parsed = new URL(candidate);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return 'http://localhost:5173';
-    return parsed.origin;
-  } catch {
-    return 'http://localhost:5173';
-  }
+
+  const safeOrigin = (candidate) => {
+    try {
+      const parsed = new URL(candidate);
+      return ['http:', 'https:'].includes(parsed.protocol) ? parsed.origin : '';
+    } catch {
+      return '';
+    }
+  };
+
+  return safeOrigin(explicit) || safeOrigin(firstAllowed) || 'http://localhost:5173';
 }
 
 function createInvitationUrl(token) {
-  return getFrontendBaseUrl() + '/accept-invitation?token=' + encodeURIComponent(token);
+  // Keep the one-time secret in the URL fragment, which browsers do not send with HTTP requests or referrers.
+  return getFrontendBaseUrl() + '/accept-invitation#token=' + encodeURIComponent(token);
 }
 
 function mailTransport() {

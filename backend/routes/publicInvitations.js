@@ -32,9 +32,10 @@ async function findLiveInvitation(token, session) {
   return query;
 }
 
-router.get('/inspect', async (req, res) => {
+// Inspect invitation tokens from a POST body, not a URL query string.
+router.post('/inspect', async (req, res) => {
   try {
-    const invitation = await findLiveInvitation(req.query.token);
+    const invitation = await findLiveInvitation(req.body?.token);
     if (!invitation || !isInvitationLive(invitation)) {
       return res.status(410).json({ message: 'This invitation is invalid, already used, revoked, or expired. Ask your preschool administrator for a new invitation.' });
     }
