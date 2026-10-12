@@ -43,7 +43,6 @@ router.get('/file', async (req, res) => {
     Pragma: 'no-cache',
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'none'; sandbox",
   });
 
   const claims = verifyPrivateMediaToken(req.query.token, process.env.JWT_SECRET);
