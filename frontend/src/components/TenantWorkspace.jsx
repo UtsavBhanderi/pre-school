@@ -100,13 +100,25 @@ function BlankState({ title, detail, action }) {
 export default function TenantWorkspace() {
   const { user, logout } = useContext(AuthContext);
   const memberships = useMemo(
-    () => (Array.isArray(user?.memberships) ? user.memberships.filter((item) => item?.organization?.id) : []),
+    () => (Array.isArray(user?.memberships) ? user.memberships.filter((item) => item?.organization?.id && item.role !== 'parent') : []),
     [user?.memberships],
   );
   const [organizationId, setOrganizationId] = useState(() => memberships[0]?.organization?.id || "");
   const activeMembership = memberships.find((item) => item.organization.id === organizationId) || memberships[0];
   const organization = activeMembership?.organization || null;
+  const role = activeMembership?.role || '';
   const canSeeAllBranches = Boolean(activeMembership?.accessAllBranches);
+  const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
+  const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+  const visibleTabs = TABS.filter((item) => {
+    if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
+    if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
+    if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
+    if (item.id === 'branches') return ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+    if (item.id === 'team') return canManagePeople;
+    return false;
+  });
   const [branchId, setBranchId] = useState(() => activeMembership?.accessAllBranches ? "" : activeMembership?.branchIds?.[0]?.id || "");
   const [branches, setBranches] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
@@ -116,6 +128,9 @@ export default function TenantWorkspace() {
   const [invoices, setInvoices] = useState([]);
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [invitations, setInvitations] = useState([]);
+  const [inviteDraft, setInviteDraft] = useState({ fullName: '', email: '', role: 'teacher', branchIds: [], guardianIds: [], classNames: [] });
+  const [invitationUrl, setInvitationUrl] = useState('');
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -212,14 +227,16 @@ export default function TenantWorkspace() {
 
   const loadMembersAndAudit = useCallback(async () => {
     if (!organizationId) return;
-    const [memberResult, auditResult] = await Promise.allSettled([
+    const [memberResult, auditResult, invitationResult] = await Promise.allSettled([
       saasRequest("/api/saas/members", { organizationId }),
       saasRequest("/api/saas/audit", { organizationId, params: { limit: 50 } }),
+      saasRequest("/api/saas/invitations", { organizationId }),
     ]);
     setMembers(memberResult.status === "fulfilled" ? memberResult.value : []);
     setAuditEvents(auditResult.status === "fulfilled" ? auditResult.value : []);
-    if (memberResult.status === "rejected" && auditResult.status === "rejected") {
-      throw memberResult.reason;
+    setInvitations(invitationResult.status === "fulfilled" ? invitationResult.value : []);
+    if (memberResult.status === "rejected" && auditResult.status === "rejected" && invitationResult.status === "rejected") {
+      throw invitationResult.reason;
     }
   }, [organizationId]);
 
@@ -303,7 +320,7 @@ export default function TenantWorkspace() {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
         } else if (activeTab === "team") {
-          await loadMembersAndAudit();
+          await Promise.all([loadBranches(), loadMembersAndAudit(), branchId ? loadChildren("") : Promise.resolve([]), branchId ? loadClasses() : Promise.resolve([])]);
         } else if (activeTab === "overview") {
           const data = await saasRequest("/api/saas/operations/summary", { organizationId, branchId });
           if (active) setSummary(data);
