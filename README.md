@@ -22,7 +22,7 @@ The codebase now includes the first foundation models for organizations, branche
 
 **This is an implementation milestone, not a production-ready SaaS release.** The existing preschool modules still contain single-school data queries and public static upload URLs. To avoid exposing those records to a tenant account, the legacy API guard denies organization-member accounts access to modules that have not yet been migrated. Self-service organization registration is disabled by default and must remain disabled until the tenant-scoping and private-media rollout checklist passes.
 
-See [the SaaS rollout gates](docs/SAAS_ROLLOUT.md) for endpoints, tenant/branch header rules, migration steps and launch blockers. Do not set the SaaS registration flags to \`true\` just to enable sign-up: both the core data routes and student media need tenant-aware authorization first.
+See [the SaaS rollout gates](docs/SAAS_ROLLOUT.md) for endpoints, tenant/branch header rules, migration steps and launch blockers. Do not set the SaaS registration flags to `true` just to enable sign-up: both the core data routes and student media need tenant-aware authorization first.
 
 The organization-creation and branch-creation operations use MongoDB transactions. The production database must support transactions (for example, a correctly configured replica set). The next milestones are tenant-scoped core student/attendance/fee records, secure media delivery, a verified legacy-data migration, and cross-tenant negative integration tests.
 
@@ -36,7 +36,7 @@ The SaaS branch includes an organization/branch workspace, class-assigned teache
 
 From **Team & activity → Invite someone**, an authorized organization owner, head-office administrator or branch administrator can create a one-time invitation. Invitations expire after 72 hours and store only a hash of the invitation token. If SMTP is configured, the link is emailed; otherwise the authorized inviter receives a copyable link to share through a verified channel. Revoke pending invitations from the same screen.
 
-Optional backend variables for SMTP are documented in \`backend/.env.example\`: \`SMTP_HOST\`, \`SMTP_PORT\`, \`SMTP_SECURE\`, \`EMAIL_FROM\`, \`EMAIL_USER\`, and \`EMAIL_PASS\`. Set \`FRONTEND_URL\` to the exact public frontend origin so invitation links point to the deployed site. Never put real credentials in the repository.
+Optional backend variables for SMTP are documented in `backend/.env.example`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `EMAIL_FROM`, `EMAIL_USER`, and `EMAIL_PASS`. Set `FRONTEND_URL` to the exact public frontend origin so invitation links point to the deployed site. Never put real credentials in the repository.
 
 Teacher invitations require one or more assigned classes and active branch access. Parent invitations require selecting existing guardian contacts whose saved email matches the invitation email. Parent access is derived only from those guardian links: the family portal reads linked children, authorized attendance history, and fee invoices where that guardian is explicitly marked as the billing contact. Parents cannot create invoices, mark attendance, or see another family's record through these endpoints.
 
@@ -52,17 +52,17 @@ The new organization workspace now has tenant-scoped child/guardian registration
 
 This is a staged rollout, not a claim that all legacy features are tenant-safe. Public self-service organization registration remains disabled. The older single-school routes, exports, notices, learning resources and public upload URLs still require organization-aware migration and private media delivery before multiple paying schools can use the platform safely. Review [the rollout gates](docs/SAAS_ROLLOUT.md) before any production onboarding.
 
-Invitation email is optional. To send invitations automatically, configure \`SMTP_HOST\`, \`SMTP_PORT\`, \`SMTP_SECURE\`, \`EMAIL_USER\`, \`EMAIL_PASS\`, \`EMAIL_FROM\` and \`FRONTEND_URL\`. If email delivery is not available, the authorized inviter is shown the single-use invitation URL to share through a verified channel. Invitation links expire after 72 hours.
+Invitation email is optional. To send invitations automatically, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM` and `FRONTEND_URL`. If email delivery is not available, the authorized inviter is shown the single-use invitation URL to share through a verified channel. Invitation links expire after 72 hours.
 
 
 
-## Private child and staff photo delivery
+## Private school media delivery
 
-Legacy child and teacher photographs are no longer exposed from the direct \`/uploads/students\` and \`/uploads/teachers\` static paths. The signed-media endpoint issues short-lived image links for the authenticated legacy school administrator; links expire after two minutes, only support approved raster image extensions, and stop working if the source record no longer references the photo. The legacy response layer rewrites photo fields to signed URLs so existing admin screens can continue to display them.
+Legacy student/guardian photos, teacher photos, gallery images, uploaded PDFs and uploaded videos are no longer served from direct public `/uploads/...` static paths. The existing authenticated legacy admin APIs return short-lived signed resource links so current management screens can display the files. Links expire after two minutes, accept only approved file extensions, and stop working if the backing record no longer references the file. The API response layer signs a copy of returned data; saved paths in MongoDB are not rewritten.
 
-Set \`API_PUBLIC_URL\` to the canonical, externally reachable API origin (for example, \`https://api.yourschool.example\`) when deploying behind a proxy or using separate frontend/API hosts. Keep \`JWT_SECRET\` strong and private. Test photo uploads, previews, print/report screens and expiry on the deployed HTTPS environment before release.
+Set `API_PUBLIC_URL` to the canonical, externally reachable API origin (for example, `https://api.yourschool.example`) when deploying behind a proxy or using separate frontend/API hosts. Keep `JWT_SECRET` strong and private. Test photo uploads, PDF opening, video playback/seek, print/report views and link expiry on the real HTTPS deployment before release.
 
-This change does not yet make every upload private: gallery, PDF and video files still have separate static delivery paths, and tenant-workspace photo upload/private delivery is a later migration step. Public organization sign-up must remain disabled until all child-related media and legacy data/API paths have organization-level authorization and tenant-isolation tests.
+This milestone still uses the legacy school's administrator access model for gallery and resource files; it is not a substitute for organization/branch authorization. Parent/tenant workspace photo uploads and organization-aware private media are a later step. External learning-resource URLs remain external URLs and are not proxied by this server. Public organization sign-up must remain disabled until all legacy data/API paths and all child-related media have organization-level authorization and tenant-isolation tests.
 
 
 ## Requirements
