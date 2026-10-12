@@ -145,16 +145,6 @@ router.post('/accept', async (req, res) => {
               guardianMismatch.code = 'GUARDIAN_MISMATCH';
               throw guardianMismatch;
             }
-            if (guardians.some((guardian) => guardian.portalUserId && String(guardian.portalUserId) !== String(user._id))) {
-              const guardianAttached = new Error('A selected family contact is already connected to a different portal account.');
-              guardianAttached.code = 'GUARDIAN_CONNECTED';
-              throw guardianAttached;
-            }
-            await Guardian.updateMany(
-              { _id: { $in: invitation.guardianIds }, organizationId: organization._id },
-              { $set: { portalUserId: user._id } },
-              { session }
-            );
           }
 
           const [membership] = await OrganizationMembership.create([{
@@ -216,7 +206,6 @@ router.post('/accept', async (req, res) => {
       EXISTING_ACCOUNT_PASSWORD: 401,
       MEMBERSHIP_EXISTS: 409,
       GUARDIAN_MISMATCH: 409,
-      GUARDIAN_CONNECTED: 409,
     };
     if (statuses[error.code]) return res.status(statuses[error.code]).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'This invitation has already been used or a conflicting account was created. Try signing in or contact your administrator.' });
