@@ -7,6 +7,7 @@ const {
   formatPaise,
   normalizeInvoiceLines,
   calculateInvoiceBalance,
+  calculateInvoiceBalanceForStatus,
 } = require('../utils/tenantMoney');
 
 test('currency input converts to integer paise without floating-point sums', () => {
@@ -45,4 +46,15 @@ test('invoice balances include refunds as negative ledger entries', () => {
     { type: 'refund', amountPaise: 1000 },
   ]);
   assert.deepEqual(balance, { netPaidPaise: 7000, outstandingPaise: 3000, overpaidPaise: 0 });
+});
+
+test('void invoices have zero outstanding balance while retaining their audit amount', () => {
+  assert.deepEqual(
+    calculateInvoiceBalanceForStatus('void', 25000, []),
+    { netPaidPaise: 0, outstandingPaise: 0, overpaidPaise: 0 }
+  );
+  assert.deepEqual(
+    calculateInvoiceBalanceForStatus('open', 25000, [{ type: 'payment', amountPaise: 5000 }]),
+    { netPaidPaise: 5000, outstandingPaise: 20000, overpaidPaise: 0 }
+  );
 });
