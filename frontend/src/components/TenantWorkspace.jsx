@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -12,9 +12,11 @@ import "../saas-workspace.css";
 import "../invitations.css";
 import "../class-config.css";
 import "../tenant-notices.css";
+import "../tenant-reports.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
+  { id: "reports", label: "Reports & exports", Icon: MdAssessment },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
@@ -27,6 +29,12 @@ const TABS = [
 const todayLocal = () => {
   const now = new Date();
   return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+};
+
+const localDateDaysAgo = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
 };
 
 const localDateTimeInputNow = () => {
@@ -141,9 +149,12 @@ export default function TenantWorkspace() {
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
   const canManageNotices = canManagePeople;
+  const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
+  const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
     if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -162,6 +173,9 @@ export default function TenantWorkspace() {
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [reportFrom, setReportFrom] = useState(() => localDateDaysAgo(29));
+  const [reportTo, setReportTo] = useState(todayLocal);
+  const [reportDownloading, setReportDownloading] = useState("");
   const [editingNoticeId, setEditingNoticeId] = useState("");
   const [noticeDraft, setNoticeDraft] = useState(() => ({
     title: "",
@@ -834,6 +848,67 @@ export default function TenantWorkspace() {
       setErrorMessage(displayError(error));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const downloadTenantReport = async (reportType) => {
+    if (!branchId) {
+      setErrorMessage("Choose the branch you want to report on.");
+      return;
+    }
+    if (!reportFrom || !reportTo || reportFrom > reportTo) {
+      setErrorMessage("Choose a valid start date and end date.");
+      return;
+    }
+    if (reportType === "attendance" && !canViewAttendanceReports) {
+      setErrorMessage("Your account does not have permission to export attendance.");
+      return;
+    }
+    if (reportType === "fees" && !canViewFeeReports) {
+      setErrorMessage("Your account does not have permission to export fee transactions.");
+      return;
+    }
+
+    setReportDownloading(reportType);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const endpoint = reportType === "attendance"
+        ? "/api/saas/operations/reports/attendance.csv"
+        : "/api/saas/operations/reports/fees.csv";
+      const response = await axios.get(API_BASE_URL + endpoint, {
+        headers: tokenHeaders(organizationId, branchId),
+        params: { from: reportFrom, to: reportTo },
+        responseType: "blob",
+      });
+      const fileName = (reportType === "attendance" ? "attendance-" : "fee-transactions-") +
+        reportFrom + "-to-" + reportTo + ".csv";
+      const blob = new Blob([response.data], { type: response.headers?.["content-type"] || "text/csv;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setSuccessMessage((reportType === "attendance" ? "Attendance" : "Fee transaction") +
+        " report exported for " + reportFrom + " through " + reportTo + ". The export was recorded in the audit history.");
+    } catch (error) {
+      let message = displayError(error);
+      const responseData = error.response?.data;
+      if (responseData instanceof Blob) {
+        try {
+          const payload = JSON.parse(await responseData.text());
+          if (payload?.message) message = payload.message;
+        } catch {
+          // Keep the ordinary request error if the response is not JSON.
+        }
+      }
+      setErrorMessage(message);
+    } finally {
+      setReportDownloading("");
     }
   };
 
@@ -1641,6 +1716,54 @@ export default function TenantWorkspace() {
                   ) : <BlankState title="Set up your first class" detail="Create a class above before registering children, recording attendance, or assigning teachers to classes." />}
                 </>
               )}
+            </section>
+          )}
+
+          {activeTab === "reports" && (
+            <section className="saas-section tenant-reports-section">
+              <SectionHeading
+                title="Reports and exports"
+                description="Download branch-scoped records for school reviews, attendance follow-up, and fee reconciliation. Every export is recorded in the audit history."
+              />
+
+              <div className="tenant-report-filter-card">
+                <div><h3>Choose your date range</h3><p>Exports include the start and end dates. You can report on up to 366 days at a time.</p></div>
+                <div className="tenant-report-date-grid">
+                  <label>From date *
+                    <input type="date" value={reportFrom} max={reportTo || undefined} onChange={(event) => setReportFrom(event.target.value)} required />
+                  </label>
+                  <label>To date *
+                    <input type="date" value={reportTo} min={reportFrom || undefined} max={todayLocal()} onChange={(event) => setReportTo(event.target.value)} required />
+                  </label>
+                </div>
+                {!branchId && <div className="saas-message error" role="status"><MdErrorOutline aria-hidden="true" /><span>Choose a branch in the selector above before exporting a report.</span></div>}
+              </div>
+
+              <div className="tenant-report-card-grid">
+                {canViewAttendanceReports && (
+                  <article className="tenant-report-card">
+                    <span className="tenant-report-icon"><MdFactCheck aria-hidden="true" /></span>
+                    <h3>Attendance report</h3>
+                    <p>One row per saved child attendance entry, including date, class, admission number, attendance status, and absence reason. Teachers are limited to their assigned classes.</p>
+                    <div className="tenant-report-file-note">CSV file · Opens in Excel or Google Sheets</div>
+                    <button type="button" className="saas-primary-button" onClick={() => downloadTenantReport("attendance")} disabled={!branchId || !reportFrom || !reportTo || reportFrom > reportTo || Boolean(reportDownloading)}>
+                      <MdDownload aria-hidden="true" /> {reportDownloading === "attendance" ? "Preparing attendance…" : "Download attendance CSV"}
+                    </button>
+                  </article>
+                )}
+                {canViewFeeReports && (
+                  <article className="tenant-report-card">
+                    <span className="tenant-report-icon"><MdReceiptLong aria-hidden="true" /></span>
+                    <h3>Fee transaction report</h3>
+                    <p>Saved payments and refunds with receipt number, invoice, child, date, amount, payment method, reference, and refund reason. Use it to reconcile the ledger.</p>
+                    <div className="tenant-report-file-note">CSV file · Includes transaction type for each amount</div>
+                    <button type="button" className="saas-primary-button" onClick={() => downloadTenantReport("fees")} disabled={!branchId || !reportFrom || !reportTo || reportFrom > reportTo || Boolean(reportDownloading)}>
+                      <MdDownload aria-hidden="true" /> {reportDownloading === "fees" ? "Preparing fee report…" : "Download fee CSV"}
+                    </button>
+                  </article>
+                )}
+              </div>
+              <div className="parent-privacy-card tenant-report-privacy"><MdShield aria-hidden="true" /><div><strong>Exports are protected and traceable.</strong><p>The server checks your organization, branch, role and (for teachers) assigned classes. Child and invoice references are re-checked against the same branch, and the export action is written to the audit log.</p></div></div>
             </section>
           )}
 

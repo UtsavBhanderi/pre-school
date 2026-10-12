@@ -1,0 +1,140 @@
+/* Simple, branch-aware report/export cards. */
+.tenant-reports-section { min-width: 0; }
+.tenant-report-filter-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, .8fr);
+  gap: 1rem 1.5rem;
+  align-items: end;
+  margin-bottom: 1rem;
+  padding: 1.1rem;
+  border: 1px solid #dfe7f1;
+  border-radius: 12px;
+  background: #fff;
+}
+.tenant-report-filter-card h3 {
+  margin: 0;
+  color: #233852;
+  font-size: 1rem;
+  font-weight: 850;
+}
+.tenant-report-filter-card p {
+  margin: .35rem 0 0;
+  color: #687991;
+  font-size: .8rem;
+  line-height: 1.55;
+}
+.tenant-report-date-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+}
+.tenant-report-date-grid label {
+  display: grid;
+  gap: .35rem;
+  color: #4b5e78;
+  font-size: .75rem;
+  font-weight: 750;
+}
+.tenant-report-date-grid input {
+  min-width: 0;
+  width: 100%;
+  min-height: 40px;
+  padding: .45rem .55rem;
+  border: 1px solid #d5dfec;
+  border-radius: 7px;
+  color: #223650;
+  background: #fff;
+  font: inherit;
+  font-size: .8rem;
+}
+.tenant-report-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .9rem;
+}
+.tenant-report-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .7rem;
+  min-width: 0;
+  padding: 1.1rem;
+  border: 1px solid #dfe7f1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(27 48 83 / 4%);
+}
+.tenant-report-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  color: #4059bb;
+  background: #eef2ff;
+  font-size: 1.25rem;
+}
+.tenant-report-card h3 {
+  margin: 0;
+  color: #223650;
+  font-size: 1.02rem;
+  font-weight: 850;
+}
+.tenant-report-card p {
+  flex: 1;
+  margin: 0;
+  color: #5c6e87;
+  font-size: .82rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.tenant-report-file-note {
+  color: #78889c;
+  font-size: .7rem;
+  font-weight: 700;
+}
+.tenant-report-card .saas-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  width: 100%;
+  min-height: 42px;
+}
+.tenant-report-card .saas-primary-button svg { font-size: 1rem; }
+.tenant-report-privacy {
+  margin-top: 1rem;
+  padding: .9rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  border: 1px solid #dce5f0;
+  border-radius: 10px;
+  background: #f8fafd;
+  color: #61738b;
+}
+.tenant-report-privacy > svg {
+  flex: 0 0 auto;
+  margin-top: .1rem;
+  color: #566dbb;
+  font-size: 1.1rem;
+}
+.tenant-report-privacy strong {
+  display: block;
+  margin-bottom: .2rem;
+  color: #314661;
+  font-size: .8rem;
+}
+.tenant-report-privacy p {
+  margin: 0;
+  font-size: .77rem;
+  line-height: 1.6;
+}
+@media (max-width: 900px) {
+  .tenant-report-filter-card { grid-template-columns: minmax(0, 1fr); }
+  .tenant-report-card-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .tenant-report-date-grid { grid-template-columns: minmax(0, 1fr); }
+  .tenant-report-filter-card, .tenant-report-card { padding: .85rem; }
+}
