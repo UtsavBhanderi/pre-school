@@ -1011,13 +1011,13 @@ export default function TenantWorkspace() {
           {activeTab === "children" && (
             <section className="saas-section">
               <SectionHeading title="Children and families" description="Find a child, register a new admission, or review family contact details."
-                action={<button type="button" className="saas-primary-button" onClick={() => { setShowChildForm((show) => !show); setChildDraft((draft) => ({ ...draft, className: draft.className || classes[0]?.name || "" })); }}><MdAdd /> {showChildForm ? "Close form" : "Register a child"}</button>}
+                action={<button type="button" className="saas-primary-button" onClick={() => { if (showChildForm) closeChildForm(); else { setEditingChildId(""); setChildDraft(createBlankChildDraft(classes[0]?.name || "")); setShowChildForm(true); } }}><MdAdd /> {showChildForm ? "Close form" : "Register a child"}</button>}
               />
               {needBranch ? <BlankState title="Choose a branch first" detail="Select a branch from the top of the page to open its child records." /> : (
                 <>
                   {showChildForm && (
                     <form className="saas-form-card" onSubmit={saveChild}>
-                      <div className="saas-form-heading"><div><h3>New child admission</h3><p>Start with the child and one parent or guardian contact. More details can be added later.</p></div></div>
+                      <div className="saas-form-heading"><div><h3>{editingChildId ? "Edit child and family details" : "New child admission"}</h3><p>{editingChildId ? "Update the child’s details and primary guardian contact. Changes are recorded in the audit history." : "Start with the child and one parent or guardian contact. You can edit this record later."}</p></div></div>
                       <div className="saas-form-grid">
                         <label>First name *<input name="firstName" value={childDraft.firstName} onChange={updateChildDraft} required maxLength={80} /></label>
                         <label>Middle name<input name="middleName" value={childDraft.middleName} onChange={updateChildDraft} maxLength={80} /></label>
@@ -1028,7 +1028,7 @@ export default function TenantWorkspace() {
                         <label>Gender<select name="gender" value={childDraft.gender} onChange={updateChildDraft}><option value="">Not specified</option><option>Female</option><option>Male</option><option>Other</option></select></label>
                         <label className="saas-full-width">Home address<textarea name="address" value={childDraft.address} onChange={updateChildDraft} rows="2" maxLength={500} /></label>
                       </div>
-                      <div className="saas-form-subheading"><h4>Parent or guardian</h4><p>This contact is the primary contact and billing contact. You can add more guardians later.</p></div>
+                      <div className="saas-form-subheading"><h4>{editingChildId ? "Primary parent or guardian" : "Parent or guardian"}</h4><p>{editingChildId ? "Update the existing primary contact. Changing an email linked to an active parent portal requires re-verification." : "This contact starts as the primary contact. You can add more guardians later."}</p></div>
                       <div className="saas-form-grid">
                         <label>Guardian's full name *<input name="guardianName" value={childDraft.guardianName} onChange={updateChildDraft} required maxLength={120} /></label>
                         <label>Mobile number *<input type="tel" name="guardianPhone" value={childDraft.guardianPhone} onChange={updateChildDraft} required maxLength={24} placeholder="+91 98765 43210" /></label>
@@ -1037,10 +1037,15 @@ export default function TenantWorkspace() {
                       </div>
                       <div className="saas-consent-checks">
                         <label><input type="checkbox" checked={childDraft.guardianPickup} onChange={(event) => setChildDraft((draft) => ({ ...draft, guardianPickup: event.target.checked }))} /> Authorized to pick up child</label>
-                        <label><input type="checkbox" checked={childDraft.communicationConsent} onChange={(event) => setChildDraft((draft) => ({ ...draft, communicationConsent: event.target.checked }))} /> Consent for school communications recorded</label>
-                        <label><input type="checkbox" checked={childDraft.photoConsent} onChange={(event) => setChildDraft((draft) => ({ ...draft, photoConsent: event.target.checked }))} /> Consent for school photo use recorded</label>
+                        <label><input type="checkbox" checked={childDraft.guardianUpdates} onChange={(event) => setChildDraft((draft) => ({ ...draft, guardianUpdates: event.target.checked }))} /> Receives school updates</label>
+                        <label><input type="checkbox" checked={childDraft.guardianBilling} onChange={(event) => setChildDraft((draft) => ({ ...draft, guardianBilling: event.target.checked }))} /> Billing contact</label>
+                        <label><input type="checkbox" checked={childDraft.guardianEmergency} onChange={(event) => setChildDraft((draft) => ({ ...draft, guardianEmergency: event.target.checked }))} /> Emergency contact</label>
                       </div>
-                      <div className="saas-form-actions"><button type="button" className="saas-secondary-button" onClick={() => setShowChildForm(false)}>Cancel</button><button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Saving child…" : "Save child record"}</button></div>
+                      <div className="saas-form-grid">
+                        <label>School communication consent<select name="communicationConsent" value={childDraft.communicationConsent} onChange={updateChildDraft}><option value="unknown">Not recorded</option><option value="granted">Granted</option><option value="withdrawn">Withdrawn</option></select></label>
+                        <label>Photo-use consent<select name="photoConsent" value={childDraft.photoConsent} onChange={updateChildDraft}><option value="unknown">Not recorded</option><option value="granted">Granted</option><option value="withdrawn">Withdrawn</option></select></label>
+                      </div>
+                      <div className="saas-form-actions"><button type="button" className="saas-secondary-button" onClick={closeChildForm}>Cancel</button><button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Saving record…" : editingChildId ? "Save changes" : "Save child record"}</button></div>
                     </form>
                   )}
                   <div className="saas-search-row">
@@ -1052,9 +1057,9 @@ export default function TenantWorkspace() {
                   </div>
                   <div className="saas-list-meta">{children.length} child record{children.length === 1 ? "" : "s"} in this view {loading ? "· Updating…" : ""}</div>
                   {children.length ? (
-                    <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Child</th><th>Admission number</th><th>Class / year</th><th>Parent or guardian</th><th>Mobile</th><th>Record updated</th></tr></thead><tbody>
+                    <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Child</th><th>Admission number</th><th>Class / year</th><th>Parent or guardian</th><th>Mobile</th><th>Record updated</th><th>Actions</th></tr></thead><tbody>
                       {children.map((child) => (
-                        <tr key={child.id}><td><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td></tr>
+                        <tr key={child.id}><td><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button></td></tr>
                       ))}
                     </tbody></table></div>
                   ) : !loading && <BlankState title={appliedQuery ? "No matching child" : "No children registered yet"} detail={appliedQuery ? "Try another spelling, mobile number or admission number." : "Register the first child using the button above. You can search and update records from this list."} action={appliedQuery ? <button type="button" className="saas-secondary-button" onClick={() => { setQuery(""); setAppliedQuery(""); }}>Show all children</button> : <button type="button" className="saas-primary-button" onClick={() => setShowChildForm(true)}><MdAdd /> Register a child</button>} />}
