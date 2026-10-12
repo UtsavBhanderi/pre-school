@@ -11,7 +11,7 @@ const Photo = require('../models/Photo');
 const PDF = require('../models/Pdf');
 const Video = require('../models/Video');
 const OrganizationMembership = require('../models/OrganizationMembership');
-const { verifyPrivateMediaToken } = require('../utils/privateMedia');
+const { verifyPrivateMediaToken, localMediaReferenceValues } = require('../utils/privateMedia');
 
 const router = express.Router();
 const uploadRoot = path.resolve(__dirname, '../uploads');
@@ -35,8 +35,8 @@ async function recordStillReferencesFile(type, filename) {
   // Match only the local storage reference for this directory and filename.
   // Suffix-only matching could mistake an unrelated external URL for a local
   // attachment if it happened to use the same final filename.
-  const localReference = 'uploads/' + type + '/' + filename;
-  const allowedReferences = [localReference, '/' + localReference];
+  const allowedReferences = localMediaReferenceValues(type, filename);
+  if (!allowedReferences.length) return false;
   const filter = { $or: entry.fields.map((field) => ({ [field]: { $in: allowedReferences } })) };
   const record = await entry.Model.findOne(filter).select('_id').lean();
   return Boolean(record);
