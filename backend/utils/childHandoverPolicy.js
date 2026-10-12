@@ -25,6 +25,13 @@ function cleanText(value, maxLength = 500) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
+function containsLikelyIdNumber(value) {
+  const text = String(value || '');
+  return /\b\d{8,}\b/.test(text) ||
+    /\b\d{4}[ -]\d{4}[ -]\d{4}\b/.test(text) ||
+    /\b[A-Z]{5}\d{4}[A-Z]\b/i.test(text);
+}
+
 function validateCheckInInput(input = {}) {
   const childId = cleanText(input.childId, 32);
   const method = cleanText(input.method || 'family', 30);
@@ -38,6 +45,7 @@ function validateCheckInInput(input = {}) {
   if (guardianId && !/^[a-f0-9]{24}$/i.test(guardianId)) errors.guardianId = 'Choose a valid family contact.';
   if (method === 'family' && !guardianId) errors.guardianId = 'Choose the family member who brought the child.';
   if (method !== 'family' && personName.length < 2) errors.personName = 'Enter the name of the person bringing the child.';
+  if (containsLikelyIdNumber(personName) || containsLikelyIdNumber(staffNote)) errors.staffNote = 'Do not enter ID numbers, phone numbers, or identity-document details in names or notes.';
   return Object.keys(errors).length
     ? { valid: false, errors, message: Object.values(errors)[0] }
     : { valid: true, value: { childId, method, guardianId, personName, staffNote } };
@@ -54,6 +62,7 @@ function validateCheckOutInput(input = {}) {
   if (!childId) errors.childId = 'Choose a child.';
   if (guardianId && !/^[a-f0-9]{24}$/i.test(guardianId)) errors.guardianId = 'Choose a valid family contact.';
   if (personName.length > 0 && personName.length < 2) errors.personName = 'Enter at least 2 characters for the pickup person name.';
+  if (containsLikelyIdNumber(personName) || containsLikelyIdNumber(staffNote)) errors.staffNote = 'Do not enter ID numbers, phone numbers, or identity-document details in names or notes.';
   // A false ID-check must still reach the endpoint so the school can log a refused release.
   return Object.keys(errors).length
     ? { valid: false, errors, message: Object.values(errors)[0] }
@@ -109,6 +118,7 @@ module.exports = {
   HANDOVER_WRITE_ROLES,
   canReadHandover,
   canRecordHandover,
+  containsLikelyIdNumber,
   validateCheckInInput,
   validateCheckOutInput,
   decideCheckIn,
