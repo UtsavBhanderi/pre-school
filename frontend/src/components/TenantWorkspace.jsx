@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -19,6 +19,7 @@ import "../tenant-handover.css";
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
   { id: "reports", label: "Reports & exports", Icon: MdAssessment },
+  { id: "workreports", label: "Teacher work reports", Icon: MdAssignment },
   { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
@@ -166,6 +167,7 @@ export default function TenantWorkspace() {
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
+    if (item.id === 'workreports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'handover') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher', 'transport_staff'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
@@ -236,6 +238,13 @@ export default function TenantWorkspace() {
   const [handoverQuery, setHandoverQuery] = useState("");
   const [handoverTarget, setHandoverTarget] = useState(null);
   const [handoverDraft, setHandoverDraft] = useState({ method: "family", guardianId: "", personName: "", idChecked: false, staffNote: "" });
+  const [workReports, setWorkReports] = useState([]);
+  const [workReportFrom, setWorkReportFrom] = useState(() => localDateDaysAgo(29));
+  const [workReportTo, setWorkReportTo] = useState(todayLocal);
+  const [workReportClassFilter, setWorkReportClassFilter] = useState("");
+  const [workReportStatusFilter, setWorkReportStatusFilter] = useState("all");
+  const [editingWorkReportId, setEditingWorkReportId] = useState("");
+  const [workReportDraft, setWorkReportDraft] = useState({ reportDate: todayLocal(), className: "", subject: "", startTime: "09:00", endTime: "12:00", workSummary: "", studentsPresent: "0" });
   const [feeDraft, setFeeDraft] = useState({
     childId: "", academicYear: academicYearNow(), description: "Tuition fee", amount: "", discount: "0", dueDate: "", notes: "",
   });
