@@ -669,12 +669,12 @@ export default function TenantWorkspace() {
   <div class="print-actions"><button onclick="window.print()">Print / Save as PDF</button><button class="secondary" onclick="window.close()">Close</button></div>
 </body>
 </html>`;
+    popup.addEventListener("load", () => popup.print(), { once: true });
+    popup.addEventListener("afterprint", () => popup.close(), { once: true });
     popup.document.open();
     popup.document.write(html);
     popup.document.close();
     popup.focus();
-    popup.addEventListener("load", () => popup.print(), { once: true });
-    popup.addEventListener("afterprint", () => popup.close(), { once: true });
   };
 
   const updateFeeDraft = (event) => {
