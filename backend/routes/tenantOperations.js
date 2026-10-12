@@ -15,6 +15,7 @@ const AuditEvent = require('../models/AuditEvent');
 
 const { tenantContext, requireBranchContext } = require('../middleware/tenantContext');
 const { hasTenantRole } = require('../utils/tenantAuthorization');
+const { canAccessAssignedClass } = require('../utils/tenantClassAccess');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
 const { ageInMonths } = require('../utils/ageInMonths');
@@ -615,14 +616,25 @@ router.get('/children', requireBranchContext, async (req, res) => {
 });
 
 router.get('/children/:id', requireBranchContext, async (req, res) => {
-  if (!allowed(req, CHILD_READ_ROLES, res)) return;
+  if (!allowed(req, CHILD_LIST_ROLES, res)) return;
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid child record.' });
   try {
     const child = await Student.findOne({
       _id: req.params.id, organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id,
     }).select('_id firstName middleName lastName stuNo standard batchYear dob gender address createdAt updatedAt').lean();
-    if (!child) return res.status(404).json({ message: 'Child record not found in this branch.' });
-    return res.json((await serializeChildren([child], req.tenant.organization._id, req.tenant.branch._id))[0]);
+    if (!child || !canAccessAssignedClass(req.tenant.membership, child.standard)) {
+      return res.status(404).json({ message: 'Child record not found in your branch or assigned classes.' });
+    }
+    // Accountants and teachers can open a child summary for daily work, but do
+    // not receive family phone/email details or the home address through this endpoint.
+    const canViewFamilyDetails = CHILD_READ_ROLES.includes(req.tenant.membership.role);
+    return res.json((await serializeChildren(
+      [child],
+      req.tenant.organization._id,
+      req.tenant.branch._id,
+      canViewFamilyDetails,
+      canViewFamilyDetails,
+    ))[0]);
   } catch (error) {
     console.error('Unable to load tenant child:', error);
     return res.status(503).json({ message: 'Child record could not be loaded.' });
