@@ -7,10 +7,12 @@ import "../saas-workspace.css";
 import "../parent-portal.css";
 import "../tenant-notices.css";
 import "../tenant-calendar.css";
+import "../tenant-handover.css";
 
 const PARENT_TABS = [
   { id: "overview", label: "Family overview", Icon: MdDashboard },
   { id: "calendar", label: "School calendar", Icon: MdCalendarMonth },
+  { id: "handover", label: "Arrival & pickup", Icon: MdShield },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "My children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
@@ -56,6 +58,16 @@ export default function ParentPortal() {
   const [invoices, setInvoices] = useState([]);
   const [notices, setNotices] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
+  const [handoverEvents, setHandoverEvents] = useState([]);
+  const [handoverFrom, setHandoverFrom] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 6);
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  });
+  const [handoverTo, setHandoverTo] = useState(() => {
+    const date = new Date();
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  });
   const [calendarFrom, setCalendarFrom] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() - 7);
@@ -114,13 +126,16 @@ export default function ParentPortal() {
       } else if (tab === "calendar") {
         const calendarResult = await parentRequest("/api/saas/calendar", organizationId, branchId, { from: calendarFrom, to: calendarTo });
         setCalendarEvents(Array.isArray(calendarResult?.events) ? calendarResult.events : []);
+      } else if (tab === "handover") {
+        const handoverResult = await parentRequest("/api/saas/handover", organizationId, branchId, { from: handoverFrom, to: handoverTo });
+        setHandoverEvents(Array.isArray(handoverResult?.events) ? handoverResult.events : []);
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Your family information could not be loaded. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [organizationId, branchId, tab, attendanceFrom, attendanceTo, calendarFrom, calendarTo]);
+  }, [organizationId, branchId, tab, attendanceFrom, attendanceTo, calendarFrom, calendarTo, handoverFrom, handoverTo]);
 
   useEffect(() => { loadAll(); }, [loadAll, refreshed]);
 
@@ -135,7 +150,7 @@ export default function ParentPortal() {
       <header className="parent-portal-header">
         <div className="parent-portal-brand"><span><MdSchool aria-hidden="true" /></span><div><strong>Family portal</strong><small>{organization?.name || "Your preschool"}</small></div></div>
         <div className="parent-portal-header-actions">
-          {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); setNotices([]); setCalendarEvents([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
+          {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); setNotices([]); setCalendarEvents([]); setHandoverEvents([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
           {branches.length > 1 && <label><span>Branch</span><select value={branchId} onChange={(event) => setBranchId(event.target.value)} aria-label="Choose branch"><option value="">All my linked branches</option>{branches.map((branch) => <option key={branch.id || branch._id} value={branch.id || branch._id}>{branch.name}</option>)}</select></label>}
           <button type="button" className="saas-icon-button" onClick={() => setRefreshed((value) => value + 1)} aria-label="Refresh family information"><MdRefresh /></button>
           <button type="button" className="parent-signout-button" onClick={logout}><MdLogout /> Sign out</button>
@@ -261,6 +276,43 @@ export default function ParentPortal() {
               <div className="saas-empty-state"><strong>No school events in this range</strong><p>When your preschool publishes a holiday, trip or event for parents, it will appear here.</p></div>
             ) : <div className="saas-loading" role="status">Loading school calendar…</div>}
             <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Family-specific access</strong><p>Events are limited to branches connected to children linked to your parent account. Staff-only events stay private.</p></div></div>
+          </section>
+        )}
+
+        {tab === "handover" && (
+          <section className="parent-portal-section parent-handover-section">
+            <div className="parent-portal-section-heading">
+              <div><h2>Arrival and pickup history</h2><p>Review completed arrival and pickup entries for children linked to your family account.</p></div>
+              <button type="button" className="saas-secondary-button" onClick={() => setRefreshed((value) => value + 1)} disabled={loading}><MdRefresh aria-hidden="true" /> Refresh</button>
+            </div>
+            <div className="parent-handover-filters">
+              <label>From<input type="date" value={handoverFrom} max={handoverTo || undefined} onChange={(event) => setHandoverFrom(event.target.value)} /></label>
+              <label>To<input type="date" value={handoverTo} min={handoverFrom || undefined} onChange={(event) => setHandoverTo(event.target.value)} /></label>
+              <button type="button" className="saas-secondary-button" onClick={() => setRefreshed((value) => value + 1)} disabled={loading}>Apply dates</button>
+            </div>
+            {handoverEvents.length ? (
+              <div className="parent-handover-list">
+                {handoverEvents.map((event) => {
+                  const refused = event.outcome === "refused";
+                  const timezone = activeBranch?.timezone || organization?.timezone || "Asia/Kolkata";
+                  const when = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(event.eventAt));
+                  return (
+                    <article className={"parent-handover-card" + (refused ? " refused" : "")} key={event.id}>
+                      <span className={"tenant-handover-history-icon " + (refused ? "refused" : event.eventType)}><MdHistory aria-hidden="true" /></span>
+                      <div>
+                        <h3>{event.childName || "Your child"} · {event.eventType === "check_in" ? "Arrival" : "Pickup"}</h3>
+                        <p>{when} · {event.summary}</p>
+                        {event.guardianName && <small>{event.eventType === "check_in" ? "Arrival contact: " : "Collected by: "}{event.guardianName}</small>}
+                        {event.branch?.name && !branchId && <small>Branch: {event.branch.name}</small>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : !loading ? (
+              <div className="saas-empty-state"><strong>No handover history yet</strong><p>Completed arrivals and pickups recorded by your preschool will appear here. For a correction or a refused pickup entry, please contact the school office.</p></div>
+            ) : <div className="saas-loading" role="status">Loading arrival and pickup history…</div>}
+            <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Private family history</strong><p>This view only includes children connected to your parent account. Internal staff notes and names from refused pickup attempts are not shown.</p></div></div>
           </section>
         )}
 
