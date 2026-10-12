@@ -58,7 +58,19 @@ test('registration rejects unsafe branch codes, invalid timezone and overly long
 test('registration requires every core organization and owner field', () => {
   const result = validateOrganizationRegistration({});
   assert.equal(result.valid, false);
-  for (const field of ['organizationName', 'branchName', 'username', 'email', 'password', 'branchCode']) {
+  for (const field of ['organizationName', 'branchName', 'username', 'email', 'password']) {
     assert.ok(result.errors[field], 'expected validation error for ' + field);
   }
+});
+
+test('registration defaults the first branch code to MAIN when omitted', () => {
+  const result = validateOrganizationRegistration({
+    organizationName: 'Little Stars',
+    branchName: 'Main Branch',
+    username: 'School Owner',
+    email: 'owner@example.com',
+    password: 'correct-horse-battery',
+  });
+  assert.equal(result.valid, true);
+  assert.equal(result.value.branchCode, 'MAIN');
 });
