@@ -788,9 +788,13 @@ router.post('/fees/invoices/:id/transactions', requireBranchContext, async (req,
 
   try {
     const transaction = await inTransaction(async (session) => {
-      const invoice = await FeeInvoice.findOne({
-        _id: req.params.id, organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id, status: 'open',
-      }).session(session).lean();
+      // Write-lock the invoice within the same transaction before checking the
+      // ledger. Concurrent payments now conflict and retry against the new balance.
+      const invoice = await FeeInvoice.findOneAndUpdate(
+        { _id: req.params.id, organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id, status: 'open' },
+        { $inc: { ledgerVersion: 1 } },
+        { new: true, runValidators: true, session },
+      ).lean();
       if (!invoice) {
         const notFound = new Error('Open invoice not found in this branch.');
         notFound.code = 'INVOICE_NOT_FOUND';
