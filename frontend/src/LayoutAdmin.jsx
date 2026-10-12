@@ -6,23 +6,23 @@ import SideNav from "./pages/afterLogin/SideNav.jsx";
 import "./operations.css";
 
 const PAGE_META = [
-  ["/dashboard/home", "Start here", "Choose a task or search using everyday words."],
+  ["/dashboard/home", "Start here", "Choose a common task or search using everyday words."],
   ["/dashboard/help", "Help & guides", "Step-by-step instructions for common school tasks."],
-  ["/dashboard/notices", "School notices", "Publish reminders and updates for school staff."],
-  ["/dashboard/feesOverview", "Fee overview", "A clear view of collection and outstanding balances."],
-  ["/dashboard/attendanceOverview", "Attendance records", "Review attendance and follow up on absences."],
-  ["/dashboard/studentRegister", "Student records", "Manage student profiles and family information."],
-  ["/dashboard/teacherRegister", "Teacher records", "Manage teaching staff and their details."],
-  ["/dashboard/fees", "Fees & payments", "Record payments and keep balances up to date."],
-  ["/dashboard/attendanceEntryPage", "Take attendance", "Mark attendance for a class in a few steps."],
-  ["/dashboard/calendar", "School calendar", "Keep events and important school dates organized."],
+  ["/dashboard/notices", "Notices for staff", "Share a school reminder with teachers."],
+  ["/dashboard/feesOverview", "Fee summary", "See money collected and fees still due."],
+  ["/dashboard/attendanceOverview", "Past attendance", "Review saved attendance and absences."],
+  ["/dashboard/studentRegister", "Children and families", "Add a child or find an existing family record."],
+  ["/dashboard/teacherRegister", "Teachers and staff", "Add a teacher or update staff details."],
+  ["/dashboard/fees", "Fees and payments", "Record money received and print a receipt."],
+  ["/dashboard/attendanceEntryPage", "Take attendance", "Mark which children are here today."],
+  ["/dashboard/calendar", "Events and holidays", "Add events, holidays and celebrations."],
   ["/dashboard/studentBirthday", "Student birthdays", "Find upcoming student birthdays."],
   ["/dashboard/teacherBirthday", "Teacher birthdays", "Find upcoming staff birthdays."],
-  ["/dashboard/teacherWorkReport", "Teacher work reports", "Review day-to-day classroom work reports."],
-  ["/dashboard/users", "User access", "Manage accounts that can access the system."],
-  ["/dashboard/pdf", "PDF resources", "Organize downloadable learning materials."],
-  ["/dashboard/video", "Video resources", "Manage classroom video resources."],
-  ["/dashboard/gallery", "Photo gallery", "Keep the school photo collection organized."],
+  ["/dashboard/teacherWorkReport", "Teacher work reports", "Review daily classroom work logs."],
+  ["/dashboard/users", "Login accounts", "Manage who can sign in to the software."],
+  ["/dashboard/pdf", "Worksheets and PDFs", "Manage classroom documents."],
+  ["/dashboard/video", "Learning videos", "Manage classroom videos."],
+  ["/dashboard/gallery", "School photos", "Organize photos from school activities."],
   ["/dashboard/createReport", "Report cards", "Prepare student progress reports."],
   ["/dashboard/students", "Student report", "Enter marks and review a student report card."],
 ];
@@ -126,14 +126,14 @@ export default function LayoutAdmin() {
               {menuOpen ? <MdClose size={23} /> : <MdMenu size={23} />}
             </button>
             <div className="admin-topbar-heading">
-              <h1 className="admin-topbar-title">School management</h1>
+              <h1 className="admin-topbar-title">Your school</h1>
               <div className="admin-topbar-caption">{page[1]} · {page[2]}</div>
             </div>
           </div>
           <div className="admin-topbar-tools">
             <button type="button" className="admin-command-trigger" onClick={openCommand} aria-keyshortcuts="Control+K Meta+K">
               <MdSearch aria-hidden="true" />
-              <span className="admin-command-label-text">Find a page or task</span>
+              <span className="admin-command-label-text">Find a task</span>
               <kbd className="admin-command-shortcut">Ctrl K</kbd>
             </button>
             <Link to="/dashboard/help" className="admin-help-trigger" aria-label="Help and guides" title="Help & guides">
@@ -182,7 +182,7 @@ export default function LayoutAdmin() {
                 value={commandQuery}
                 onChange={(event) => setCommandQuery(event.target.value)}
                 placeholder="What would you like to do?"
-                aria-label="Search school pages and tasks"
+                aria-label="Search school tasks"
                 autoComplete="off"
               />
               <button type="button" className="admin-command-close" onClick={() => setCommandOpen(false)} aria-label="Close search">Esc</button>

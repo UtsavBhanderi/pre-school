@@ -194,10 +194,19 @@ const AttendanceEntryPage = () => {
     <div>
       {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
       {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
-      <div className="page-header"><div><h2 className="mb-0">Mark attendance</h2><p className="page-subtitle">Choose a class and date, then mark each student present or absent.</p></div></div>
+      <div className="page-header">
+        <div>
+          <h2 className="mb-0">Take attendance</h2>
+          <p className="page-subtitle">Step 1: choose a class and date. Step 2: check every child. Step 3: save attendance.</p>
+        </div>
+      </div>
+      <div className="attendance-quick-guide">
+        <strong>Before saving:</strong>
+        <span>Check every child’s status. Add a reason for each absence. Changes are not saved until you press “Save attendance”.</span>
+      </div>
       {/* Attendance Summary */}
       <div className="page-card mb-4">
-        <div className="section-heading mt-0"><h3>Class summary</h3><span className="muted small">Updates as you mark attendance</span></div>
+        <div className="section-heading mt-0"><h3>Class totals</h3><span className="muted small">Updates as you mark attendance</span></div>
 
         <div className="progress mb-3">
           <div
@@ -223,14 +232,14 @@ const AttendanceEntryPage = () => {
       {/* Standard Dropdown */}
       <div className="page-card mb-4"><div className="row g-3">
         <div className="form-group col-12 col-md-6 col-lg-3">
-          <label>Select Standard</label>
+          <label>Class</label>
           <select
             value={standard}
             onChange={(e) => handleStandardChange(e.target.value)}
             className="form-select"
             aria-label="Select class for attendance"
           >
-            <option value="">Select Standard</option>
+            <option value="">Choose a class</option>
             <option value="ENG Play Group">ENG Play Group</option>
             <option value="ENG NR.">ENG NR.</option>
             <option value="ENG JR.">ENG JR.</option>
@@ -244,7 +253,7 @@ const AttendanceEntryPage = () => {
 
         {/* Date Picker */}
         <div className="form-group col-12 col-md-6 col-lg-3 d-flex flex-column">
-          <label>Select Date</label>
+          <label>Attendance date</label>
           {/* <DatePicker
             selected={selectedDate}
             onChange={(date) => setSelectedDate(date)}
@@ -311,12 +320,12 @@ const AttendanceEntryPage = () => {
           <thead>
             <tr>
               <th>#</th>
-              <th>Student Name</th>
-              <th>Standard</th>
-              <th>Roll No</th>
+              <th>Child’s name</th>
+              <th>Class</th>
+              <th>GR / roll number</th>
               <th>Present</th>
               <th>Absent</th>
-              <th>Reason</th>
+              <th>Reason if absent</th>
             </tr>
           </thead>
           <tbody>

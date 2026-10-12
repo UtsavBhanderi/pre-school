@@ -460,3 +460,70 @@ img { max-width: 100%; }
   }
   .no-print, .fee-receipt-modal .modal-header, .fee-receipt-modal .modal-footer { display: none !important; }
 }
+
+
+/* Consistent, easy-to-read controls across legacy school pages. */
+.admin-main-content .form-control,
+.admin-main-content .form-select,
+.admin-main-content input[type="date"],
+.admin-main-content input[type="time"] {
+  min-height: 44px;
+  border-radius: 8px;
+  padding-top: .55rem;
+  padding-bottom: .55rem;
+}
+.admin-main-content textarea.form-control { min-height: 100px; }
+.admin-main-content .form-label,
+.admin-main-content label:not(.form-check-label) {
+  line-height: 1.4;
+}
+.admin-main-content .btn:not(.btn-close) {
+  min-height: 40px;
+  border-radius: 8px;
+}
+.admin-main-content .btn-sm:not(.btn-close) { min-height: 34px; }
+.admin-main-content .page-header { align-items: center; margin-bottom: 1rem; }
+.admin-main-content .page-subtitle { max-width: 760px; }
+.admin-main-content .filter-panel,
+.admin-main-content .filter-card,
+.admin-main-content .filter-card-panel {
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: none;
+}
+.admin-main-content .card,
+.admin-main-content .modal-content { border-radius: 10px; box-shadow: 0 2px 8px rgba(25, 42, 67, .035); }
+.admin-main-content .alert { padding: .8rem 1rem; border-radius: 8px; line-height: 1.55; }
+.admin-main-content .table thead th { font-size: .75rem; letter-spacing: 0; }
+.admin-main-content .table td { padding-top: .7rem; padding-bottom: .7rem; }
+.admin-main-content :is(input, select, textarea, button, a):disabled { cursor: not-allowed; }
+.admin-main-content .form-text { line-height: 1.5; }
+.admin-topbar-title { font-family: 'DM Sans', sans-serif; font-weight: 800; letter-spacing: -.02em; }
+.admin-topbar-caption { font-size: .8rem; }
+.admin-command-trigger { min-height: 42px; border-radius: 8px; }
+.admin-command-shortcut { display: none; }
+
+/* Clearer navigation: show essential links first and keep secondary menus folded. */
+.admin-sidebar { padding-top: 1rem; }
+.sidebar-brand { margin-bottom: .6rem; padding-bottom: 1rem; }
+.sidebar-brand-subtitle { font-size: .74rem; }
+.sidebar-simple-nav { display: block; min-height: 0; }
+.sidebar-pinned-links .sidebar-nav { display: grid; }
+.sidebar-nav-group > .sidebar-section-title { user-select: none; }
+.sidebar-nav-group > .sidebar-section-title:focus-visible { outline: 2px solid #9db2ff; outline-offset: 2px; }
+.sidebar-nav-group .sidebar-nav-link { transition: background-color .12s ease; }
+.sidebar-nav-group .sidebar-nav-link.active { box-shadow: inset 3px 0 #8ba2ff; }
+
+@media (max-width: 767.98px) {
+  .admin-main-content .page-header { align-items: stretch; }
+  .admin-main-content .page-header > div { min-width: 0; }
+  .admin-main-content .page-header .btn,
+  .admin-main-content .page-header button { max-width: 100%; }
+  .admin-main-content .table-responsive { max-width: 100%; overflow-x: auto; }
+  .admin-topbar-title { font-size: .92rem; }
+  .admin-topbar-tools { gap: .4rem; }
+  .admin-command-trigger { min-width: 40px; min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-nav-group .sidebar-nav-link { transition: none; }
+}

@@ -1,61 +1,77 @@
 import React, { useContext } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import {
-  MdDashboard, MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
+  MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
-  MdHome, MdHelpOutline, MdCampaign,
+  MdHome, MdHelpOutline, MdCampaign, MdExpandMore, MdDashboard,
 } from "react-icons/md";
 
 const navigation = [
   {
-    label: "GET STARTED",
-    items: [
-      { to: "/dashboard/home", label: "Start here", icon: MdHome },
-      { to: "/dashboard/feesOverview", label: "Fee overview", icon: MdDashboard },
-    ],
-  },
-  {
-    label: "DAILY SCHOOL WORK",
+    label: "Everyday tasks",
+    defaultOpen: true,
     items: [
       { to: "/dashboard/attendanceEntryPage", label: "Take attendance", icon: MdChecklist },
-      { to: "/dashboard/fees", label: "Fees & payments", icon: MdCurrencyRupee },
-      { to: "/dashboard/calendar", label: "School calendar", icon: MdCalendarMonth },
-      { to: "/dashboard/notices", label: "School notices", icon: MdCampaign },
-      { to: "/dashboard/attendanceOverview", label: "Attendance records", icon: MdFactCheck },
+      { to: "/dashboard/fees", label: "Fees and payments", icon: MdCurrencyRupee },
     ],
   },
   {
-    label: "PEOPLE",
+    label: "Children and staff",
     items: [
-      { to: "/dashboard/studentRegister", label: "Students", icon: MdPeople },
-      { to: "/dashboard/teacherRegister", label: "Teachers", icon: MdSchool },
-      { to: "/dashboard/studentBirthday", label: "Student birthdays", icon: MdCake },
-      { to: "/dashboard/teacherBirthday", label: "Teacher birthdays", icon: MdCake },
-      { to: "/dashboard/users", label: "User access", icon: MdManageAccounts },
+      { to: "/dashboard/studentRegister", label: "Children and families", icon: MdPeople },
+      { to: "/dashboard/teacherRegister", label: "Teachers and staff", icon: MdSchool },
+      { to: "/dashboard/studentBirthday", label: "Children's birthdays", icon: MdCake },
+      { to: "/dashboard/teacherBirthday", label: "Staff birthdays", icon: MdCake },
     ],
   },
   {
-    label: "LEARNING & SCHOOL LIFE",
+    label: "School activities",
+    items: [
+      { to: "/dashboard/calendar", label: "Events and holidays", icon: MdCalendarMonth },
+      { to: "/dashboard/notices", label: "Notices for staff", icon: MdCampaign },
+      { to: "/dashboard/gallery", label: "School photos", icon: MdPhotoLibrary },
+    ],
+  },
+  {
+    label: "Learning and reports",
     items: [
       { to: "/dashboard/createReport", label: "Report cards", icon: MdAssessment },
-      { to: "/dashboard/teacherWorkReport", label: "Teacher work reports", icon: MdAssessment },
-      { to: "/dashboard/pdf", label: "PDF resources", icon: MdPictureAsPdf },
-      { to: "/dashboard/video", label: "Video resources", icon: MdVideoLibrary },
-      { to: "/dashboard/gallery", label: "Photo gallery", icon: MdPhotoLibrary },
+      { to: "/dashboard/teacherWorkReport", label: "Teacher work reports", icon: MdFactCheck },
+      { to: "/dashboard/pdf", label: "Worksheets and PDFs", icon: MdPictureAsPdf },
+      { to: "/dashboard/video", label: "Learning videos", icon: MdVideoLibrary },
     ],
   },
   {
-    label: "HELP",
+    label: "School overview and access",
     items: [
-      { to: "/dashboard/help", label: "Help & guides", icon: MdHelpOutline },
+      { to: "/dashboard/feesOverview", label: "Fee summary", icon: MdDashboard },
+      { to: "/dashboard/attendanceOverview", label: "Past attendance", icon: MdFactCheck },
+      { to: "/dashboard/users", label: "Login accounts", icon: MdManageAccounts },
     ],
   },
 ];
 
+function SidebarLink({ to, label, icon: Icon, onNavigate }) {
+  return (
+    <li>
+      <NavLink
+        to={to}
+        end
+        onClick={onNavigate}
+        className={({ isActive }) => "sidebar-nav-link" + (isActive ? " active" : "")}
+      >
+        <span className="sidebar-icon" aria-hidden="true"><Icon /></span>
+        <span>{label}</span>
+      </NavLink>
+    </li>
+  );
+}
+
 export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
   const { user, logout } = useContext(AuthContext);
+  const location = useLocation();
   const displayName = user?.username || user?.name || "School administrator";
 
   return (
@@ -64,31 +80,51 @@ export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
         <div className="sidebar-brand-mark" aria-hidden="true">S</div>
         <div>
           <div className="sidebar-brand-title">Pre-School</div>
-          <div className="sidebar-brand-subtitle">Management workspace</div>
+          <div className="sidebar-brand-subtitle">School workspace</div>
         </div>
       </div>
 
-      <nav aria-label="School management">
-        {navigation.map((group) => (
-          <div className="mb-3" key={group.label}>
-            <div className="sidebar-section-title">{group.label}</div>
+      <nav className="sidebar-simple-nav" aria-label="School tasks">
+        <div className="sidebar-pinned-links">
+          <SidebarLink
+            to="/dashboard/home"
+            label="Start here"
+            icon={MdHome}
+            onNavigate={onNavigate}
+          />
+        </div>
+
+        {navigation.map((group) => {
+          const groupIsActive = group.items.some((item) =>
+            location.pathname === item.to || location.pathname.startsWith(item.to + "/")
+          );
+          return (
+          <details
+            className="sidebar-nav-group"
+            key={group.label}
+            open={group.defaultOpen || groupIsActive || undefined}
+          >
+            <summary className={"sidebar-section-title" + (groupIsActive ? " group-has-active" : "")}>
+              <span>{group.label}</span>
+              <MdExpandMore className="sidebar-group-chevron" aria-hidden="true" />
+            </summary>
             <ul className="sidebar-nav">
-              {group.items.map(({ to, label, icon: Icon }) => (
-                <li key={to}>
-                  <NavLink
-                    to={to}
-                    end
-                    onClick={onNavigate}
-                    className={({ isActive }) => "sidebar-nav-link" + (isActive ? " active" : "")}
-                  >
-                    <span className="sidebar-icon" aria-hidden="true"><Icon /></span>
-                    <span>{label}</span>
-                  </NavLink>
-                </li>
+              {group.items.map((item) => (
+                <SidebarLink {...item} key={item.to} onNavigate={onNavigate} />
               ))}
             </ul>
-          </div>
-        ))}
+          </details>
+          );
+        })}
+
+        <div className="sidebar-pinned-links sidebar-help-link">
+          <SidebarLink
+            to="/dashboard/help"
+            label="Help and guides"
+            icon={MdHelpOutline}
+            onNavigate={onNavigate}
+          />
+        </div>
       </nav>
 
       <div className="sidebar-spacer" />
