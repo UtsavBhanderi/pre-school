@@ -18,6 +18,7 @@ const { tenantContext, requireBranchContext } = require('../middleware/tenantCon
 const { hasTenantRole } = require('../utils/tenantAuthorization');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
+const { createCsv } = require('../utils/reportCsv');
 const { evaluateClassEligibility } = require('../utils/classEligibility');
 const {
   MAX_MONEY_PAISE,
@@ -1184,6 +1185,196 @@ async function serializeInvoices(invoices, req) {
     };
   });
 }
+
+function validateReportRange(fromText, toText, maximumDays = 366) {
+  const fromDate = parseDateOnly(fromText);
+  const toDate = parseDateOnly(toText);
+  if (!fromDate || !toDate || fromDate > toDate) {
+    return { valid: false, message: 'Choose a valid start and end date.' };
+  }
+  const dayCount = Math.round((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (dayCount > maximumDays) {
+    return { valid: false, message: 'Choose a date range of ' + maximumDays + ' days or fewer.' };
+  }
+  return { valid: true, fromDate, toDate };
+}
+
+function formatDateInTimeZone(value, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const fields = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return fields.year + '-' + fields.month + '-' + fields.day;
+}
+
+function sendCsvReport(res, filename, headers, rows) {
+  const csv = createCsv(headers, rows);
+  return res.status(200).set({
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="' + filename + '"',
+    'Cache-Control': 'private, no-store, max-age=0',
+    'X-Content-Type-Options': 'nosniff',
+  }).send(csv);
+}
+
+router.get('/reports/attendance.csv', requireBranchContext, async (req, res) => {
+  if (!allowed(req, ATTENDANCE_ROLES, res)) return;
+  const fromText = clean(req.query.from, 10);
+  const toText = clean(req.query.to, 10);
+  const range = validateReportRange(fromText, toText, 366);
+  if (!range.valid) return res.status(400).json({ message: range.message });
+
+  const requestedClass = clean(req.query.className || '', 80);
+  const filter = {
+    organizationId: req.tenant.organization._id,
+    branchId: req.tenant.branch._id,
+    date: { $gte: range.fromDate, $lte: range.toDate },
+  };
+  if (req.tenant.membership.role === 'teacher') {
+    const assignedClasses = Array.isArray(req.tenant.membership.classNames) ? req.tenant.membership.classNames : [];
+    if (!assignedClasses.length) return res.status(403).json({ message: 'No classes are assigned to this teacher account yet.' });
+    if (requestedClass && !assignedClasses.includes(requestedClass)) {
+      return res.status(403).json({ message: 'You can export attendance only for classes assigned to you.' });
+    }
+    filter.standard = requestedClass || { $in: assignedClasses };
+  } else if (requestedClass) {
+    filter.standard = requestedClass;
+  }
+
+  try {
+    const records = await Attendance.find(filter)
+      .select('date standard studentDetails')
+      .sort({ date: 1, standard: 1 })
+      .limit(5001)
+      .lean();
+    if (records.length > 5000) {
+      return res.status(413).json({ message: 'This export is too large. Choose a shorter date range or one class.' });
+    }
+
+    const studentIds = [...new Set(records.flatMap((record) =>
+      (record.studentDetails || []).map((entry) => String(entry.studentId))
+    ))];
+    const students = studentIds.length ? await Student.find({
+      _id: { $in: studentIds },
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+    }).select('_id firstName middleName lastName stuNo standard').lean() : [];
+    const studentsById = new Map(students.map((student) => [String(student._id), student]));
+    const rows = [];
+
+    for (const record of records) {
+      const date = record.date ? new Date(record.date).toISOString().slice(0, 10) : '';
+      for (const entry of record.studentDetails || []) {
+        const student = studentsById.get(String(entry.studentId));
+        if (!student || student.standard !== record.standard) continue;
+        rows.push([
+          date,
+          record.standard || '',
+          student.stuNo || '',
+          [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' '),
+          entry.status || '',
+          entry.status === 'absent' ? entry.reason || '' : '',
+        ]);
+      }
+    }
+
+    await createAudit(req, null, {
+      action: 'report.exported',
+      resourceType: 'report',
+      resourceId: 'attendance',
+      summary: 'Attendance report exported for ' + fromText + ' through ' + toText + '.',
+      changedFields: ['dateRange', 'className', 'attendanceStatus', 'absenceReason'],
+    });
+
+    return sendCsvReport(res, 'attendance-' + fromText + '-to-' + toText + '.csv', [
+      'Date', 'Class', 'Admission number', 'Child name', 'Attendance status', 'Absence reason',
+    ], rows);
+  } catch (error) {
+    console.error('Unable to export tenant attendance report:', error.message);
+    return res.status(503).json({ message: 'The attendance report could not be exported safely.' });
+  }
+});
+
+router.get('/reports/fees.csv', requireBranchContext, async (req, res) => {
+  if (!allowed(req, MONEY_READ_ROLES, res)) return;
+  const fromText = clean(req.query.from, 10);
+  const toText = clean(req.query.to, 10);
+  const range = validateReportRange(fromText, toText, 366);
+  if (!range.valid) return res.status(400).json({ message: range.message });
+
+  const timeZone = req.tenant.branch.timezone || req.tenant.organization.timezone || 'Asia/Kolkata';
+  const fromBounds = getZonedDayBounds(fromText, timeZone);
+  const toBounds = getZonedDayBounds(toText, timeZone);
+  if (!fromBounds || !toBounds) return res.status(400).json({ message: 'Choose valid report dates for the selected branch time zone.' });
+
+  try {
+    const transactions = await FeeTransaction.find({
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+      transactionAt: { $gte: fromBounds.start, $lt: toBounds.end },
+    }).sort({ transactionAt: 1, _id: 1 }).limit(100001).lean();
+    if (transactions.length > 100000) {
+      return res.status(413).json({ message: 'This export is too large. Choose a shorter date range.' });
+    }
+
+    const invoiceIds = [...new Set(transactions.map((transaction) => String(transaction.invoiceId)))];
+    const invoices = invoiceIds.length ? await FeeInvoice.find({
+      _id: { $in: invoiceIds },
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+    }).select('_id invoiceNumber academicYear childId status').lean() : [];
+    const invoiceById = new Map(invoices.map((invoice) => [String(invoice._id), invoice]));
+    const childIds = [...new Set(invoices.map((invoice) => String(invoice.childId)))];
+    const children = childIds.length ? await Student.find({
+      _id: { $in: childIds },
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+    }).select('_id firstName middleName lastName stuNo standard').lean() : [];
+    const childById = new Map(children.map((child) => [String(child._id), child]));
+    const rows = [];
+
+    for (const transaction of transactions) {
+      const invoice = invoiceById.get(String(transaction.invoiceId));
+      if (!invoice || String(invoice.childId) !== String(transaction.childId)) continue;
+      const child = childById.get(String(invoice.childId));
+      if (!child) continue;
+      rows.push([
+        formatDateInTimeZone(transaction.transactionAt, timeZone),
+        transaction.receiptNumber,
+        transaction.type,
+        invoice.invoiceNumber,
+        invoice.academicYear,
+        child.stuNo || '',
+        [child.firstName, child.middleName, child.lastName].filter(Boolean).join(' '),
+        child.standard || '',
+        formatPaise(transaction.amountPaise),
+        transaction.method,
+        transaction.reference || '',
+        transaction.reason || '',
+        invoice.status,
+      ]);
+    }
+
+    await createAudit(req, null, {
+      action: 'report.exported',
+      resourceType: 'report',
+      resourceId: 'fees',
+      summary: 'Fee transaction report exported for ' + fromText + ' through ' + toText + '.',
+      changedFields: ['dateRange', 'receiptNumber', 'transactionType', 'invoice', 'amount', 'method', 'reference'],
+    });
+
+    return sendCsvReport(res, 'fee-transactions-' + fromText + '-to-' + toText + '.csv', [
+      'Transaction date', 'Receipt number', 'Type', 'Invoice number', 'Academic year',
+      'Admission number', 'Child name', 'Class', 'Amount', 'Payment method', 'Reference', 'Reason', 'Invoice status',
+    ], rows);
+  } catch (error) {
+    console.error('Unable to export tenant fee report:', error.message);
+    return res.status(503).json({ message: 'The fee report could not be exported safely.' });
+  }
+});
 
 router.get('/fees/invoices', requireBranchContext, async (req, res) => {
   if (!allowed(req, MONEY_READ_ROLES, res)) return;
