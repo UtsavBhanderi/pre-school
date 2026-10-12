@@ -37,7 +37,6 @@ router.get('/file', async (req, res) => {
     Pragma: 'no-cache',
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
-    'Cross-Origin-Resource-Policy': 'same-site',
     'Content-Security-Policy': "default-src 'none'; sandbox",
   });
 
