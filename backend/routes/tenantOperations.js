@@ -143,7 +143,7 @@ function serializeGuardianLink(link) {
   };
 }
 
-async function serializeChildren(children, organizationId, branchId, includeGuardians = true) {
+async function serializeChildren(children, organizationId, branchId, includeGuardians = true, includeAddress = true) {
   if (!children.length) return [];
   const links = includeGuardians ? await ChildGuardian.find({
     organizationId,
@@ -171,7 +171,7 @@ async function serializeChildren(children, organizationId, branchId, includeGuar
     gender: child.gender || '',
     className: child.standard || '',
     academicYear: child.batchYear || '',
-    address: child.address || '',
+    address: includeAddress ? child.address || '' : undefined,
     guardians: guardiansByChild.get(String(child._id)) || [],
     createdAt: child.createdAt,
     updatedAt: child.updatedAt,
@@ -543,7 +543,7 @@ router.get('/summary', async (req, res) => {
 });
 
 router.get('/children', requireBranchContext, async (req, res) => {
-  if (!allowed(req, [...CHILD_READ_ROLES, 'teacher'], res)) return;
+  if (!allowed(req, CHILD_LIST_ROLES, res)) return;
   const organizationId = req.tenant.organization._id;
   const branchId = req.tenant.branch._id;
   const search = clean(req.query.q, 100);
@@ -560,7 +560,7 @@ router.get('/children', requireBranchContext, async (req, res) => {
   if (search) {
     const regex = new RegExp(escapeRegex(search), 'i');
     const or = [{ firstName: regex }, { middleName: regex }, { lastName: regex }, { stuNo: regex }];
-    if (req.tenant.membership.role !== 'teacher') {
+    if (CHILD_READ_ROLES.includes(req.tenant.membership.role)) {
     const matchingGuardians = await Guardian.find({
       organizationId,
       $or: [{ fullName: regex }, { phone: regex }, { email: regex }],
@@ -580,7 +580,8 @@ router.get('/children', requireBranchContext, async (req, res) => {
       .sort({ middleName: 1, lastName: 1, firstName: 1 })
       .limit(500)
       .lean();
-    return res.json({ total: children.length, children: await serializeChildren(children, organizationId, branchId, req.tenant.membership.role !== 'teacher') });
+    const canViewFamilyContacts = CHILD_READ_ROLES.includes(req.tenant.membership.role);
+    return res.json({ total: children.length, children: await serializeChildren(children, organizationId, branchId, canViewFamilyContacts, canViewFamilyContacts) });
   } catch (error) {
     console.error('Unable to list tenant children:', error);
     return res.status(503).json({ message: 'Child records could not be loaded.' });
