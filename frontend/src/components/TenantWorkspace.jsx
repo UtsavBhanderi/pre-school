@@ -17,6 +17,7 @@ import "../tenant-reports.css";
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
   { id: "reports", label: "Reports & exports", Icon: MdAssessment },
+  { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
@@ -153,6 +154,7 @@ export default function TenantWorkspace() {
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
@@ -173,6 +175,15 @@ export default function TenantWorkspace() {
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarFrom, setCalendarFrom] = useState(() => localDateDaysAgo(7));
+  const [calendarTo, setCalendarTo] = useState(() => localDateDaysAgo(-90));
+  const [editingCalendarId, setEditingCalendarId] = useState("");
+  const [calendarDraft, setCalendarDraft] = useState(() => ({
+    title: "", description: "", type: "school_event", audience: "all",
+    startsAt: localDateTimeInputNow(), endsAt: localDateTimeInputAfter(60),
+    allDay: false, location: "", reason: "",
+  }));
   const [reportFrom, setReportFrom] = useState(() => localDateDaysAgo(29));
   const [reportTo, setReportTo] = useState(todayLocal);
   const [reportDownloading, setReportDownloading] = useState("");
@@ -318,6 +329,22 @@ export default function TenantWorkspace() {
     }
   }, [organizationId]);
 
+  const loadCalendar = useCallback(async () => {
+    if (!organizationId) return [];
+    const data = await saasRequest("/api/saas/calendar", {
+      organizationId,
+      branchId: branchId || undefined,
+      params: {
+        from: calendarFrom,
+        to: calendarTo,
+        includeCancelled: canManageNotices ? "true" : undefined,
+      },
+    });
+    const result = Array.isArray(data?.events) ? data.events : [];
+    setCalendarEvents(result);
+    return result;
+  }, [organizationId, branchId, calendarFrom, calendarTo, canManageNotices]);
+
   const loadNotices = useCallback(async () => {
     if (!organizationId) return [];
     const endpoint = canManageNotices ? "/api/saas/notices/manage" : "/api/saas/notices";
@@ -409,6 +436,8 @@ export default function TenantWorkspace() {
         } else if (activeTab === "fees") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
+        } else if (activeTab === "calendar") {
+          await loadCalendar();
         } else if (activeTab === "notices") {
           await loadNotices();
         } else if (activeTab === "team") {
@@ -427,7 +456,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar,
   ]);
 
   useEffect(() => {
@@ -992,6 +1021,125 @@ export default function TenantWorkspace() {
       setSuccessMessage(result.message || (editingNoticeId ? "Notice updated." : "Notice published."));
       resetNoticeEditor();
       await loadNotices();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetCalendarEditor = () => {
+    setEditingCalendarId("");
+    setCalendarDraft({
+      title: "",
+      description: "",
+      type: "school_event",
+      audience: "all",
+      startsAt: localDateTimeInputNow(),
+      endsAt: localDateTimeInputAfter(60),
+      allDay: false,
+      location: "",
+      reason: "",
+    });
+  };
+
+  const editCalendarEvent = (event) => {
+    setEditingCalendarId(event.id);
+    setCalendarDraft({
+      title: event.title || "",
+      description: event.description || "",
+      type: event.type || "school_event",
+      audience: event.audience || "all",
+      startsAt: toLocalDateTimeInput(event.startsAt),
+      endsAt: toLocalDateTimeInput(event.endsAt),
+      allDay: Boolean(event.allDay),
+      location: event.location || "",
+      reason: "",
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const saveCalendarEvent = async (event) => {
+    event.preventDefault();
+    if (!canManageNotices) return;
+    if (!editingCalendarId && !branchId) {
+      setErrorMessage("Choose a branch above before adding a calendar event.");
+      return;
+    }
+    const startsAt = new Date(calendarDraft.startsAt);
+    const endsAt = new Date(calendarDraft.endsAt);
+    if (!calendarDraft.title.trim() || calendarDraft.title.trim().length < 3) {
+      setErrorMessage("Enter an event title with at least 3 characters.");
+      return;
+    }
+    if (!calendarDraft.startsAt || Number.isNaN(startsAt.getTime()) ||
+        !calendarDraft.endsAt || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+      setErrorMessage("Choose a valid start and end. The end must be later than the start.");
+      return;
+    }
+    if (calendarDraft.reason.trim().length > 500) {
+      setErrorMessage("The audit note must be 500 characters or fewer.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        title: calendarDraft.title.trim(),
+        description: calendarDraft.description.trim(),
+        type: calendarDraft.type,
+        audience: calendarDraft.audience,
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        allDay: Boolean(calendarDraft.allDay),
+        location: calendarDraft.location.trim(),
+        reason: calendarDraft.reason.trim(),
+      };
+      const result = editingCalendarId
+        ? await saasRequest("/api/saas/calendar/" + editingCalendarId, {
+          method: "PUT", organizationId, branchId: branchId || undefined, data: payload,
+        })
+        : await saasRequest("/api/saas/calendar", {
+          method: "POST", organizationId, branchId, data: payload,
+        });
+      setSuccessMessage(result.message || (editingCalendarId ? "Calendar event updated." : "Calendar event created."));
+      resetCalendarEditor();
+      await loadCalendar();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changeCalendarEventStatus = async (event, status) => {
+    if (!canManageNotices) return;
+    const cancel = status === "cancelled";
+    const reason = cancel ? window.prompt("Why is this event being cancelled?") : "Event restored by an authorized school administrator.";
+    if (cancel && (!reason || reason.trim().length < 3)) return;
+    if (!window.confirm(cancel
+      ? "Cancel this event: " + event.title + "?"
+      : "Restore this event: " + event.title + "?")) return;
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/calendar/" + event.id + "/status", {
+        method: "PATCH",
+        organizationId,
+        branchId: branchId || undefined,
+        data: { status, reason: String(reason || "").trim() },
+      });
+      setSuccessMessage(result.message || "Calendar event status updated.");
+      if (editingCalendarId === event.id) resetCalendarEditor();
+      await loadCalendar();
       setRefreshVersion((version) => version + 1);
     } catch (error) {
       setErrorMessage(displayError(error));
@@ -1764,6 +1912,111 @@ export default function TenantWorkspace() {
                 )}
               </div>
               <div className="parent-privacy-card tenant-report-privacy"><MdShield aria-hidden="true" /><div><strong>Exports are protected and traceable.</strong><p>The server checks your organization, branch, role and (for teachers) assigned classes. Child and invoice references are re-checked against the same branch, and the export action is written to the audit log.</p></div></div>
+            </section>
+          )}
+
+          {activeTab === "calendar" && (
+            <section className="saas-section tenant-calendar-section">
+              <SectionHeading
+                title="Calendar and holidays"
+                description={canManageNotices
+                  ? "Plan school holidays, trips, meetings, birthdays and deadlines for the selected branch."
+                  : "See upcoming school events for the branches you can access."}
+                action={<button type="button" className="saas-secondary-button" onClick={() => loadCalendar()} disabled={loading || saving}><MdRefresh aria-hidden="true" /> Refresh calendar</button>}
+              />
+
+              <div className="tenant-calendar-filters">
+                <label>From date<input type="date" value={calendarFrom} max={calendarTo || undefined} onChange={(event) => setCalendarFrom(event.target.value)} required /></label>
+                <label>To date<input type="date" value={calendarTo} min={calendarFrom || undefined} onChange={(event) => setCalendarTo(event.target.value)} required /></label>
+                <div className="tenant-calendar-range-note">Up to 366 days per view. Events follow the selected school's time zone.</div>
+              </div>
+
+              {canManageNotices && (
+                <form className="saas-form-card tenant-calendar-form" onSubmit={saveCalendarEvent}>
+                  <div className="saas-form-heading">
+                    <div>
+                      <h3>{editingCalendarId ? "Edit calendar event" : "Add an event or holiday"}</h3>
+                      <p>Events are shown only to the selected audience and branches with access. Changes are recorded in the audit history.</p>
+                    </div>
+                    {editingCalendarId && <button type="button" className="saas-secondary-button" onClick={resetCalendarEditor}>Cancel edit</button>}
+                  </div>
+                  {!branchId && !editingCalendarId && <div className="saas-message error" role="status"><MdErrorOutline aria-hidden="true" /><span>Choose a branch above before creating a calendar event.</span></div>}
+                  <div className="saas-form-grid">
+                    <label>Event title *
+                      <input value={calendarDraft.title} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, title: event.target.value }))} required minLength={3} maxLength={140} placeholder="e.g. Diwali holiday" />
+                    </label>
+                    <label>Event type *
+                      <select value={calendarDraft.type} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, type: event.target.value }))} required>
+                        <option value="holiday">Holiday</option><option value="school_event">School event</option><option value="meeting">Meeting</option><option value="trip">Trip or outing</option><option value="birthday">Birthday</option><option value="deadline">Deadline</option><option value="other">Other</option>
+                      </select>
+                    </label>
+                    <label>Who should see it? *
+                      <select value={calendarDraft.audience} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, audience: event.target.value }))} required>
+                        <option value="all">Everyone (staff and parents)</option><option value="staff">Staff only</option><option value="parents">Parents and guardians only</option>
+                      </select>
+                    </label>
+                    <label>Starts *
+                      <input type="datetime-local" value={calendarDraft.startsAt} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, startsAt: event.target.value }))} required />
+                    </label>
+                    <label>Ends *
+                      <input type="datetime-local" value={calendarDraft.endsAt} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, endsAt: event.target.value }))} min={calendarDraft.startsAt || undefined} required />
+                    </label>
+                    <label>Location (optional)
+                      <input value={calendarDraft.location} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, location: event.target.value }))} maxLength={180} placeholder="e.g. School hall" />
+                    </label>
+                    <label className="saas-full-width">Description (optional)
+                      <textarea value={calendarDraft.description} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, description: event.target.value }))} rows="3" maxLength={3000} placeholder="What should families or staff know?" />
+                    </label>
+                    <label className="tenant-calendar-all-day">
+                      <input type="checkbox" checked={calendarDraft.allDay} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, allDay: event.target.checked }))} />
+                      <span>This is an all-day event</span>
+                    </label>
+                    {editingCalendarId && <label className="saas-full-width">Audit note (optional)
+                      <input value={calendarDraft.reason} onChange={(event) => setCalendarDraft((draft) => ({ ...draft, reason: event.target.value }))} maxLength={500} placeholder="Reason for this change" />
+                    </label>}
+                  </div>
+                  <div className="saas-form-actions"><button type="submit" className="saas-primary-button" disabled={saving || (!branchId && !editingCalendarId)}>{saving ? "Saving event…" : editingCalendarId ? "Save changes" : "Add event"}</button></div>
+                </form>
+              )}
+
+              <div className="tenant-calendar-list-heading">
+                <div><h3>Scheduled events</h3><p>{calendarEvents.length} event{calendarEvents.length === 1 ? "" : "s"} in the selected date range {loading ? "· Updating…" : ""}</p></div>
+                <span className="tenant-calendar-timezone">{activeBranch?.timezone || organization?.timezone || "School local time"}</span>
+              </div>
+
+              {calendarEvents.length ? (
+                <div className="tenant-calendar-list">
+                  {calendarEvents.map((event) => (
+                    <article className={"tenant-calendar-card" + (event.status === "cancelled" ? " cancelled" : "")} key={event.id}>
+                      <div className={"tenant-calendar-date-block " + (event.type || "school_event")}>
+                        <span>{new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata" }).format(new Date(event.startsAt))}</span>
+                        <strong>{new Intl.DateTimeFormat("en-IN", { day: "2-digit", timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata" }).format(new Date(event.startsAt))}</strong>
+                      </div>
+                      <div className="tenant-calendar-event-info">
+                        <div className="tenant-calendar-event-meta">
+                          <span className={"saas-pill " + event.type}>{String(event.type || "school_event").replaceAll("_", " ")}</span>
+                          <span className={"saas-pill " + event.audience}>{event.audience === "all" ? "Everyone" : event.audience === "parents" ? "Parents" : "Staff"}</span>
+                          {event.status === "cancelled" && <span className="saas-pill cancelled">Cancelled</span>}
+                        </div>
+                        <h3>{event.title}</h3>
+                        <p>{event.allDay ? "All day" : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata" }).format(new Date(event.startsAt)) + " – " + new Intl.DateTimeFormat("en-IN", { timeStyle: "short", timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata" }).format(new Date(event.endsAt))}</p>
+                        {event.location && <small>Location: {event.location}</small>}
+                        {event.description && <div className="tenant-calendar-description">{event.description}</div>}
+                        {event.branch?.name && !branchId && <small>Branch: {event.branch.name} ({event.branch.code})</small>}
+                        {event.status === "cancelled" && event.cancellationReason && <small>Cancellation note: {event.cancellationReason}</small>}
+                      </div>
+                      {canManageNotices && (
+                        <div className="tenant-calendar-actions">
+                          {event.status === "active" && <button type="button" className="saas-secondary-button" onClick={() => editCalendarEvent(event)} disabled={saving}>Edit</button>}
+                          {event.status === "active"
+                            ? <button type="button" className="saas-text-button danger" onClick={() => changeCalendarEventStatus(event, "cancelled")} disabled={saving}>Cancel event</button>
+                            : <button type="button" className="saas-text-button" onClick={() => changeCalendarEventStatus(event, "active")} disabled={saving}>Restore</button>}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              ) : !loading && <BlankState title="No events in this date range" detail="Try a wider range or create a holiday, meeting, trip or school event. Cancelled events appear in this list for administrators." />}
             </section>
           )}
 
