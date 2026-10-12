@@ -310,7 +310,7 @@ router.get('/', async (req, res) => {
   if (!datePattern.test(from) || !datePattern.test(to) || !fromDate || !toDate || toDate < fromDate) {
     return res.status(400).json({ message: 'Choose a valid start and end date for the handover history.' });
   }
-  if (toDate.getTime() - fromDate.getTime() > MAX_HISTORY_DAYS * 24 * 60 * 60 * 1000) {
+  if (toDate.getTime() - fromDate.getTime() > (MAX_HISTORY_DAYS - 1) * 24 * 60 * 60 * 1000) {
     return res.status(400).json({ message: 'Handover history can be viewed for up to 31 days at a time.' });
   }
 
