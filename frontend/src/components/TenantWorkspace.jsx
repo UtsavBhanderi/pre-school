@@ -355,6 +355,24 @@ export default function TenantWorkspace() {
     }
   }, [organizationId]);
 
+  const loadWorkReports = useCallback(async () => {
+    if (!organizationId || !branchId) {
+      setWorkReports([]);
+      return [];
+    }
+    const params = { from: workReportFrom, to: workReportTo };
+    if (workReportClassFilter) params.className = workReportClassFilter;
+    if (workReportStatusFilter !== "all") params.status = workReportStatusFilter;
+    const data = await saasRequest("/api/saas/work-reports", {
+      organizationId,
+      branchId,
+      params,
+    });
+    const result = Array.isArray(data?.reports) ? data.reports : [];
+    setWorkReports(result);
+    return result;
+  }, [organizationId, branchId, workReportFrom, workReportTo, workReportClassFilter, workReportStatusFilter]);
+
   const loadHandover = useCallback(async () => {
     if (!organizationId) return;
     const historyPromise = saasRequest("/api/saas/handover", {
@@ -477,6 +495,9 @@ export default function TenantWorkspace() {
         } else if (activeTab === "fees") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
+        } else if (activeTab === "workreports") {
+          if (!branchId) return;
+          await Promise.all([loadClasses(), loadWorkReports()]);
         } else if (activeTab === "handover") {
           await loadHandover();
         } else if (activeTab === "calendar") {
@@ -499,7 +520,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover, loadWorkReports,
   ]);
 
   useEffect(() => {
