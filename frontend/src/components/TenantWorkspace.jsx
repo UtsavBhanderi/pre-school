@@ -1631,7 +1631,17 @@ export default function TenantWorkspace() {
                       <span className={"saas-pill " + member.status}>{member.status}</span>
                     </div>
                     {editingParent ? (
-                      <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Verified family link</strong><p>Parent access stays linked to the guardian records used for the invitation. This screen can suspend or restore access but cannot change family links or turn a parent into a staff account.</p></div></div>
+                      <>
+                        <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Verified family link</strong><p>Parent access stays linked to the guardian records used for the invitation. This screen can suspend or restore access but cannot change family links or turn a parent into a staff account.</p></div></div>
+                        <div className="saas-form-grid">
+                          <label>Account status *
+                            <select value={memberEditDraft.status} onChange={(event) => setMemberEditDraft((draft) => ({ ...draft, status: event.target.value }))} required>
+                              <option value="active">Active</option>
+                              <option value="suspended">Suspended</option>
+                            </select>
+                          </label>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <div className="saas-form-grid">
