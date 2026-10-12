@@ -821,8 +821,8 @@ export default function TenantWorkspace() {
                   <MetricCard label="Active branches" value={summary?.branchCount ?? "—"} detail="Across this organization" Icon={MdApartment} />
                   <MetricCard label="Children registered" value={summary?.children?.total ?? "—"} detail={(summary?.children?.addedToday ?? 0) + " added today"} Icon={MdPeople} />
                   <MetricCard label="Present today" value={summary?.attendance?.present ?? "—"} detail={(summary?.attendance?.absent ?? 0) + " absent · " + (summary?.attendance?.recorded ?? 0) + " marked"} Icon={MdFactCheck} />
-                  <MetricCard label="Money collected today" value={summary ? formatMoney(summary.fees?.collectedToday, currency) : "—"} detail="Net of any refunds" Icon={MdCurrencyRupee} />
-                  <MetricCard label="Fees still due" value={summary ? formatMoney(summary.fees?.outstanding, currency) : "—"} detail="On open invoices" Icon={MdReceiptLong} />
+                  <MetricCard label="Money collected today" value={summary?.fees ? formatMoney(summary.fees.collectedToday, currency) : role === "teacher" || role === "hr_manager" || role === "transport_staff" ? "Restricted" : "—"} detail={summary?.fees ? "Net of any refunds" : "Finance access is limited by role"} Icon={MdCurrencyRupee} />
+                  <MetricCard label="Fees still due" value={summary?.fees ? formatMoney(summary.fees.outstanding, currency) : role === "teacher" || role === "hr_manager" || role === "transport_staff" ? "Restricted" : "—"} detail={summary?.fees ? "On open invoices" : "Finance access is limited by role"} Icon={MdReceiptLong} />
                 </div>
               )}
               {canSeeAllBranches && !branchId && <div className="saas-hint"><MdApartment /> You are viewing the whole organization. Choose a branch above to work on children, attendance and payments.</div>}
