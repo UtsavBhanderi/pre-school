@@ -111,7 +111,8 @@ export default function ParentPortal() {
   const activeBranch = branches.find((item) => String(item.id || item._id) === branchId);
 
   if (!memberships.length) {
-    return <main className="parent-entry-shell"><section className="parent-entry-card"><span className="parent-entry-logo"><MdSchool /></span><h1>Family portal</h1><p>This account does not have an active parent invitation. Contact the preschool office if you believe this is an error.</p><button type="button" className="saas-primary-button" onClick={logout}>Sign out</button></section></main>;
+    const inactiveAccess = Boolean(user?.hasInactiveWorkspaceMemberships);
+    return <main className="parent-entry-shell"><section className="parent-entry-card"><span className="parent-entry-logo"><MdSchool /></span><h1>{inactiveAccess ? "Family portal access is inactive" : "Family portal"}</h1><p>{inactiveAccess ? "Your school workspace access is no longer active. Your family records have not been deleted. Contact the preschool administrator to review or restore access." : "This account does not have an active parent invitation. Contact the preschool office if you believe this is an error."}</p><button type="button" className="saas-primary-button" onClick={logout}>Sign out</button></section></main>;
   }
 
   return (
