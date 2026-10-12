@@ -10,6 +10,7 @@ const {
   signPrivateMediaToken,
   verifyPrivateMediaToken,
   rewritePrivateMediaFields,
+  localMediaReferenceValues,
 } = require('../utils/privateMedia');
 
 const secret = 'test-secret-that-is-not-used-outside-unit-tests';
@@ -39,6 +40,20 @@ test('recognizes private image, PDF and video paths with safe extensions', () =>
   assert.equal(parsePrivateMediaReference('uploads/students/a b.jpg'), null);
   assert.equal(parsePrivateMediaReference('uploads/students/picture.svg').serveable, false);
   assert.equal(parsePrivateMediaReference(''), null);
+});
+
+test('resource authorization uses only exact canonical local record paths', () => {
+  assert.deepEqual(localMediaReferenceValues('gallery', 'photo-1.jpg'), [
+    'uploads/gallery/photo-1.jpg',
+    '/uploads/gallery/photo-1.jpg',
+  ]);
+  assert.deepEqual(localMediaReferenceValues('pdf', 'fees.pdf'), [
+    'uploads/pdf/fees.pdf',
+    '/uploads/pdf/fees.pdf',
+  ]);
+  assert.deepEqual(localMediaReferenceValues('video', '../fees.mp4'), []);
+  assert.deepEqual(localMediaReferenceValues('video', 'fees.html'), []);
+  assert.deepEqual(localMediaReferenceValues('unknown', 'fees.pdf'), []);
 });
 
 test('signed photo links are short lived and restricted to a specific user and file', () => {
