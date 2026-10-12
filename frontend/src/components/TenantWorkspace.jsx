@@ -10,6 +10,7 @@ import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
 import "../invitations.css";
+import "../class-config.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -950,7 +951,7 @@ export default function TenantWorkspace() {
                         <label>Middle name<input name="middleName" value={childDraft.middleName} onChange={updateChildDraft} maxLength={80} /></label>
                         <label>Last name<input name="lastName" value={childDraft.lastName} onChange={updateChildDraft} maxLength={80} /></label>
                         <label>Date of birth<input type="date" name="dateOfBirth" value={childDraft.dateOfBirth} onChange={updateChildDraft} /></label>
-                        <label>Class *<select name="className" value={childDraft.className} onChange={updateChildDraft} required><option value="">Choose a class</option>{classes.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>
+                        <label>Class *<select name="className" value={childDraft.className} onChange={updateChildDraft} required><option value="">Choose a class</option>{classes.map((item) => <option key={item.id || item.name} value={item.name}>{item.name}</option>)}</select></label>
                         <label>Academic year *<input name="academicYear" value={childDraft.academicYear} onChange={updateChildDraft} pattern="\d{4}-\d{4}" required /></label>
                         <label>Gender<select name="gender" value={childDraft.gender} onChange={updateChildDraft}><option value="">Not specified</option><option>Female</option><option>Male</option><option>Other</option></select></label>
                         <label className="saas-full-width">Home address<textarea name="address" value={childDraft.address} onChange={updateChildDraft} rows="2" maxLength={500} /></label>
@@ -1038,7 +1039,7 @@ export default function TenantWorkspace() {
                   <form className="saas-form-card" onSubmit={createInvoice}>
                     <div className="saas-form-heading"><div><h3>Create a fee invoice</h3><p>Amounts are saved precisely in paise. Payments and refunds are recorded as separate ledger entries.</p></div></div>
                     <div className="saas-form-grid">
-                      <label className="saas-full-width">Child *<select name="childId" value={feeDraft.childId} onChange={(event) => setFeeDraft((draft) => ({ ...draft, childId: event.target.value }))} required><option value="">Choose a child</option>{children.map((child) => <option key={child.id} value={child.id}>{child.fullName} · {child.className} · {child.admissionNumber}</option>)}</select></label>
+                      <label className="saas-full-width">Child *<select name="childId" value={feeDraft.childId} onChange={(event) => { const selected = children.find((child) => child.id === event.target.value); const defaultFee = classes.find((item) => item.name === selected?.className)?.defaultFee; setFeeDraft((draft) => ({ ...draft, childId: event.target.value, amount: Number(defaultFee) > 0 ? String(defaultFee) : draft.amount })); }} required><option value="">Choose a child</option>{children.map((child) => <option key={child.id} value={child.id}>{child.fullName} · {child.className} · {child.admissionNumber}</option>)}</select></label>
                       <label>Academic year *<input name="academicYear" value={feeDraft.academicYear} onChange={updateFeeDraft} pattern="\d{4}-\d{4}" required /></label>
                       <label>Fee item name *<input name="description" value={feeDraft.description} onChange={updateFeeDraft} required maxLength={160} /></label>
                       <label>Amount (₹) *<input name="amount" type="number" min="0.01" step="0.01" value={feeDraft.amount} onChange={updateFeeDraft} required /></label>
@@ -1121,7 +1122,7 @@ export default function TenantWorkspace() {
                     <div className="saas-form-heading"><div><h3>{editingClassId ? "Edit class settings" : "Add a class"}</h3><p>Class names and codes are fixed once created so historical student and attendance records remain consistent.</p></div></div>
                     <div className="saas-form-grid">
                       <label>Class name *<input name="name" value={classDraft.name} onChange={updateClassDraft} required minLength={2} maxLength={80} disabled={Boolean(editingClassId)} placeholder="e.g. Nursery" /></label>
-                      <label>Class code *<input name="code" value={classDraft.code} onChange={(event) => setClassDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") }))} required minLength={2} maxLength={16} pattern="[A-Z0-9]+(-[A-Z0-9]+)*" disabled={Boolean(editingClassId)} placeholder="e.g. NUR" /></label>
+                      <label>Class code (optional)<input name="code" value={classDraft.code} onChange={(event) => setClassDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") }))} minLength={2} maxLength={16} pattern="[A-Z0-9]+(-[A-Z0-9]+)*" disabled={Boolean(editingClassId)} placeholder="Auto-generated from name" /></label>
                       <label>Minimum age (months)<input type="number" name="minAgeMonths" value={classDraft.minAgeMonths} onChange={updateClassDraft} min="0" max="240" step="1" /></label>
                       <label>Maximum age (months)<input type="number" name="maxAgeMonths" value={classDraft.maxAgeMonths} onChange={updateClassDraft} min="0" max="240" step="1" /></label>
                       <label>Default fee (₹) *<input type="number" name="defaultFee" value={classDraft.defaultFee} onChange={updateClassDraft} min="0" step="0.01" required /></label>
