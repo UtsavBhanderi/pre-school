@@ -1,0 +1,153 @@
+/* Tenant school notices: branch-scoped internal announcements. */
+.tenant-notices-section { min-width: 0; }
+.tenant-notice-form { margin-bottom: 1.5rem; }
+.tenant-notice-message-field {
+  display: grid;
+  gap: .4rem;
+  margin-top: .9rem;
+  color: #455771;
+  font-size: .78rem;
+  font-weight: 750;
+}
+.tenant-notice-message-field textarea {
+  width: 100%;
+  min-height: 112px;
+  padding: .7rem .8rem;
+  border: 1px solid #d4deeb;
+  border-radius: 9px;
+  color: #21344d;
+  background: #fff;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 500;
+  line-height: 1.6;
+  resize: vertical;
+}
+.tenant-notice-list-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.5rem 0 .8rem;
+}
+.tenant-notice-list-heading h3 {
+  margin: 0;
+  color: #243853;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+.tenant-notice-list-heading p {
+  margin: .25rem 0 0;
+  color: #6b7b91;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+.tenant-notice-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 28px;
+  padding: .2rem .65rem;
+  border: 1px solid #dfe7f1;
+  border-radius: 999px;
+  color: #425773;
+  background: #f7f9fc;
+  font-size: .73rem;
+  font-weight: 800;
+}
+.tenant-notice-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .9rem;
+  min-width: 0;
+}
+.tenant-notice-card {
+  min-width: 0;
+  padding: 1rem 1.05rem;
+  border: 1px solid #dfe7f1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(27 48 83 / 4%);
+}
+.tenant-notice-card.priority-urgent { border-inline-start: 4px solid #bf414c; }
+.tenant-notice-card.priority-important { border-inline-start: 4px solid #c38a2f; }
+.tenant-notice-card.priority-normal { border-inline-start: 4px solid #6a83d5; }
+.tenant-notice-card.archived { opacity: .72; background: #f9fafc; }
+.tenant-notice-card-top,
+.tenant-notice-badges,
+.tenant-notice-actions,
+.tenant-notice-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem .55rem;
+}
+.tenant-notice-card-top {
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: .7rem;
+}
+.tenant-notice-badges { min-width: 0; }
+.tenant-notice-priority,
+.tenant-notice-audience {
+  display: inline-flex;
+  align-items: center;
+  padding: .2rem .5rem;
+  border-radius: 999px;
+  background: #f0f4fa;
+  color: #4f627e;
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+.tenant-notice-priority.urgent { background: #fff0f0; color: #a53c47; }
+.tenant-notice-priority.important { background: #fff7e7; color: #966019; }
+.tenant-notice-priority.normal { background: #eef2ff; color: #465cb0; }
+.tenant-notice-branch {
+  color: #61738b;
+  font-size: .72rem;
+  font-weight: 750;
+}
+.tenant-notice-card h3 {
+  margin: 0 0 .45rem;
+  color: #20344f;
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+.tenant-notice-message {
+  margin: 0;
+  color: #495d78;
+  font-size: .83rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tenant-notice-meta {
+  justify-content: space-between;
+  margin-top: .9rem;
+  padding-top: .7rem;
+  border-top: 1px solid #edf1f6;
+  color: #7a899d;
+  font-size: .69rem;
+  line-height: 1.45;
+}
+.tenant-notice-actions {
+  justify-content: flex-end;
+  margin-top: .8rem;
+}
+.tenant-notice-archive { color: #a2434b; }
+.parent-tenant-notice-list { margin-bottom: 1rem; }
+.parent-tenant-notice-list .tenant-notice-card { padding: 1.1rem; }
+@media (max-width: 900px) {
+  .tenant-notice-list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .tenant-notice-card { padding: .8rem; }
+  .tenant-notice-card-top { flex-direction: column; }
+  .tenant-notice-meta { align-items: flex-start; flex-direction: column; }
+  .tenant-notice-actions > button { flex: 1; }
+}

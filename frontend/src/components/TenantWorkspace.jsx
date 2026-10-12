@@ -4,16 +4,18 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
 import "../invitations.css";
 import "../class-config.css";
+import "../tenant-notices.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
+  { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fees & payments", Icon: MdCurrencyRupee },
@@ -25,6 +27,20 @@ const TABS = [
 const todayLocal = () => {
   const now = new Date();
   return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+};
+
+const localDateTimeInputNow = () => {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+};
+
+const toLocalDateTimeInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
 };
 
 const academicYearNow = () => {
@@ -124,8 +140,10 @@ export default function TenantWorkspace() {
   const canSeeAllBranches = Boolean(activeMembership?.accessAllBranches);
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+  const canManageNotices = canManagePeople;
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
     if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -143,6 +161,17 @@ export default function TenantWorkspace() {
   const [invoices, setInvoices] = useState([]);
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [editingNoticeId, setEditingNoticeId] = useState("");
+  const [noticeDraft, setNoticeDraft] = useState(() => ({
+    title: "",
+    message: "",
+    audience: "all",
+    priority: "normal",
+    startsAt: localDateTimeInputNow(),
+    expiresAt: "",
+    reason: "",
+  }));
   const [editingMemberId, setEditingMemberId] = useState("");
   const [memberEditDraft, setMemberEditDraft] = useState(null);
   const [memberEditClassOptions, setMemberEditClassOptions] = useState([]);
@@ -275,6 +304,15 @@ export default function TenantWorkspace() {
     }
   }, [organizationId]);
 
+  const loadNotices = useCallback(async () => {
+    if (!organizationId) return [];
+    const endpoint = canManageNotices ? "/api/saas/notices/manage" : "/api/saas/notices";
+    const data = await saasRequest(endpoint, { organizationId, branchId: branchId || undefined });
+    const result = Array.isArray(data) ? data : [];
+    setNotices(result);
+    return result;
+  }, [organizationId, branchId, canManageNotices]);
+
   useEffect(() => {
     let active = true;
     const run = async () => {
@@ -357,6 +395,8 @@ export default function TenantWorkspace() {
         } else if (activeTab === "fees") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
+        } else if (activeTab === "notices") {
+          await loadNotices();
         } else if (activeTab === "team") {
           await Promise.all([loadBranches(), loadMembersAndAudit(), branchId ? loadChildren("") : Promise.resolve([]), branchId ? loadClasses() : Promise.resolve([])]);
         } else if (activeTab === "overview") {
@@ -373,7 +413,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices,
   ]);
 
   useEffect(() => {
@@ -790,6 +830,119 @@ export default function TenantWorkspace() {
       });
       setPaymentTarget(null);
       showSuccess((result.message || "Transaction recorded.") + (result.transaction?.receiptNumber ? " Receipt: " + result.transaction.receiptNumber : ""));
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateNoticeDraft = (event) => {
+    const { name, value } = event.target;
+    setNoticeDraft((draft) => ({ ...draft, [name]: value }));
+  };
+
+  const resetNoticeEditor = () => {
+    setEditingNoticeId("");
+    setNoticeDraft({
+      title: "",
+      message: "",
+      audience: "all",
+      priority: "normal",
+      startsAt: localDateTimeInputNow(),
+      expiresAt: "",
+      reason: "",
+    });
+  };
+
+  const beginNoticeEdit = (notice) => {
+    if (!canManageNotices) return;
+    setEditingNoticeId(notice.id);
+    setNoticeDraft({
+      title: notice.title || "",
+      message: notice.message || "",
+      audience: notice.audience || "all",
+      priority: notice.priority || "normal",
+      startsAt: toLocalDateTimeInput(notice.startsAt),
+      expiresAt: toLocalDateTimeInput(notice.expiresAt),
+      reason: "",
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const saveNotice = async (event) => {
+    event.preventDefault();
+    if (!canManageNotices) return;
+    if (!editingNoticeId && !branchId) {
+      setErrorMessage("Choose a branch above before publishing a notice.");
+      return;
+    }
+
+    const startsAt = new Date(noticeDraft.startsAt);
+    const expiresAt = noticeDraft.expiresAt ? new Date(noticeDraft.expiresAt) : null;
+    if (!noticeDraft.startsAt || Number.isNaN(startsAt.getTime())) {
+      setErrorMessage("Choose a valid start date and time.");
+      return;
+    }
+    if (expiresAt && (Number.isNaN(expiresAt.getTime()) || expiresAt <= startsAt)) {
+      setErrorMessage("The end date and time must be later than the start date and time.");
+      return;
+    }
+    if (noticeDraft.reason.trim().length > 500) {
+      setErrorMessage("The audit note must be 500 characters or fewer.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        title: noticeDraft.title.trim(),
+        message: noticeDraft.message.trim(),
+        audience: noticeDraft.audience,
+        priority: noticeDraft.priority,
+        startsAt: startsAt.toISOString(),
+        expiresAt: expiresAt ? expiresAt.toISOString() : null,
+        reason: noticeDraft.reason.trim(),
+      };
+      const result = editingNoticeId
+        ? await saasRequest("/api/saas/notices/" + editingNoticeId, {
+          method: "PUT", organizationId, branchId: branchId || undefined, data: payload,
+        })
+        : await saasRequest("/api/saas/notices", {
+          method: "POST", organizationId, branchId, data: payload,
+        });
+      setSuccessMessage(result.message || (editingNoticeId ? "Notice updated." : "Notice published."));
+      resetNoticeEditor();
+      await loadNotices();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changeNoticeStatus = async (notice, status) => {
+    if (!canManageNotices) return;
+    const action = status === "archived" ? "archive" : "restore";
+    if (!window.confirm("Are you sure you want to " + action + " this notice: " + notice.title + "?")) return;
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/notices/" + notice.id + "/status", {
+        method: "PATCH",
+        organizationId,
+        branchId: branchId || undefined,
+        data: { status, reason: "Notice " + action + "d through the school workspace." },
+      });
+      setSuccessMessage(result.message || "Notice status updated.");
+      if (editingNoticeId === notice.id) resetNoticeEditor();
+      await loadNotices();
+      setRefreshVersion((version) => version + 1);
     } catch (error) {
       setErrorMessage(displayError(error));
     } finally {
@@ -1488,6 +1641,119 @@ export default function TenantWorkspace() {
                   ) : <BlankState title="Set up your first class" detail="Create a class above before registering children, recording attendance, or assigning teachers to classes." />}
                 </>
               )}
+            </section>
+          )}
+
+          {activeTab === "notices" && (
+            <section className="saas-section tenant-notices-section">
+              <SectionHeading
+                title="School notices"
+                description={canManageNotices
+                  ? "Publish announcements for the selected branch, schedule them, and archive notices that are no longer relevant."
+                  : "Read current school announcements shared with staff. Notices are only visible to the branches you can access."}
+                action={<button type="button" className="saas-secondary-button" onClick={() => loadNotices()} disabled={loading || saving}><MdRefresh aria-hidden="true" /> Refresh notices</button>}
+              />
+
+              {canManageNotices && (
+                <form className="saas-form-card tenant-notice-form" onSubmit={saveNotice}>
+                  <div className="saas-form-heading">
+                    <div>
+                      <h3>{editingNoticeId ? "Edit school notice" : "Publish a notice"}</h3>
+                      <p>Notices appear inside this school workspace and the linked parent portal. This does not send SMS, WhatsApp, or email messages.</p>
+                    </div>
+                    {editingNoticeId && <button type="button" className="saas-secondary-button" onClick={resetNoticeEditor}>Cancel edit</button>}
+                  </div>
+
+                  {!branchId && !editingNoticeId && <div className="saas-message error" role="status"><MdErrorOutline aria-hidden="true" /><span>Choose a branch using the selector above before publishing a new notice.</span></div>}
+
+                  <div className="saas-form-grid">
+                    <label>Notice title *
+                      <input name="title" value={noticeDraft.title} onChange={updateNoticeDraft} minLength={3} maxLength={120} required placeholder="e.g. Diwali holiday schedule" />
+                    </label>
+                    <label>Who should see it? *
+                      <select name="audience" value={noticeDraft.audience} onChange={updateNoticeDraft} required>
+                        <option value="all">Everyone (staff and parents)</option>
+                        <option value="staff">Staff only</option>
+                        <option value="parents">Parents and guardians only</option>
+                      </select>
+                    </label>
+                    <label>Priority *
+                      <select name="priority" value={noticeDraft.priority} onChange={updateNoticeDraft} required>
+                        <option value="normal">Normal</option>
+                        <option value="important">Important</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
+                    </label>
+                    <label>Show from *
+                      <input type="datetime-local" name="startsAt" value={noticeDraft.startsAt} onChange={updateNoticeDraft} required />
+                    </label>
+                    <label>Hide after (optional)
+                      <input type="datetime-local" name="expiresAt" value={noticeDraft.expiresAt} onChange={updateNoticeDraft} min={noticeDraft.startsAt || undefined} />
+                    </label>
+                  </div>
+                  <label className="tenant-notice-message-field">Message *
+                    <textarea name="message" value={noticeDraft.message} onChange={updateNoticeDraft} rows={5} minLength={1} maxLength={3000} required placeholder="Write the message in clear, simple language. Include dates, times, and any action parents need to take." />
+                  </label>
+                  <label className="tenant-notice-message-field">Audit note (optional)
+                    <input name="reason" value={noticeDraft.reason} onChange={updateNoticeDraft} maxLength={500} placeholder="e.g. Confirmed by school coordinator" />
+                  </label>
+                  <div className="saas-form-actions">
+                    <button type="submit" className="saas-primary-button" disabled={saving || (!editingNoticeId && !branchId)}>
+                      {saving ? "Saving notice…" : editingNoticeId ? "Save changes" : "Publish notice"}
+                    </button>
+                    {!editingNoticeId && <button type="button" className="saas-secondary-button" onClick={resetNoticeEditor} disabled={saving}>Clear form</button>}
+                  </div>
+                </form>
+              )}
+
+              <div className="tenant-notice-list-heading">
+                <div><h3>{canManageNotices ? "Notice history" : "Current announcements"}</h3><p>{canManageNotices ? "Scheduled, expired, active and archived notices within your access scope." : "Only active notices currently visible to your role are listed."}</p></div>
+                <span className="tenant-notice-count">{notices.length} {notices.length === 1 ? "notice" : "notices"}</span>
+              </div>
+
+              {notices.length ? (
+                <div className="tenant-notice-list">
+                  {notices.map((notice) => {
+                    const isFuture = new Date(notice.startsAt).getTime() > Date.now();
+                    const isExpired = Boolean(notice.expiresAt && new Date(notice.expiresAt).getTime() < Date.now());
+                    const noticeStatus = notice.status === "archived" ? "Archived" : isFuture ? "Scheduled" : isExpired ? "Expired" : "Active";
+                    return (
+                      <article className={"tenant-notice-card priority-" + notice.priority + (notice.status === "archived" ? " archived" : "")} key={notice.id}>
+                        <div className="tenant-notice-card-top">
+                          <div className="tenant-notice-badges">
+                            <span className={"tenant-notice-priority " + notice.priority}>{notice.priority}</span>
+                            <span className={"saas-pill " + (notice.status === "archived" ? "archived" : noticeStatus.toLowerCase())}>{noticeStatus}</span>
+                            <span className="tenant-notice-audience">{notice.audience === "parents" ? "Parents only" : notice.audience === "staff" ? "Staff only" : "Everyone"}</span>
+                          </div>
+                          {canManageNotices && notice.branch?.name && <small className="tenant-notice-branch">{notice.branch.name}</small>}
+                        </div>
+                        <h3>{notice.title}</h3>
+                        <p className="tenant-notice-message">{notice.message}</p>
+                        <div className="tenant-notice-meta">
+                          <span>Starts {formatDate(notice.startsAt)}{notice.startsAt ? " · " + new Date(notice.startsAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                          <span>{notice.expiresAt ? "Ends " + formatDate(notice.expiresAt) : "No end date"}</span>
+                          {notice.createdBy?.name && <span>Posted by {notice.createdBy.name}</span>}
+                        </div>
+                        {canManageNotices && (
+                          <div className="tenant-notice-actions">
+                            <button type="button" className="saas-secondary-button" onClick={() => beginNoticeEdit(notice)} disabled={saving}>Edit</button>
+                            {notice.status === "archived"
+                              ? <button type="button" className="saas-secondary-button" onClick={() => changeNoticeStatus(notice, "active")} disabled={saving}>Restore</button>
+                              : <button type="button" className="saas-text-button tenant-notice-archive" onClick={() => changeNoticeStatus(notice, "archived")} disabled={saving}>Archive</button>}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : !loading ? (
+                <BlankState
+                  title={canManageNotices ? "No notices yet" : "No current notices"}
+                  detail={canManageNotices
+                    ? "Publish the first school notice. Choose whether it is for staff, parents, or everyone."
+                    : "There are no notices visible to your role in the selected branch right now."}
+                />
+              ) : <div className="saas-loading" role="status">Loading school notices…</div>}
             </section>
           )}
 
