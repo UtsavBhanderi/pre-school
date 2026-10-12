@@ -2,6 +2,13 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../api.js";
 
+const resolveResourceUrl = (resource, baseUrl) => {
+  const candidate = resource?.url || resource?.filePath || "";
+  if (!candidate) return "";
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  return baseUrl + "/" + String(candidate).replace(/^\/+/, "");
+};
+
 const AdminPdf = () => {
   const linkone = API_BASE_URL;
 
@@ -337,7 +344,7 @@ const AdminPdf = () => {
               <td>{pdf.chapter}</td>
               <td>
                 <a
-                  href={pdf.url || `${linkone}/${pdf.filePath}`}
+                  href={resolveResourceUrl(pdf, linkone) || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
