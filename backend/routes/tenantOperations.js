@@ -18,6 +18,7 @@ const { tenantContext, requireBranchContext } = require('../middleware/tenantCon
 const { hasTenantRole } = require('../utils/tenantAuthorization');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
+const { ageInMonths } = require('../utils/ageInMonths');
 const {
   MAX_MONEY_PAISE,
   parseMoneyToPaise,
@@ -195,7 +196,10 @@ function validateChildInput(body = {}, timeZone) {
   if (firstName.length < 1) errors.firstName = 'Enter the child’s first name.';
   if (gender && !VALID_GENDER.has(gender)) errors.gender = 'Choose a valid gender.';
   if (!standard) errors.className = 'Choose a configured class.';
-  if (dob && !parseDateOnly(dob)) errors.dateOfBirth = 'Enter a real date of birth.';
+  const parsedDob = dob ? parseDateOnly(dob) : null;
+  const localToday = parseDateOnly(getTodayInTimeZone(timeZone));
+  if (dob && !parsedDob) errors.dateOfBirth = 'Enter a real date of birth.';
+  else if (parsedDob && localToday && parsedDob > localToday) errors.dateOfBirth = 'Date of birth cannot be in the future.';
   if (!/^\d{4}-\d{4}$/.test(academicYear) || Number(academicYear.slice(5)) !== Number(academicYear.slice(0, 4)) + 1) {
     errors.academicYear = 'Enter an academic year such as 2026-2027.';
   }
@@ -420,6 +424,18 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
         notFound.code = 'CLASS_NOT_FOUND';
         throw notFound;
       }
+      if (Object.prototype.hasOwnProperty.call(updates, 'capacity')) {
+        const enrolledChildren = await Student.countDocuments({
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          standard: current.name,
+        }).session(session);
+        if (updates.capacity < enrolledChildren) {
+          const tooSmall = new Error('Capacity cannot be lower than the ' + enrolledChildren + ' children already enrolled in this class.');
+          tooSmall.code = 'CLASS_CAPACITY_REDUCTION';
+          throw tooSmall;
+        }
+      }
       const nextMinAge = Object.prototype.hasOwnProperty.call(updates, 'minAgeMonths') ? updates.minAgeMonths : current.minAgeMonths;
       const nextMaxAge = Object.prototype.hasOwnProperty.call(updates, 'maxAgeMonths') ? updates.maxAgeMonths : current.maxAgeMonths;
       if (nextMinAge !== null && nextMinAge !== undefined && nextMaxAge !== null && nextMaxAge !== undefined && nextMinAge > nextMaxAge) {
@@ -464,6 +480,7 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
     if (error.code === 'CLASS_AGE_RANGE') return res.status(400).json({ message: error.message });
     if (error.code === 'CLASS_NOT_FOUND') return res.status(404).json({ message: error.message });
     if (error.code === 'CLASS_HAS_CHILDREN') return res.status(409).json({ message: error.message });
+    if (error.code === 'CLASS_CAPACITY_REDUCTION') return res.status(409).json({ message: error.message });
     console.error('Unable to update class settings:', error.message);
     return res.status(503).json({ message: 'Class settings could not be updated safely.' });
   }
@@ -638,13 +655,49 @@ router.post('/children', requireBranchContext, async (req, res) => {
         },
         { $inc: { enrollmentVersion: 1 } },
         { new: true, runValidators: true, session },
-      ).select('_id').lean();
+      ).select('_id capacity minAgeMonths maxAgeMonths').lean();
       if (!activeClass) {
         const inactiveClass = new Error('Choose an active class configured for this branch.');
         inactiveClass.code = 'CLASS_NOT_ACTIVE';
         throw inactiveClass;
       }
-      const year = dateYear(new Date(), req.tenant.branch.timezone || req.tenant.organization.timezone);
+
+      const timezone = req.tenant.branch.timezone || req.tenant.organization.timezone;
+      if ((activeClass.minAgeMonths !== null || activeClass.maxAgeMonths !== null) && !validation.value.dob) {
+        const missingDob = new Error('Enter the child’s date of birth because this class has an age requirement.');
+        missingDob.code = 'CLASS_DOB_REQUIRED';
+        throw missingDob;
+      }
+      if (validation.value.dob) {
+        const age = ageInMonths(validation.value.dob, getTodayInTimeZone(timezone));
+        if (age === null) {
+          const invalidDob = new Error('Enter a valid date of birth.');
+          invalidDob.code = 'CLASS_AGE_LIMIT';
+          throw invalidDob;
+        }
+        if (activeClass.minAgeMonths != null && age < activeClass.minAgeMonths) {
+          const tooYoung = new Error('This class requires a minimum age of ' + activeClass.minAgeMonths + ' months.');
+          tooYoung.code = 'CLASS_AGE_LIMIT';
+          throw tooYoung;
+        }
+        if (activeClass.maxAgeMonths != null && age > activeClass.maxAgeMonths) {
+          const tooOld = new Error('This class has a maximum admission age of ' + activeClass.maxAgeMonths + ' months.');
+          tooOld.code = 'CLASS_AGE_LIMIT';
+          throw tooOld;
+        }
+      }
+      const existingEnrollment = await Student.countDocuments({
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+        standard: validation.value.standard,
+      }).session(session);
+      if (existingEnrollment >= activeClass.capacity) {
+        const fullClass = new Error('This class has reached its configured capacity of ' + activeClass.capacity + ' children.');
+        fullClass.code = 'CLASS_CAPACITY';
+        throw fullClass;
+      }
+
+      const year = dateYear(new Date(), timezone);
       const sequence = await nextTenantSequence({
         organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id, sequenceType: 'admission', year, session,
       });
@@ -707,7 +760,8 @@ router.post('/children', requireBranchContext, async (req, res) => {
     const result = await serializeChildren([populated], req.tenant.organization._id, req.tenant.branch._id);
     return res.status(201).json({ message: 'Child registered successfully.', child: result[0] });
   } catch (error) {
-    if (error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
+    if (error.code === 'CLASS_NOT_ACTIVE' || error.code === 'CLASS_DOB_REQUIRED' || error.code === 'CLASS_AGE_LIMIT') return res.status(400).json({ message: error.message });
+    if (error.code === 'CLASS_CAPACITY') return res.status(409).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'A conflicting admission identifier already exists. Please try again.' });
     console.error('Unable to create tenant child:', error.message);
     return res.status(503).json({ message: 'Child registration could not be completed safely.' });
