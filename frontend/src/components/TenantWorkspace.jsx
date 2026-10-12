@@ -1026,6 +1026,126 @@ export default function TenantWorkspace() {
     }
   };
 
+  const canEditMember = (member) => {
+    if (!canManagePeople || !member || member.role === "organization_owner" || member.id === activeMembership?.id) return false;
+    if (role === "branch_admin") return ["teacher", "admissions", "transport_staff", "parent"].includes(member.role);
+    if (role === "head_office_admin") return member.role !== "head_office_admin";
+    return role === "organization_owner";
+  };
+
+  const beginMemberEdit = (member) => {
+    if (!canEditMember(member)) return;
+    setEditingMemberId(member.id);
+    setMemberEditDraft({
+      role: member.role,
+      status: member.status,
+      branchIds: (member.branches || []).map((item) => String(item.id || item._id)),
+      classNames: [...(member.classNames || [])],
+      accessAllBranches: Boolean(member.accessAllBranches),
+      reason: "",
+    });
+    setMemberEditClassOptions([]);
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const cancelMemberEdit = () => {
+    setEditingMemberId("");
+    setMemberEditDraft(null);
+    setMemberEditClassOptions([]);
+  };
+
+  const changeMemberRole = (nextRole) => {
+    setMemberEditDraft((draft) => {
+      if (!draft) return draft;
+      const switchingFromAllBranches = draft.accessAllBranches && nextRole !== "head_office_admin";
+      const branchIds = switchingFromAllBranches
+        ? branches.map((item) => String(item.id || item._id))
+        : draft.branchIds;
+      return {
+        ...draft,
+        role: nextRole,
+        branchIds,
+        accessAllBranches: switchingFromAllBranches ? false : draft.accessAllBranches,
+        classNames: nextRole === "teacher" ? draft.classNames : [],
+      };
+    });
+  };
+
+  const toggleMemberBranch = (branchKey, checked) => {
+    setMemberEditDraft((draft) => !draft ? draft : ({
+      ...draft,
+      branchIds: checked
+        ? [...new Set([...draft.branchIds, branchKey])]
+        : draft.branchIds.filter((value) => value !== branchKey),
+    }));
+  };
+
+  const toggleMemberClass = (className, checked) => {
+    setMemberEditDraft((draft) => !draft ? draft : ({
+      ...draft,
+      classNames: checked
+        ? [...new Set([...draft.classNames, className])]
+        : draft.classNames.filter((value) => value !== className),
+    }));
+  };
+
+  const saveMemberAccess = async (event) => {
+    event.preventDefault();
+    if (!editingMemberId || !memberEditDraft) return;
+    const member = members.find((item) => item.id === editingMemberId);
+    if (!member) {
+      setErrorMessage("This team member is no longer in the current list. Refresh and try again.");
+      cancelMemberEdit();
+      return;
+    }
+    if (!memberEditDraft.reason.trim()) {
+      setErrorMessage("Enter a reason so the access change is recorded in the audit history.");
+      return;
+    }
+    if (member.role !== "parent") {
+      if (!memberEditDraft.accessAllBranches && !memberEditDraft.branchIds.length) {
+        setErrorMessage("Assign at least one branch before saving staff access.");
+        return;
+      }
+      if (memberEditDraft.role === "teacher" && !memberEditDraft.classNames.length) {
+        setErrorMessage("Assign at least one active class to this teacher.");
+        return;
+      }
+    }
+    if (memberEditDraft.status === "suspended" && member.status !== "suspended" &&
+        !window.confirm("Suspend access for " + member.user.name + "? Their current session may remain active until it expires, but new requests will be denied.")) {
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const data = member.role === "parent"
+        ? { status: memberEditDraft.status, reason: memberEditDraft.reason }
+        : {
+          role: memberEditDraft.role,
+          status: memberEditDraft.status,
+          branchIds: memberEditDraft.accessAllBranches ? [] : memberEditDraft.branchIds,
+          accessAllBranches: memberEditDraft.accessAllBranches,
+          classNames: memberEditDraft.role === "teacher" ? memberEditDraft.classNames : [],
+          reason: memberEditDraft.reason,
+        };
+      const result = await saasRequest("/api/saas/members/" + editingMemberId, {
+        method: "PATCH", organizationId, data,
+      });
+      setSuccessMessage(result.message || "Team access saved.");
+      setErrorMessage("");
+      cancelMemberEdit();
+      await loadMembersAndAudit();
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!memberships.length) {
     return (
       <main className="saas-setup-shell">
