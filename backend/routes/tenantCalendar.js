@@ -38,6 +38,14 @@ async function visibleBranchIds(req) {
     branchIds = branches.map((item) => item._id);
   }
 
+  // Prune closed or removed branch assignments before listing any school data.
+  const activeBranches = branchIds.length ? await Branch.find({
+    _id: { $in: branchIds },
+    organizationId: req.tenant.organization._id,
+    status: 'active',
+  }).select('_id').lean() : [];
+  branchIds = activeBranches.map((item) => item._id);
+
   if (membership.role !== 'parent') return branchIds;
   const guardianIds = membership.guardianIds || [];
   if (!guardianIds.length || !branchIds.length) return [];
