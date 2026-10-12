@@ -61,7 +61,8 @@ function parseStoredPhotoPath(value, expectedFolder, origin) {
   if (/^https?:\/\//i.test(raw)) {
     try {
       const parsed = new URL(raw);
-      if (origin && parsed.origin !== origin) return null;
+      // Stored uploads from a previous API hostname still belong to this
+      // private media namespace; never leave a bare student/teacher upload URL.
       pathValue = parsed.pathname;
     } catch {
       return null;
