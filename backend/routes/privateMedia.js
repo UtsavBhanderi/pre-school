@@ -31,8 +31,13 @@ function escapeRegex(value) {
 async function recordStillReferencesFile(type, filename) {
   const entry = MODEL_BY_TYPE[type];
   if (!entry) return false;
-  const filenamePattern = new RegExp('(?:^|[/\\\\])' + escapeRegex(filename) + '(?:[?#].*)?$');
-  const filter = { $or: entry.fields.map((field) => ({ [field]: filenamePattern })) };
+
+  // Match only the local storage reference for this directory and filename.
+  // Suffix-only matching could mistake an unrelated external URL for a local
+  // attachment if it happened to use the same final filename.
+  const localReference = 'uploads/' + type + '/' + filename;
+  const allowedReferences = [localReference, '/' + localReference];
+  const filter = { $or: entry.fields.map((field) => ({ [field]: { $in: allowedReferences } })) };
   const record = await entry.Model.findOne(filter).select('_id').lean();
   return Boolean(record);
 }
