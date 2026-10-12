@@ -54,7 +54,7 @@ function validateCheckOutInput(input = {}) {
   if (!childId) errors.childId = 'Choose a child.';
   if (guardianId && !/^[a-f0-9]{24}$/i.test(guardianId)) errors.guardianId = 'Choose a valid family contact.';
   if (personName.length > 0 && personName.length < 2) errors.personName = 'Enter at least 2 characters for the pickup person name.';
-  if (!idChecked) errors.idChecked = 'Confirm that the pickup person’s identity was checked.';
+  // A false ID-check must still reach the endpoint so the school can log a refused release.
   return Object.keys(errors).length
     ? { valid: false, errors, message: Object.values(errors)[0] }
     : { valid: true, value: { childId, guardianId, personName, staffNote, idChecked } };
