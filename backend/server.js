@@ -64,11 +64,7 @@ for (const directory of ['gallery', 'pdf', 'students', 'teachers', 'video']) {
   fs.mkdirSync(path.join(uploadRoot, directory), { recursive: true });
 }
 
-app.use('/uploads/gallery', express.static(path.join(uploadRoot, 'gallery')));
-app.use('/uploads/pdf', express.static(path.join(uploadRoot, 'pdf')));
-// Student photos are served through short-lived, authorization-checked links.
-// Teacher and family photos are served through short-lived, authorization-checked links.
-app.use('/uploads/video', express.static(path.join(uploadRoot, 'video')));
+// Gallery, school photos, PDFs and video files are delivered through short-lived, authorization-checked links.
 
 // Authentication endpoints must remain reachable before a session exists.
 app.use('/api/auth', authRoutes);
@@ -88,11 +84,10 @@ app.use('/api/saas', auth, tenantWorkspaceRoutes);
 app.use('/api/dailyWorkReport', auth, legacySingleTenantOnly, dailyWorkReportRoutes);
 app.use('/api/announcements', auth, legacySingleTenantOnly, staffOnly, announcementsRoutes);
 
-// All school-management APIs require an authenticated administrator.
-// Media URLs remain statically served for browser image/video elements.
-app.use('/api/gallery', auth, legacySingleTenantOnly, adminOnly, galleryRoutes);
-app.use('/api/pdfs', auth, legacySingleTenantOnly, adminOnly, pdfRoutes);
-app.use('/api/videos', auth, legacySingleTenantOnly, adminOnly, videoRoutes);
+// Legacy school-management APIs require an authenticated administrator. Local private media URLs are signed by the response middleware.
+app.use('/api/gallery', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, galleryRoutes);
+app.use('/api/pdfs', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, pdfRoutes);
+app.use('/api/videos', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, videoRoutes);
 app.use('/api/fees', auth, legacySingleTenantOnly, adminOnly, feesRoutes);
 app.use('/api/students', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, studentRoutes);
 app.use('/api/teachers', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, teacherRoutes);
