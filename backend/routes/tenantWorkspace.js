@@ -6,7 +6,7 @@ const Branch = require('../models/Branch');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const AuditEvent = require('../models/AuditEvent');
 const { tenantContext } = require('../middleware/tenantContext');
-const { hasTenantRole, canManageBranch, canAccessBranch } = require('../utils/tenantAuthorization');
+const { hasTenantRole, canManageOrganization, canAccessBranch } = require('../utils/tenantAuthorization');
 
 const router = express.Router();
 
@@ -63,20 +63,6 @@ function branchPayload(body = {}) {
   };
 }
 
-async function writeAudit(req, { action, resourceType, resourceId, branchId = null, summary, reason = '' }) {
-  return AuditEvent.create({
-    organizationId: req.tenant.organization._id,
-    branchId: branchId || req.tenant.branch?._id || null,
-    actorUserId: req.user._id,
-    action,
-    resourceType,
-    resourceId: String(resourceId || ''),
-    summary: clean(summary, 500),
-    reason: clean(reason, 500),
-    ipAddress: String(req.ip || '').slice(0, 64),
-    userAgent: String(req.get('user-agent') || '').slice(0, 300),
-  });
-}
 
 router.get('/context', (req, res) => {
   const { organization, membership, branch } = req.tenant;
@@ -123,8 +109,8 @@ router.get('/branches', async (req, res) => {
 });
 
 router.post('/branches', async (req, res) => {
-  if (!canManageBranch(req.tenant.membership)) {
-    return res.status(403).json({ message: 'Only organization or branch administrators can create a branch.' });
+  if (!canManageOrganization(req.tenant.membership)) {
+    return res.status(403).json({ message: 'Only an organization owner or head-office administrator can create a branch.' });
   }
 
   const validation = branchPayload(req.body);
