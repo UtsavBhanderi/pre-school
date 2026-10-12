@@ -19,6 +19,7 @@ const { hasTenantRole } = require('../utils/tenantAuthorization');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
 const { ageInMonths } = require('../utils/ageInMonths');
+const { evaluateClassEligibility } = require('../utils/classEligibility');
 const {
   MAX_MONEY_PAISE,
   parseMoneyToPaise,
@@ -663,38 +664,24 @@ router.post('/children', requireBranchContext, async (req, res) => {
       }
 
       const timezone = req.tenant.branch.timezone || req.tenant.organization.timezone;
-      if ((activeClass.minAgeMonths !== null || activeClass.maxAgeMonths !== null) && !validation.value.dob) {
-        const missingDob = new Error('Enter the child’s date of birth because this class has an age requirement.');
-        missingDob.code = 'CLASS_DOB_REQUIRED';
-        throw missingDob;
-      }
-      if (validation.value.dob) {
-        const age = ageInMonths(validation.value.dob, getTodayInTimeZone(timezone));
-        if (age === null) {
-          const invalidDob = new Error('Enter a valid date of birth.');
-          invalidDob.code = 'CLASS_AGE_LIMIT';
-          throw invalidDob;
-        }
-        if (activeClass.minAgeMonths != null && age < activeClass.minAgeMonths) {
-          const tooYoung = new Error('This class requires a minimum age of ' + activeClass.minAgeMonths + ' months.');
-          tooYoung.code = 'CLASS_AGE_LIMIT';
-          throw tooYoung;
-        }
-        if (activeClass.maxAgeMonths != null && age > activeClass.maxAgeMonths) {
-          const tooOld = new Error('This class has a maximum admission age of ' + activeClass.maxAgeMonths + ' months.');
-          tooOld.code = 'CLASS_AGE_LIMIT';
-          throw tooOld;
-        }
-      }
       const existingEnrollment = await Student.countDocuments({
         organizationId: req.tenant.organization._id,
         branchId: req.tenant.branch._id,
         standard: validation.value.standard,
       }).session(session);
-      if (existingEnrollment >= activeClass.capacity) {
-        const fullClass = new Error('This class has reached its configured capacity of ' + activeClass.capacity + ' children.');
-        fullClass.code = 'CLASS_CAPACITY';
-        throw fullClass;
+      const eligibility = evaluateClassEligibility({
+        dateOfBirth: validation.value.dob,
+        today: getTodayInTimeZone(timezone),
+        minAgeMonths: activeClass.minAgeMonths,
+        maxAgeMonths: activeClass.maxAgeMonths,
+        capacity: activeClass.capacity,
+        enrolledCount: existingEnrollment,
+        enforceCapacity: true,
+      });
+      if (!eligibility.eligible) {
+        const failure = new Error(eligibility.message);
+        failure.code = eligibility.code;
+        throw failure;
       }
 
       const year = dateYear(new Date(), timezone);
