@@ -1112,6 +1112,51 @@ export default function TenantWorkspace() {
             </section>
           )}
 
+          {activeTab === "classes" && (
+            <section className="saas-section">
+              <SectionHeading title="Classes and fee defaults" description="Configure the classes offered at this branch. Admissions, attendance, and teacher access use this list." />
+              {needBranch ? <BlankState title="Choose a branch first" detail="Class settings belong to a branch. Choose a branch from the top of the page to manage its classes." /> : (
+                <>
+                  <form className="saas-form-card" onSubmit={saveClass}>
+                    <div className="saas-form-heading"><div><h3>{editingClassId ? "Edit class settings" : "Add a class"}</h3><p>Class names and codes are fixed once created so historical student and attendance records remain consistent.</p></div></div>
+                    <div className="saas-form-grid">
+                      <label>Class name *<input name="name" value={classDraft.name} onChange={updateClassDraft} required minLength={2} maxLength={80} disabled={Boolean(editingClassId)} placeholder="e.g. Nursery" /></label>
+                      <label>Class code *<input name="code" value={classDraft.code} onChange={(event) => setClassDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") }))} required minLength={2} maxLength={16} pattern="[A-Z0-9]+(-[A-Z0-9]+)*" disabled={Boolean(editingClassId)} placeholder="e.g. NUR" /></label>
+                      <label>Minimum age (months)<input type="number" name="minAgeMonths" value={classDraft.minAgeMonths} onChange={updateClassDraft} min="0" max="240" step="1" /></label>
+                      <label>Maximum age (months)<input type="number" name="maxAgeMonths" value={classDraft.maxAgeMonths} onChange={updateClassDraft} min="0" max="240" step="1" /></label>
+                      <label>Default fee (₹) *<input type="number" name="defaultFee" value={classDraft.defaultFee} onChange={updateClassDraft} min="0" step="0.01" required /></label>
+                      <label>Fee frequency *<select name="feeFrequency" value={classDraft.feeFrequency} onChange={updateClassDraft} required><option value="annual">Annual</option><option value="term">Per term</option><option value="monthly">Monthly</option><option value="one_time">One-time</option></select></label>
+                      <label>Class capacity *<input type="number" name="capacity" value={classDraft.capacity} onChange={updateClassDraft} min="1" max="1000" step="1" required /></label>
+                      <label className="saas-full-width">Description (optional)<textarea name="description" value={classDraft.description} onChange={updateClassDraft} maxLength={500} rows="2" placeholder="Age group, schedule, or notes for staff" /></label>
+                    </div>
+                    <div className="saas-class-setup-note"><MdShield aria-hidden="true" /><span>Fee defaults are specific to this branch. Creating a class does not create invoices or charge families automatically; an authorized staff member must create an invoice.</span></div>
+                    <div className="saas-form-actions">
+                      {editingClassId && <button type="button" className="saas-secondary-button" onClick={cancelClassEdit}>Cancel edit</button>}
+                      <button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Saving class…" : editingClassId ? "Save class settings" : "Create class"}</button>
+                    </div>
+                  </form>
+
+                  <SectionHeading title="Configured classes" description={classes.length + " active class" + (classes.length === 1 ? "" : "es") + " in " + (activeBranch?.name || "this branch") + "."} />
+                  {classes.length ? (
+                    <div className="saas-class-grid">
+                      {classes.map((classroom) => (
+                        <article className="saas-class-card" key={classroom.id}>
+                          <div className="saas-class-card-top"><span className="saas-class-symbol"><MdSchool aria-hidden="true" /></span><span className="saas-pill active">Active</span></div>
+                          <div className="saas-class-name"><h3>{classroom.name}</h3><span>{classroom.code}</span></div>
+                          <div className="saas-class-fee"><span>Default fee</span><strong>{formatMoney(classroom.defaultFee, currency)}</strong><small>{String(classroom.feeFrequency || "annual").replaceAll("_", " ")}</small></div>
+                          <div className="saas-class-meta"><span>Age range</span><strong>{classroom.minAgeMonths == null && classroom.maxAgeMonths == null ? "Not specified" : (classroom.minAgeMonths == null ? "Any" : classroom.minAgeMonths + " mo") + " – " + (classroom.maxAgeMonths == null ? "Any" : classroom.maxAgeMonths + " mo")}</strong></div>
+                          <div className="saas-class-meta"><span>Capacity</span><strong>{classroom.capacity} children</strong></div>
+                          {classroom.description && <p className="saas-class-description">{classroom.description}</p>}
+                          <div className="saas-class-actions"><button type="button" className="saas-secondary-button" onClick={() => beginClassEdit(classroom)}>Edit settings</button><button type="button" className="saas-text-button" disabled={saving} onClick={() => archiveClass(classroom)}>Archive</button></div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : <BlankState title="Set up your first class" detail="Create a class above before registering children, recording attendance, or assigning teachers to classes." />}
+                </>
+              )}
+            </section>
+          )}
+
           {activeTab === "team" && (
             <section className="saas-section">
               <SectionHeading title="Team and family access" description="Invite staff or parents using a one-time link, set their access, and revoke links that should no longer work." />
