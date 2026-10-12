@@ -24,6 +24,7 @@ const {
   formatPaise,
   normalizeInvoiceLines,
   calculateInvoiceBalance,
+  calculateInvoiceBalanceForStatus,
 } = require('../utils/tenantMoney');
 
 const router = express.Router();
@@ -1064,7 +1065,7 @@ async function serializeInvoices(invoices, req) {
   }
   return invoices.map((invoice) => {
     const ledger = transactionsByInvoice.get(String(invoice._id)) || [];
-    const balance = calculateInvoiceBalance(invoice.totalAmountPaise, ledger);
+    const balance = calculateInvoiceBalanceForStatus(invoice.status, invoice.totalAmountPaise, ledger);
     return {
       id: String(invoice._id), invoiceNumber: invoice.invoiceNumber, academicYear: invoice.academicYear,
       child: childById.has(String(invoice.childId)) ? {
