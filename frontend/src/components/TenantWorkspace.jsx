@@ -304,6 +304,15 @@ export default function TenantWorkspace() {
     }
   }, [organizationId]);
 
+  const loadNotices = useCallback(async () => {
+    if (!organizationId) return [];
+    const endpoint = canManageNotices ? "/api/saas/notices/manage" : "/api/saas/notices";
+    const data = await saasRequest(endpoint, { organizationId, branchId: branchId || undefined });
+    const result = Array.isArray(data) ? data : [];
+    setNotices(result);
+    return result;
+  }, [organizationId, branchId, canManageNotices]);
+
   useEffect(() => {
     let active = true;
     const run = async () => {
@@ -386,6 +395,8 @@ export default function TenantWorkspace() {
         } else if (activeTab === "fees") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
+        } else if (activeTab === "notices") {
+          await loadNotices();
         } else if (activeTab === "team") {
           await Promise.all([loadBranches(), loadMembersAndAudit(), branchId ? loadChildren("") : Promise.resolve([]), branchId ? loadClasses() : Promise.resolve([])]);
         } else if (activeTab === "overview") {
@@ -402,7 +413,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices,
   ]);
 
   useEffect(() => {
@@ -819,6 +830,119 @@ export default function TenantWorkspace() {
       });
       setPaymentTarget(null);
       showSuccess((result.message || "Transaction recorded.") + (result.transaction?.receiptNumber ? " Receipt: " + result.transaction.receiptNumber : ""));
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateNoticeDraft = (event) => {
+    const { name, value } = event.target;
+    setNoticeDraft((draft) => ({ ...draft, [name]: value }));
+  };
+
+  const resetNoticeEditor = () => {
+    setEditingNoticeId("");
+    setNoticeDraft({
+      title: "",
+      message: "",
+      audience: "all",
+      priority: "normal",
+      startsAt: localDateTimeInputNow(),
+      expiresAt: "",
+      reason: "",
+    });
+  };
+
+  const beginNoticeEdit = (notice) => {
+    if (!canManageNotices) return;
+    setEditingNoticeId(notice.id);
+    setNoticeDraft({
+      title: notice.title || "",
+      message: notice.message || "",
+      audience: notice.audience || "all",
+      priority: notice.priority || "normal",
+      startsAt: toLocalDateTimeInput(notice.startsAt),
+      expiresAt: toLocalDateTimeInput(notice.expiresAt),
+      reason: "",
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const saveNotice = async (event) => {
+    event.preventDefault();
+    if (!canManageNotices) return;
+    if (!editingNoticeId && !branchId) {
+      setErrorMessage("Choose a branch above before publishing a notice.");
+      return;
+    }
+
+    const startsAt = new Date(noticeDraft.startsAt);
+    const expiresAt = noticeDraft.expiresAt ? new Date(noticeDraft.expiresAt) : null;
+    if (!noticeDraft.startsAt || Number.isNaN(startsAt.getTime())) {
+      setErrorMessage("Choose a valid start date and time.");
+      return;
+    }
+    if (expiresAt && (Number.isNaN(expiresAt.getTime()) || expiresAt <= startsAt)) {
+      setErrorMessage("The end date and time must be later than the start date and time.");
+      return;
+    }
+    if (noticeDraft.reason.trim().length > 500) {
+      setErrorMessage("The audit note must be 500 characters or fewer.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        title: noticeDraft.title.trim(),
+        message: noticeDraft.message.trim(),
+        audience: noticeDraft.audience,
+        priority: noticeDraft.priority,
+        startsAt: startsAt.toISOString(),
+        expiresAt: expiresAt ? expiresAt.toISOString() : null,
+        reason: noticeDraft.reason.trim(),
+      };
+      const result = editingNoticeId
+        ? await saasRequest("/api/saas/notices/" + editingNoticeId, {
+          method: "PUT", organizationId, branchId: branchId || undefined, data: payload,
+        })
+        : await saasRequest("/api/saas/notices", {
+          method: "POST", organizationId, branchId, data: payload,
+        });
+      setSuccessMessage(result.message || (editingNoticeId ? "Notice updated." : "Notice published."));
+      resetNoticeEditor();
+      await loadNotices();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changeNoticeStatus = async (notice, status) => {
+    if (!canManageNotices) return;
+    const action = status === "archived" ? "archive" : "restore";
+    if (!window.confirm("Are you sure you want to " + action + " this notice: " + notice.title + "?")) return;
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/notices/" + notice.id + "/status", {
+        method: "PATCH",
+        organizationId,
+        branchId: branchId || undefined,
+        data: { status, reason: "Notice " + action + "d through the school workspace." },
+      });
+      setSuccessMessage(result.message || "Notice status updated.");
+      if (editingNoticeId === notice.id) resetNoticeEditor();
+      await loadNotices();
+      setRefreshVersion((version) => version + 1);
     } catch (error) {
       setErrorMessage(displayError(error));
     } finally {
