@@ -14,6 +14,7 @@ import "../class-config.css";
 import "../tenant-notices.css";
 import "../tenant-reports.css";
 import "../tenant-calendar.css";
+import "../tenant-handover.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
