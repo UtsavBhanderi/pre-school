@@ -317,3 +317,6 @@
 @media (prefers-reduced-motion: reduce) {
   .saas-nav-item, .saas-primary-button, .saas-secondary-button { transition: none; }
 }
+
+.saas-receipt-button { display: inline-flex; align-items: center; gap: .28rem; white-space: nowrap; }
+.saas-receipt-button svg { font-size: 1rem; }
