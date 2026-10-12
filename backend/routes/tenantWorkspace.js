@@ -118,9 +118,10 @@ router.post('/branches', async (req, res) => {
     return res.status(400).json({ message: 'Please correct the branch details.', errors: validation.errors });
   }
 
-  const session = await mongoose.startSession();
+  let session = null;
   let createdBranch;
   try {
+    session = await mongoose.startSession();
     await session.withTransaction(async () => {
       const [branch] = await Branch.create([{
         ...validation.value,
@@ -152,7 +153,7 @@ router.post('/branches', async (req, res) => {
     console.error('Unable to create branch:', error.message);
     return res.status(503).json({ message: 'The branch could not be created safely. Please try again.' });
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 });
 
