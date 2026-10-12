@@ -27,6 +27,13 @@ function isSafeImageFilename(filename) {
   return ['students', 'teachers', 'gallery'].some((type) => isSafeMediaFilename(type, filename));
 }
 
+
+function localMediaReferenceValues(type, filename) {
+  if (!isSafeMediaFilename(type, filename)) return [];
+  const reference = 'uploads/' + type + '/' + filename;
+  return [reference, '/' + reference];
+}
+
 function parsePrivateMediaReference(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
   let pathname;
@@ -157,6 +164,7 @@ module.exports = {
   MEDIA_FIELDS,
   isSafeMediaFilename,
   isSafeImageFilename,
+  localMediaReferenceValues,
   parsePrivateMediaReference,
   signPrivateMediaToken,
   verifyPrivateMediaToken,
