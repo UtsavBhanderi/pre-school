@@ -35,6 +35,8 @@ const tenantOperationsRoutes = require('./routes/tenantOperations');
 const invitationsRoutes = require('./routes/invitations');
 const publicInvitationsRoutes = require('./routes/publicInvitations');
 const parentPortalRoutes = require('./routes/parentPortal');
+const privateMediaRoutes = require('./routes/privateMedia');
+const privateMediaResponse = require('./middleware/privateMediaResponse');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
 
@@ -64,12 +66,13 @@ for (const directory of ['gallery', 'pdf', 'students', 'teachers', 'video']) {
 
 app.use('/uploads/gallery', express.static(path.join(uploadRoot, 'gallery')));
 app.use('/uploads/pdf', express.static(path.join(uploadRoot, 'pdf')));
-app.use('/uploads/students', express.static(path.join(uploadRoot, 'students')));
-app.use('/uploads/teachers', express.static(path.join(uploadRoot, 'teachers')));
+// Student photos are served through short-lived, authorization-checked links.
+// Teacher and family photos are served through short-lived, authorization-checked links.
 app.use('/uploads/video', express.static(path.join(uploadRoot, 'video')));
 
 // Authentication endpoints must remain reachable before a session exists.
 app.use('/api/auth', authRoutes);
+app.use('/api/media', privateMediaRoutes);
 
 // Organization registration and membership discovery are separate from the
 // single-school APIs. Public registration has two explicit readiness gates.
@@ -91,8 +94,8 @@ app.use('/api/gallery', auth, legacySingleTenantOnly, adminOnly, galleryRoutes);
 app.use('/api/pdfs', auth, legacySingleTenantOnly, adminOnly, pdfRoutes);
 app.use('/api/videos', auth, legacySingleTenantOnly, adminOnly, videoRoutes);
 app.use('/api/fees', auth, legacySingleTenantOnly, adminOnly, feesRoutes);
-app.use('/api/students', auth, legacySingleTenantOnly, adminOnly, studentRoutes);
-app.use('/api/teachers', auth, legacySingleTenantOnly, adminOnly, teacherRoutes);
+app.use('/api/students', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, studentRoutes);
+app.use('/api/teachers', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, teacherRoutes);
 app.use('/api/userDetailsself', auth, legacySingleTenantOnly, adminOnly, userDetailsRoutes);
 app.use('/api/reportCard', auth, legacySingleTenantOnly, adminOnly, reportCardRoutes);
 app.use('/api/subjects', auth, legacySingleTenantOnly, adminOnly, subjectRoutes);
