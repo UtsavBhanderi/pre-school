@@ -3,6 +3,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Student = require('../models/Student');
+const TenantClass = require('../models/TenantClass');
 const Guardian = require('../models/Guardian');
 const ChildGuardian = require('../models/ChildGuardian');
 const Attendance = require('../models/Attendance');
@@ -27,6 +28,9 @@ const {
 const router = express.Router();
 const CHILD_READ_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
 const CHILD_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
+const CHILD_LIST_ROLES = [...CHILD_READ_ROLES, 'accountant', 'teacher'];
+const CLASS_READ_ROLES = [...CHILD_READ_ROLES, 'accountant', 'teacher'];
+const CLASS_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin'];
 const MONEY_READ_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'];
 const MONEY_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'];
 const REFUND_ROLES = ['organization_owner', 'head_office_admin', 'accountant'];
@@ -188,9 +192,7 @@ function validateChildInput(body = {}, timeZone) {
 
   if (firstName.length < 1) errors.firstName = 'Enter the child’s first name.';
   if (gender && !VALID_GENDER.has(gender)) errors.gender = 'Choose a valid gender.';
-  if (!standard || !Object.prototype.hasOwnProperty.call(STANDARD_FEES, standard)) {
-    errors.className = 'Choose a class from the configured preschool classes.';
-  }
+  if (!standard) errors.className = 'Choose a configured class.';
   if (dob && !parseDateOnly(dob)) errors.dateOfBirth = 'Enter a real date of birth.';
   if (!/^\d{4}-\d{4}$/.test(academicYear) || Number(academicYear.slice(5)) !== Number(academicYear.slice(0, 4)) + 1) {
     errors.academicYear = 'Enter an academic year such as 2026-2027.';
@@ -236,22 +238,228 @@ function validateChildInput(body = {}, timeZone) {
     };
 }
 
+function normalizeClassPayload(body = {}) {
+  const name = clean(body.name, 80);
+  const suppliedCode = clean(body.code, 16).toUpperCase();
+  const code = suppliedCode || name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 16).replace(/-+$/g, '');
+  const minRaw = body.minAgeMonths;
+  const maxRaw = body.maxAgeMonths;
+  const minAgeMonths = minRaw === '' || minRaw === null || minRaw === undefined ? null : Number(minRaw);
+  const maxAgeMonths = maxRaw === '' || maxRaw === null || maxRaw === undefined ? null : Number(maxRaw);
+  const capacity = body.capacity === '' || body.capacity === null || body.capacity === undefined ? 30 : Number(body.capacity);
+  const defaultFeePaise = parseMoneyToPaise(body.defaultFee === '' || body.defaultFee === undefined ? '0' : body.defaultFee);
+  const feeFrequency = clean(body.feeFrequency || 'annual', 20);
+  const description = clean(body.description, 500);
+  const errors = {};
+
+  if (name.length < 2) errors.name = 'Class name must contain 2 to 80 characters.';
+  if (code.length < 2 || !/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/.test(code)) {
+    errors.code = 'Class code must use 2 to 16 letters, numbers or hyphens. Enter a code if one cannot be generated from the class name.';
+  }
+  if (minAgeMonths !== null && (!Number.isInteger(minAgeMonths) || minAgeMonths < 0 || minAgeMonths > 240)) errors.minAgeMonths = 'Minimum age must be from 0 to 240 months.';
+  if (maxAgeMonths !== null && (!Number.isInteger(maxAgeMonths) || maxAgeMonths < 0 || maxAgeMonths > 240)) errors.maxAgeMonths = 'Maximum age must be from 0 to 240 months.';
+  if (minAgeMonths !== null && maxAgeMonths !== null && minAgeMonths > maxAgeMonths) errors.ageRange = 'Minimum age must not be greater than maximum age.';
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 1000) errors.capacity = 'Capacity must be from 1 to 1000 children.';
+  if (defaultFeePaise === null) errors.defaultFee = 'Enter a fee amount with up to two decimal places.';
+  if (!['annual', 'term', 'monthly', 'one_time'].includes(feeFrequency)) errors.feeFrequency = 'Choose a valid fee frequency.';
+
+  if (Object.keys(errors).length) return { valid: false, errors };
+  return {
+    valid: true,
+    value: { name, code, minAgeMonths, maxAgeMonths, capacity, defaultFeePaise, feeFrequency, description },
+  };
+}
+
+function serializeClass(classroom, currency = 'INR') {
+  return {
+    id: String(classroom._id),
+    name: classroom.name,
+    code: classroom.code,
+    minAgeMonths: classroom.minAgeMonths,
+    maxAgeMonths: classroom.maxAgeMonths,
+    defaultFeePaise: classroom.defaultFeePaise,
+    defaultFee: Number(formatPaise(classroom.defaultFeePaise || 0)),
+    feeFrequency: classroom.feeFrequency,
+    capacity: classroom.capacity,
+    description: classroom.description || '',
+    status: classroom.status,
+    currency,
+    createdAt: classroom.createdAt,
+    updatedAt: classroom.updatedAt,
+  };
+}
+
 router.get('/classes', requireBranchContext, async (req, res) => {
-  if (!allowed(req, [...CHILD_READ_ROLES, 'teacher'], res)) return;
+  if (!allowed(req, CLASS_READ_ROLES, res)) return;
+  const filter = {
+    organizationId: req.tenant.organization._id,
+    branchId: req.tenant.branch._id,
+  };
+  if (req.query.includeInactive === 'true' && CLASS_WRITE_ROLES.includes(req.tenant.membership.role)) {
+    filter.status = { $in: ['active', 'inactive'] };
+  } else {
+    filter.status = 'active';
+  }
+  if (req.tenant.membership.role === 'teacher') {
+    const assigned = req.tenant.membership.classNames || [];
+    if (!assigned.length) return res.json([]);
+    filter.name = { $in: assigned };
+  }
+
   try {
-    const availableFees = req.tenant.membership.role === 'teacher'
-      ? Object.entries(STANDARD_FEES).filter(([name]) => (req.tenant.membership.classNames || []).includes(name))
-      : Object.entries(STANDARD_FEES);
-    return res.json(availableFees.map(([name, amount]) => ({
-      name,
-      defaultFee: Number(amount) || 0,
-      currency: req.tenant.organization.currency || 'INR',
-    })));
+    const classes = await TenantClass.find(filter).sort({ name: 1 }).limit(200).lean();
+    return res.json(classes.map((classroom) => {
+      const result = serializeClass(classroom, req.tenant.organization.currency || 'INR');
+      if (req.tenant.membership.role === 'teacher') {
+        delete result.defaultFee;
+        delete result.defaultFeePaise;
+      }
+      return result;
+    }));
   } catch (error) {
-    console.error('Unable to load configured classes:', error);
+    console.error('Unable to list branch classes:', error.message);
     return res.status(503).json({ message: 'Classes could not be loaded.' });
   }
 });
+
+router.post('/classes', requireBranchContext, async (req, res) => {
+  if (!allowed(req, CLASS_WRITE_ROLES, res)) return;
+  const validation = normalizeClassPayload(req.body);
+  if (!validation.valid) return res.status(400).json({ message: 'Please correct the class information.', errors: validation.errors });
+
+  try {
+    const classroom = await inTransaction(async (session) => {
+      const [created] = await TenantClass.create([{
+        ...validation.value,
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+        createdBy: req.user._id,
+      }], { session });
+      await createAudit(req, session, {
+        action: 'class.created',
+        resourceType: 'tenant_class',
+        resourceId: created._id,
+        summary: 'Class created: ' + created.name + ' (' + created.code + ').',
+        changedFields: ['name', 'code', 'ageRange', 'defaultFee', 'feeFrequency', 'capacity'],
+      });
+      return created;
+    });
+    return res.status(201).json({
+      message: 'Class created.',
+      classroom: serializeClass(classroom, req.tenant.organization.currency || 'INR'),
+    });
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'A class with this name or code already exists in the selected branch.' });
+    console.error('Unable to create branch class:', error.message);
+    return res.status(503).json({ message: 'The class could not be created safely.' });
+  }
+});
+
+router.put('/classes/:id', requireBranchContext, async (req, res) => {
+  if (!allowed(req, CLASS_WRITE_ROLES, res)) return;
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid class.' });
+
+  const updates = {};
+  const errors = {};
+  const allowedFields = ['minAgeMonths', 'maxAgeMonths', 'capacity', 'defaultFee', 'feeFrequency', 'description', 'status'];
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'name') || Object.prototype.hasOwnProperty.call(req.body || {}, 'code')) {
+    return res.status(400).json({ message: 'Class name and code are permanent identifiers. Create a new class and transfer children deliberately instead.' });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'minAgeMonths')) {
+    const raw = req.body.minAgeMonths;
+    const value = raw === '' || raw === null || raw === undefined ? null : Number(raw);
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 240)) errors.minAgeMonths = 'Minimum age must be from 0 to 240 months.';
+    else updates.minAgeMonths = value;
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'maxAgeMonths')) {
+    const raw = req.body.maxAgeMonths;
+    const value = raw === '' || raw === null || raw === undefined ? null : Number(raw);
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 240)) errors.maxAgeMonths = 'Maximum age must be from 0 to 240 months.';
+    else updates.maxAgeMonths = value;
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'capacity')) {
+    const value = Number(req.body.capacity);
+    if (!Number.isInteger(value) || value < 1 || value > 1000) errors.capacity = 'Capacity must be from 1 to 1000 children.';
+    else updates.capacity = value;
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'defaultFee')) {
+    const value = parseMoneyToPaise(req.body.defaultFee);
+    if (value === null) errors.defaultFee = 'Enter a fee amount with up to two decimal places.';
+    else updates.defaultFeePaise = value;
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'feeFrequency')) {
+    const value = clean(req.body.feeFrequency, 20);
+    if (!['annual', 'term', 'monthly', 'one_time'].includes(value)) errors.feeFrequency = 'Choose a valid fee frequency.';
+    else updates.feeFrequency = value;
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'description')) updates.description = clean(req.body.description, 500);
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'status')) {
+    if (!['active', 'inactive'].includes(req.body.status)) errors.status = 'Choose Active or Inactive.';
+    else updates.status = req.body.status;
+  }
+
+  if (updates.minAgeMonths !== undefined && updates.maxAgeMonths !== undefined &&
+      updates.minAgeMonths !== null && updates.maxAgeMonths !== null && updates.minAgeMonths > updates.maxAgeMonths) {
+    errors.ageRange = 'Minimum age must not be greater than maximum age.';
+  }
+  if (Object.keys(errors).length) return res.status(400).json({ message: 'Please correct the class settings.', errors });
+  if (!Object.keys(updates).length) return res.status(400).json({ message: 'There are no class settings to update.' });
+
+  try {
+    const classroom = await inTransaction(async (session) => {
+      const current = await TenantClass.findOne({
+        _id: req.params.id,
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+      }).session(session);
+      if (!current) {
+        const notFound = new Error('Class not found in this branch.');
+        notFound.code = 'CLASS_NOT_FOUND';
+        throw notFound;
+      }
+      if (updates.status === 'inactive' && current.status !== 'inactive') {
+        const studentCount = await Student.countDocuments({
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          standard: current.name,
+        }).session(session);
+        if (studentCount > 0) {
+          const hasChildren = new Error('Move or graduate the children in this class before archiving it.');
+          hasChildren.code = 'CLASS_HAS_CHILDREN';
+          throw hasChildren;
+        }
+        current.archivedAt = new Date();
+        current.archivedBy = req.user._id;
+      }
+      if (updates.status === 'active') {
+        current.archivedAt = null;
+        current.archivedBy = null;
+      }
+      Object.assign(current, updates, { updatedBy: req.user._id });
+      await current.save({ session });
+      await createAudit(req, session, {
+        action: updates.status === 'inactive' ? 'class.archived' : 'class.updated',
+        resourceType: 'tenant_class',
+        resourceId: current._id,
+        summary: 'Class settings updated: ' + current.name + '.',
+        changedFields: Object.keys(updates),
+      });
+      return current;
+    });
+    return res.json({
+      message: 'Class settings saved.',
+      classroom: serializeClass(classroom, req.tenant.organization.currency || 'INR'),
+    });
+  } catch (error) {
+    if (error.code === 'CLASS_NOT_FOUND') return res.status(404).json({ message: error.message });
+    if (error.code === 'CLASS_HAS_CHILDREN') return res.status(409).json({ message: error.message });
+    console.error('Unable to update class settings:', error.message);
+    return res.status(503).json({ message: 'Class settings could not be updated safely.' });
+  }
+});
+
+
 
 router.get('/summary', async (req, res) => {
   if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant', 'admissions', 'teacher', 'hr_manager', 'transport_staff'], res)) return;
