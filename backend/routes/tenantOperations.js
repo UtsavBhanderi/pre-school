@@ -1241,6 +1241,10 @@ router.get('/reports/attendance.csv', requireBranchContext, async (req, res) => 
     if (records.length > 5000) {
       return res.status(413).json({ message: 'This export is too large. Choose a shorter date range or one class.' });
     }
+    const attendanceEntryCount = records.reduce((total, record) => total + (record.studentDetails || []).length, 0);
+    if (attendanceEntryCount > 100000) {
+      return res.status(413).json({ message: 'This export contains too many child entries. Choose a shorter date range or one class.' });
+    }
 
     const studentIds = [...new Set(records.flatMap((record) =>
       (record.studentDetails || []).map((entry) => String(entry.studentId))
