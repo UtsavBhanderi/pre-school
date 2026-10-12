@@ -1,0 +1,44 @@
+/* Tenant daily teaching reports and review workflow */
+.tenant-work-reports-section { gap: 1rem; }
+.tenant-work-report-form { border-color: #dce5f2; }
+.tenant-work-report-form .saas-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tenant-work-report-form .saas-full-width { grid-column: 1 / -1; }
+.tenant-work-report-form textarea { min-height: 110px; }
+.tenant-work-report-form-note { display: flex; align-items: flex-start; gap: .55rem; padding: .75rem .85rem; border: 1px solid #e0e7f5; border-radius: 8px; color: #64758c; background: #f8faff; font-size: .75rem; line-height: 1.55; }
+.tenant-work-report-form-note svg { flex: 0 0 auto; margin-top: .05rem; color: #465eb3; font-size: 1.15rem; }
+.tenant-work-report-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .65rem; padding: .85rem; border: 1px solid #e0e7f0; border-radius: 10px; background: #fff; }
+.tenant-work-report-filters label { display: grid; gap: .25rem; min-width: 135px; color: #62738b; font-size: .7rem; font-weight: 800; }
+.tenant-work-report-filters input, .tenant-work-report-filters select { min-height: 38px; padding: .45rem .55rem; border: 1px solid #d4deeb; border-radius: 7px; color: #2c405a; background: #fff; font-size: .77rem; }
+.tenant-work-report-filters > span { margin-left: auto; padding-bottom: .6rem; color: #7b889b; font-size: .72rem; white-space: nowrap; }
+.tenant-work-report-list { display: grid; gap: .75rem; }
+.tenant-work-report-card { min-width: 0; padding: 1rem; border: 1px solid #dfe6ef; border-radius: 10px; background: #fff; }
+.tenant-work-report-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .7rem; }
+.tenant-work-report-date { display: grid; gap: .2rem; min-width: 0; }
+.tenant-work-report-date > span { color: #6d7e94; font-size: .68rem; font-weight: 750; }
+.tenant-work-report-date > strong { color: #2b3d56; font-family: 'DM Sans', sans-serif; font-size: .98rem; font-weight: 850; }
+.tenant-work-report-date > small { color: #566a84; font-size: .75rem; }
+.tenant-work-report-card .saas-pill.submitted { color: #8a611e; background: #fff4d9; }
+.tenant-work-report-card .saas-pill.reviewed { color: #276547; background: #e8f6ee; }
+.tenant-work-report-card .saas-pill.needs_follow_up { color: #95424a; background: #ffedef; }
+.tenant-work-report-meta { display: flex; flex-wrap: wrap; gap: .45rem .85rem; margin: .75rem 0; padding: .6rem .65rem; border: 1px solid #edf1f6; border-radius: 8px; background: #fafcff; }
+.tenant-work-report-meta > span { display: inline-flex; align-items: center; gap: .32rem; color: #6d7c91; font-size: .71rem; line-height: 1.45; }
+.tenant-work-report-meta svg { color: #5266b7; font-size: 1rem; }
+.tenant-work-report-summary { margin: 0; color: #455871; font-size: .82rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tenant-work-report-review { display: grid; gap: .25rem; margin-top: .8rem; padding: .7rem .8rem; border: 1px solid #dfe7f5; border-radius: 8px; background: #f8faff; }
+.tenant-work-report-review > strong { color: #405681; font-size: .72rem; line-height: 1.5; }
+.tenant-work-report-review > p { margin: 0; color: #687b96; font-size: .77rem; line-height: 1.6; white-space: pre-wrap; }
+.tenant-work-report-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-top: .85rem; padding-top: .75rem; border-top: 1px solid #edf1f6; }
+.tenant-work-report-card-actions > span { margin-right: auto; color: #8994a4; font-size: .66rem; }
+.tenant-work-report-card-actions .saas-primary-button, .tenant-work-report-card-actions .saas-secondary-button { min-height: 34px; padding: .42rem .6rem; font-size: .71rem; }
+@media (max-width: 760px) {
+  .tenant-work-report-form .saas-form-grid { grid-template-columns: 1fr; }
+  .tenant-work-report-form .saas-full-width { grid-column: auto; }
+  .tenant-work-report-filters { align-items: stretch; }
+  .tenant-work-report-filters label { flex: 1 1 130px; min-width: 0; }
+  .tenant-work-report-filters > span { margin: 0; padding: .2rem 0 0; }
+  .tenant-work-report-card { padding: .8rem; }
+  .tenant-work-report-meta { display: grid; gap: .45rem; }
+  .tenant-work-report-card-actions { align-items: stretch; }
+  .tenant-work-report-card-actions > span { flex-basis: 100%; margin: 0; }
+  .tenant-work-report-card-actions button { flex: 1 1 auto; }
+}
