@@ -34,6 +34,7 @@ function canManageBranch(membership) {
 }
 
 module.exports = {
+  MEMBERSHIP_ROLES,
   TENANT_ADMIN_ROLES,
   BRANCH_MANAGER_ROLES,
   hasTenantRole,
