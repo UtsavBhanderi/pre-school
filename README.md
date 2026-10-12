@@ -55,6 +55,16 @@ This is a staged rollout, not a claim that all legacy features are tenant-safe. 
 Invitation email is optional. To send invitations automatically, configure \`SMTP_HOST\`, \`SMTP_PORT\`, \`SMTP_SECURE\`, \`EMAIL_USER\`, \`EMAIL_PASS\`, \`EMAIL_FROM\` and \`FRONTEND_URL\`. If email delivery is not available, the authorized inviter is shown the single-use invitation URL to share through a verified channel. Invitation links expire after 72 hours.
 
 
+
+## Private child and staff photo delivery
+
+Legacy child and teacher photographs are no longer exposed from the direct \`/uploads/students\` and \`/uploads/teachers\` static paths. The signed-media endpoint issues short-lived image links for the authenticated legacy school administrator; links expire after two minutes, only support approved raster image extensions, and stop working if the source record no longer references the photo. The legacy response layer rewrites photo fields to signed URLs so existing admin screens can continue to display them.
+
+Set \`API_PUBLIC_URL\` to the canonical, externally reachable API origin (for example, \`https://api.yourschool.example\`) when deploying behind a proxy or using separate frontend/API hosts. Keep \`JWT_SECRET\` strong and private. Test photo uploads, previews, print/report screens and expiry on the deployed HTTPS environment before release.
+
+This change does not yet make every upload private: gallery, PDF and video files still have separate static delivery paths, and tenant-workspace photo upload/private delivery is a later migration step. Public organization sign-up must remain disabled until all child-related media and legacy data/API paths have organization-level authorization and tenant-isolation tests.
+
+
 ## Requirements
 
 - Node.js 20 or newer
