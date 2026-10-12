@@ -13,6 +13,7 @@ import "../invitations.css";
 import "../class-config.css";
 import "../tenant-notices.css";
 import "../tenant-reports.css";
+import "../tenant-calendar.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -40,6 +41,12 @@ const localDateDaysAgo = (days) => {
 
 const localDateTimeInputNow = () => {
   const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+};
+
+const localDateTimeInputAfter = (minutes) => {
+  const date = new Date(Date.now() + minutes * 60 * 1000);
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 16);
 };
