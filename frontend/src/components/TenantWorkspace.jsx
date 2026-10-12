@@ -143,6 +143,9 @@ export default function TenantWorkspace() {
   const [invoices, setInvoices] = useState([]);
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [editingMemberId, setEditingMemberId] = useState("");
+  const [memberEditDraft, setMemberEditDraft] = useState(null);
+  const [memberEditClassOptions, setMemberEditClassOptions] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [inviteDraft, setInviteDraft] = useState({ fullName: '', email: '', role: 'teacher', branchIds: [], guardianIds: [], classNames: [] });
   const [invitationUrl, setInvitationUrl] = useState('');
