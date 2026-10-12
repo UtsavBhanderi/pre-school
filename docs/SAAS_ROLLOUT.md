@@ -53,6 +53,17 @@ For organization context endpoints, send the authenticated token in \`x-auth-tok
 
 These workflows have automated unit/syntax/build checks, but the parent invitation and attendance/finance workflows still need isolated MongoDB integration tests using organizations A and B. Parent/guardian identity verification and real-world acceptance testing remain release gates.
 
+## First organization provisioning while public sign-up is closed
+
+A trusted deployment operator can create an initial organization and owner without enabling public registration. The script connects to the configured MongoDB, creates the owner, organization, first branch, membership and audit event in one transaction, and prints non-secret identifiers only.
+
+1. Configure the normal backend .env with MONGO_URI and JWT_SECRET.
+2. In the operator's controlled shell/session, set the following one-time environment variables: PROVISION_ORGANIZATION_NAME, PROVISION_BRANCH_NAME, PROVISION_BRANCH_CODE, PROVISION_OWNER_NAME, PROVISION_OWNER_EMAIL, and PROVISION_OWNER_PASSWORD. PROVISION_TIMEZONE is optional and defaults to Asia/Kolkata.
+3. Run node backend/scripts/provisionOrganization.js from the repository root.
+4. Remove the one-time PROVISION_* variables from the shell/environment after completion. Do not store provisioning passwords in source control, shell history, logs or shared deployment files.
+
+Use a strong owner password with at least 12 characters. The command refuses to create a duplicate owner account. MongoDB must support transactions, typically through a replica set. This does not enable self-registration and does not bypass the legacy module guard.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
