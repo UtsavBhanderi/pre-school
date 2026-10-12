@@ -84,6 +84,17 @@ The notice board is internal to this software. It does not send WhatsApp, SMS or
 - **Can't find a record:** clear list filters and check the class/date. Verify whether the save succeeded before creating another record.
 - **Unsure before editing or deleting:** cancel and ask the administrator. Never share passwords.
 
+## For organization-workspace users: export a report
+
+1. Open **Reports & exports** from the organization workspace.
+2. Select the branch in the top selector before exporting. The report is always limited to that branch.
+3. Choose the **From** and **To** dates. The range can be up to 366 days.
+4. Choose **Download attendance CSV** for attendance date, class, admission number, child name, status and absence reason.
+5. Choose **Download fee CSV** for saved payments and refunds, receipt/invoice references, amount, payment method and refund reason. Only users with fee-report permission see this option.
+6. Open the downloaded CSV in Excel or Google Sheets and verify the branch and dates before sharing it.
+
+Report exports are recorded in the audit history. Teachers can export only attendance for their assigned classes. These reports are separate from the legacy single-school report pages; public organization registration remains disabled while other legacy modules are being migrated.
+
 ## Safe daily habits
 
 - Confirm the child's name and class before changing attendance or fees.
