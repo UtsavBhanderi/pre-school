@@ -13,6 +13,7 @@ const app = express();
 const auth = require('./middleware/auth');
 const adminOnly = require('./middleware/adminOnly');
 const staffOnly = require('./middleware/staffOnly');
+const legacySingleTenantOnly = require('./middleware/legacySingleTenantOnly');
 
 const galleryRoutes = require('./routes/gallery');
 const pdfRoutes = require('./routes/pdf');
@@ -28,6 +29,8 @@ const reportCardRoutes = require('./routes/reportCard');
 const reportDocxRoutes = require('./reportDocx');
 const eventRoutes = require('./routes/calendar');
 const announcementsRoutes = require('./routes/announcements');
+const organizationsRoutes = require('./routes/organizations');
+const tenantWorkspaceRoutes = require('./routes/tenantWorkspace');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
 
@@ -64,25 +67,30 @@ app.use('/uploads/video', express.static(path.join(uploadRoot, 'video')));
 // Authentication endpoints must remain reachable before a session exists.
 app.use('/api/auth', authRoutes);
 
+// Organization registration and membership discovery are separate from the
+// single-school APIs. Public registration has two explicit readiness gates.
+app.use('/api/organizations', organizationsRoutes);
+app.use('/api/saas', auth, tenantWorkspaceRoutes);
+
 // Teachers can submit and view their own work reports; administrative listing
 // is separately protected inside the report router.
-app.use('/api/dailyWorkReport', dailyWorkReportRoutes);
-app.use('/api/announcements', auth, staffOnly, announcementsRoutes);
+app.use('/api/dailyWorkReport', auth, legacySingleTenantOnly, dailyWorkReportRoutes);
+app.use('/api/announcements', auth, legacySingleTenantOnly, staffOnly, announcementsRoutes);
 
 // All school-management APIs require an authenticated administrator.
 // Media URLs remain statically served for browser image/video elements.
-app.use('/api/gallery', auth, adminOnly, galleryRoutes);
-app.use('/api/pdfs', auth, adminOnly, pdfRoutes);
-app.use('/api/videos', auth, adminOnly, videoRoutes);
-app.use('/api/fees', auth, adminOnly, feesRoutes);
-app.use('/api/students', auth, adminOnly, studentRoutes);
-app.use('/api/teachers', auth, adminOnly, teacherRoutes);
-app.use('/api/userDetailsself', auth, adminOnly, userDetailsRoutes);
-app.use('/api/reportCard', auth, adminOnly, reportCardRoutes);
-app.use('/api/subjects', auth, adminOnly, subjectRoutes);
-app.use('/api/docx', auth, adminOnly, reportDocxRoutes);
-app.use('/api/events', auth, adminOnly, eventRoutes);
-app.use('/api/attendance', auth, staffOnly, attendanceRoutes);
+app.use('/api/gallery', auth, legacySingleTenantOnly, adminOnly, galleryRoutes);
+app.use('/api/pdfs', auth, legacySingleTenantOnly, adminOnly, pdfRoutes);
+app.use('/api/videos', auth, legacySingleTenantOnly, adminOnly, videoRoutes);
+app.use('/api/fees', auth, legacySingleTenantOnly, adminOnly, feesRoutes);
+app.use('/api/students', auth, legacySingleTenantOnly, adminOnly, studentRoutes);
+app.use('/api/teachers', auth, legacySingleTenantOnly, adminOnly, teacherRoutes);
+app.use('/api/userDetailsself', auth, legacySingleTenantOnly, adminOnly, userDetailsRoutes);
+app.use('/api/reportCard', auth, legacySingleTenantOnly, adminOnly, reportCardRoutes);
+app.use('/api/subjects', auth, legacySingleTenantOnly, adminOnly, subjectRoutes);
+app.use('/api/docx', auth, legacySingleTenantOnly, adminOnly, reportDocxRoutes);
+app.use('/api/events', auth, legacySingleTenantOnly, adminOnly, eventRoutes);
+app.use('/api/attendance', auth, legacySingleTenantOnly, staffOnly, attendanceRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
