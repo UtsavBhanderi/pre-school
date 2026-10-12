@@ -26,9 +26,10 @@ test('check-in input requires a linked guardian for family drop-off', () => {
   assert.equal(validateCheckInInput({ childId: 'child-id', method: 'school_transport', personName: 'Driver Raj' }).valid, true);
 });
 
-test('check-out requires explicit ID-check confirmation', () => {
-  assert.equal(validateCheckOutInput({ childId: 'child-id', guardianId: '507f1f77bcf86cd799439011', idChecked: false }).valid, false);
+test('unverified pickup attempts can be logged but cannot complete release', () => {
+  assert.equal(validateCheckOutInput({ childId: 'child-id', guardianId: '507f1f77bcf86cd799439011', idChecked: false }).valid, true);
   assert.equal(validateCheckOutInput({ childId: 'child-id', guardianId: '507f1f77bcf86cd799439011', idChecked: true }).valid, true);
+  assert.equal(decideCheckOut({ currentState: 'on_premises', linkedContact: { authorizedPickup: true }, idChecked: false }).allowed, false);
 });
 
 test('child cannot be checked in twice or released when not on premises', () => {
