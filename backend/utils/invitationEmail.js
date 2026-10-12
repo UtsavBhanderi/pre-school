@@ -20,7 +20,8 @@ function getFrontendBaseUrl() {
 }
 
 function createInvitationUrl(token) {
-  return getFrontendBaseUrl() + '/accept-invitation?token=' + encodeURIComponent(token);
+  // Keep the one-time secret in the URL fragment: browsers do not send it in HTTP requests or referrer headers.
+  return getFrontendBaseUrl() + '/accept-invitation#token=' + encodeURIComponent(token);
 }
 
 function mailTransport() {
