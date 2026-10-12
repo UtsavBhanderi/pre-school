@@ -49,10 +49,11 @@ router.post('/register', async (req, res) => {
   }
 
   const input = validation.value;
-  const session = await mongoose.startSession();
+  let session = null;
   let created = null;
 
   try {
+    session = await mongoose.startSession();
     await session.withTransaction(async () => {
       const existingUser = await User.findOne({ email: input.email }).select('_id').session(session);
       if (existingUser) {
@@ -148,7 +149,7 @@ router.post('/register', async (req, res) => {
       message: 'The organization could not be created safely. Please try again later.',
     });
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 });
 
