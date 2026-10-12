@@ -320,3 +320,7 @@
 
 .saas-receipt-button { display: inline-flex; align-items: center; gap: .28rem; white-space: nowrap; }
 .saas-receipt-button svg { font-size: 1rem; }
+
+.saas-member-reason { display: grid; gap: .35rem; color: #455771; font-size: .77rem; font-weight: 750; line-height: 1.4; }
+.saas-member-reason textarea { width: 100%; min-height: 76px; padding: .56rem .65rem; border: 1px solid #d4deeb; border-radius: 7px; color: #21344d; background: #fff; font-size: .83rem; font-weight: 500; resize: vertical; }
+.saas-member-edit-button { white-space: nowrap; }
