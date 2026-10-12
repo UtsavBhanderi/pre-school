@@ -68,7 +68,7 @@ test('expired tokens fail verification even when the signature is correct', () =
       exp: Math.floor(Date.now() / 1000) - 300,
     },
     secret,
-    { issuer: 'preschool-private-media', audience: 'school-photo', algorithm: 'HS256' },
+    { issuer: 'preschool-private-media', audience: 'school-private-media', algorithm: 'HS256' },
   );
   assert.equal(verifyPrivateMediaToken(expiredToken, secret), null);
 });
