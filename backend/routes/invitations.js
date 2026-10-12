@@ -13,7 +13,7 @@ const { hasTenantRole, canAccessBranch } = require('../utils/tenantAuthorization
 const { INVITABLE_ROLES } = require('../models/OrganizationInvitation');
 const { createInvitationToken, invitationExpiry } = require('../utils/invitationTokens');
 const { createInvitationUrl, sendInvitationEmail } = require('../utils/invitationEmail');
-const { STANDARD_FEES } = require('../config/standardFees');
+const TenantClass = require('../models/TenantClass');
 
 const router = express.Router();
 router.use(tenantContext);
@@ -150,7 +150,7 @@ router.post('/', async (req, res) => {
       const requestedClasses = Array.isArray(req.body?.classNames)
         ? [...new Set(req.body.classNames.map((value) => clean(value, 80)))]
         : [];
-      if (!requestedClasses.length || requestedClasses.some((className) => !Object.prototype.hasOwnProperty.call(STANDARD_FEES, className))) {
+      if (!requestedClasses.length || requestedClasses.some((className) => className.length < 2 || className.length > 80)) {
         return res.status(400).json({ message: 'Assign at least one configured class to this teacher.' });
       }
       classNames = requestedClasses;
@@ -175,6 +175,22 @@ router.post('/', async (req, res) => {
       }
       if (submittedBranchIds.some((id) => !canAccessBranch(req.tenant.membership, id))) {
         return res.status(403).json({ message: 'You cannot assign a user to a branch outside your own access.' });
+      }
+      if (role === 'teacher') {
+        for (const assignedBranchId of submittedBranchIds) {
+          const availableClassNames = await TenantClass.distinct('name', {
+            organizationId: req.tenant.organization._id,
+            branchId: assignedBranchId,
+            name: { $in: classNames },
+            status: 'active',
+          });
+          const missing = classNames.filter((className) => !availableClassNames.includes(className));
+          if (missing.length) {
+            return res.status(400).json({
+              message: 'Configure these classes in every selected branch before assigning them to a teacher: ' + missing.join(', ') + '.',
+            });
+          }
+        }
       }
       branchIds = submittedBranchIds;
     } catch (error) {
