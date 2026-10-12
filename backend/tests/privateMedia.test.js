@@ -15,7 +15,7 @@ const {
 const secret = 'test-secret-that-is-not-used-outside-unit-tests';
 const userId = new mongoose.Types.ObjectId().toString();
 
-test('recognizes only local student and teacher image paths', () => {
+test('recognizes private image, PDF and video paths with safe extensions', () => {
   assert.deepEqual(parsePrivateMediaReference('uploads/students/child-1.jpg'), {
     type: 'students', filename: 'child-1.jpg', serveable: true,
   });
@@ -94,6 +94,11 @@ test('API payload rewriting signs nested photo fields without changing unrelated
       name: 'Sample Child',
     },
     data: [{ selfPhoto: 'uploads/teachers/teacher.png', note: 'hello' }],
+    resources: [
+      { filePath: 'uploads/pdf/fee-schedule.pdf' },
+      { url: 'uploads/video/class-intro.mp4' },
+      { url: 'https://external.example.test/uploads/gallery/event.jpg' },
+    ],
     galleryPhoto: 'uploads/gallery/event.jpg',
   };
   const rewritten = rewritePrivateMediaFields(payload, {
