@@ -521,3 +521,60 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar-group-chevron { transition: none; }
 }
+
+
+/* Labels and instructions for common data-entry workflows. */
+.simple-filter-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin: 1.1rem 0 .65rem;
+}
+.simple-filter-heading h3 { margin: 0 0 .2rem; color: #24354e; font-size: 1rem; font-weight: 800; }
+.simple-filter-heading p { margin: 0; color: #6b788b; font-size: .82rem; line-height: 1.5; }
+.simple-filter-panel {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem;
+  padding: 1rem;
+}
+.simple-filter-panel > .simple-filter-field { width: 100%; min-width: 0; }
+.simple-filter-label { display: block; margin-bottom: .35rem; color: #3e4f67; font-size: .79rem; font-weight: 750; line-height: 1.4; }
+.simple-filter-panel .form-control,
+.simple-filter-panel .form-select { width: 100%; }
+.fees-entry-card { padding: 1.15rem; }
+.fees-step-heading {
+  margin-top: .35rem; padding: .8rem .9rem; border-left: 3px solid #4260bb;
+  border-radius: 0 8px 8px 0; background: #f6f8ff;
+}
+.fees-step-heading h3 {
+  margin: 0 0 .25rem; color: #273957; font-family: 'DM Sans', sans-serif;
+  font-size: .95rem; font-weight: 850; letter-spacing: 0;
+}
+.fees-step-heading p { margin: 0; color: #65748a; font-size: .8rem; line-height: 1.5; }
+.fees-entry-card .form-group > label,
+.fees-entry-card .form-group > .form-label { display: block; margin-bottom: .35rem; }
+.attendance-quick-guide {
+  display: flex; align-items: flex-start; gap: .45rem; margin: -.2rem 0 1rem;
+  padding: .8rem .95rem; border: 1px solid #d9e4fa; border-radius: 8px;
+  background: #f7f9ff; color: #4f607b; font-size: .83rem; line-height: 1.55;
+}
+.attendance-quick-guide strong { color: #293f77; white-space: nowrap; }
+.ops-help-page .ops-help-hero {
+  border: 1px solid #dfe6ef; border-radius: 12px; background: #fff; box-shadow: none;
+}
+.ops-help-page .ops-help-hero-icon { border-radius: 10px; }
+.ops-help-page .ops-guide-grid { grid-template-columns: minmax(0, 900px); justify-content: start; }
+.ops-help-page .ops-guide-card { border-radius: 10px; box-shadow: none; }
+.ops-help-page .ops-guide-card[open] { box-shadow: none; }
+.ops-help-page .ops-guide-card > summary { padding: 1rem; }
+.ops-help-page .ops-guide-heading strong { font-size: .98rem; }
+.ops-help-page .ops-guide-heading > span:last-child { font-size: .84rem; }
+.ops-help-page .ops-guide-content li { font-size: .88rem; line-height: 1.65; }
+@media (max-width: 900px) {
+  .simple-filter-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+  .simple-filter-heading { align-items: flex-start; flex-direction: column; }
+  .simple-filter-panel { grid-template-columns: 1fr; }
+  .simple-filter-heading .btn { width: 100%; }
+  .fees-entry-card { padding: .85rem; }
+  .fees-step-heading { padding: .75rem; }
+  .attendance-quick-guide { flex-direction: column; }
+}
