@@ -405,6 +405,17 @@ const NewStudentRegister = () => {
         }));
     };
 
+    const clearFilters = () => setFilter({
+        stuNo: "",
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        standard: "",
+        phoneNumber: "",
+    });
+
+    const hasActiveFilters = Object.values(filter).some((value) => String(value ?? "").trim() !== "");
+
     const filteredStudents = useMemo(() => {
         return students.filter((item) => {
             return (
@@ -852,8 +863,8 @@ const NewStudentRegister = () => {
 
             <div className="page-header">
                 <div>
-                    <h2 className="mb-0">Student records</h2>
-                    <p className="page-subtitle">Keep student profiles, contact details, and class information up to date.</p>
+                    <h2 className="mb-0">Children and families</h2>
+                    <p className="page-subtitle">Add a child, find a record, or update family and class details.</p>
                 </div>
 
                 <div className="page-actions">
@@ -862,7 +873,7 @@ const NewStudentRegister = () => {
                         className="btn btn-primary"
                         onClick={handleAddStudent}
                     >
-                        Add Student
+                        Add a child
                     </button>
 
                     <button
@@ -873,7 +884,7 @@ const NewStudentRegister = () => {
                             exportToExcel()
                         }
                     >
-                        Export all
+                        Download all records
                     </button>
 
                     <button
@@ -885,7 +896,7 @@ const NewStudentRegister = () => {
                             exportCheckedToExcel()
                         }
                     >
-                        Export selected
+                        Download selected records
                     </button>
                 </div>
             </div>
@@ -894,75 +905,98 @@ const NewStudentRegister = () => {
           FILTERS
       ====================================================== */}
 
-            <div className="filter-panel mb-3" aria-label="Filter student records">
-                <div className="col-lg-2 col-md-4">
+            <div className="simple-filter-heading">
+                <div>
+                    <h3>Find a child</h3>
+                    <p>Use one field or combine a few. Leave fields blank if you do not need them.</p>
+                </div>
+                {hasActiveFilters && (
+                    <button type="button" className="btn btn-outline-secondary" onClick={clearFilters}>
+                        Clear filters
+                    </button>
+                )}
+            </div>
+
+            <div className="filter-panel simple-filter-panel mb-3" aria-label="Find a child by details">
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-gr">GR / admission number</label>
                     <input
+                        id="student-filter-gr"
                         type="text"
                         name="stuNo"
-                        placeholder="GR No."
+                        placeholder="Enter GR number"
+                        aria-label="GR or admission number"
                         className="form-control"
                         value={filter.stuNo}
                         onChange={handleFilterChange}
                     />
                 </div>
 
-                <div className="col-lg-2 col-md-4">
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-mobile">Registered mobile</label>
                     <input
+                        id="student-filter-mobile"
                         type="text"
                         name="phoneNumber"
-                        placeholder="Register Mobile Number"
+                        placeholder="Enter mobile number"
+                        aria-label="Registered mobile number"
                         className="form-control"
                         value={filter.phoneNumber}
                         onChange={handleFilterChange}
                     />
                 </div>
 
-                <div className="col-lg-2 col-md-4">
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-surname">Surname / family name</label>
                     <input
+                        id="student-filter-surname"
                         type="text"
                         name="firstName"
-                        placeholder="Surname"
+                        placeholder="Enter surname"
                         className="form-control"
                         value={filter.firstName}
                         onChange={handleFilterChange}
                     />
                 </div>
 
-                <div className="col-lg-2 col-md-4">
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-name">Child's name</label>
                     <input
+                        id="student-filter-name"
                         type="text"
                         name="middleName"
-                        placeholder="Student Name"
+                        placeholder="Enter child's name"
                         className="form-control"
                         value={filter.middleName}
                         onChange={handleFilterChange}
                     />
                 </div>
 
-                <div className="col-lg-2 col-md-4">
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-parent">Parent's name</label>
                     <input
+                        id="student-filter-parent"
                         type="text"
                         name="lastName"
-                        placeholder="Father Name"
+                        placeholder="Enter parent name"
                         className="form-control"
                         value={filter.lastName}
                         onChange={handleFilterChange}
                     />
                 </div>
 
-                <div className="col-lg-2 col-md-4">
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-class">Class</label>
                     <select
+                        id="student-filter-class"
                         name="standard"
                         value={filter.standard}
                         onChange={handleFilterChange}
                         className="form-select"
                     >
-                        <option value="">All Standards</option>
-
+                        <option value="">All classes</option>
                         {STANDARD_OPTIONS.map((standard) => (
-                            <option key={standard} value={standard}>
-                                {standard}
-                            </option>
+                            <option key={standard} value={standard}>{standard}</option>
                         ))}
                     </select>
                 </div>
