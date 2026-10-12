@@ -20,7 +20,10 @@ const Login = () => {
 
     try {
       const loggedInUser = await login({ email: email.trim(), password });
-      if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0) {
+      if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
+          loggedInUser.memberships.every((membership) => membership.role === "parent")) {
+        navigate("/parent-portal", { replace: true });
+      } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.some((membership) => membership.role !== "parent")) {
         navigate("/dashboard", { replace: true });
       } else if (loggedInUser?.role === "admin") {
         navigate("/dashboard", { replace: true });
