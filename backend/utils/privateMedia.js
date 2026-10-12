@@ -13,7 +13,7 @@ const PRIVATE_PHOTO_FIELDS = {
 function safeFilename(value) {
   if (typeof value !== 'string' || value.length < 1 || value.length > 220) return false;
   if (value === '.' || value === '..' || pathHasSeparator(value)) return false;
-  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value);
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*\\.(?:jpe?g|png|webp|gif|avif|bmp)$/i.test(value);
 }
 
 function pathHasSeparator(value) {
@@ -85,7 +85,7 @@ function parseStoredPhotoPath(value, expectedFolder, origin) {
   return null;
 }
 
-function signedPhotoValue(value, fieldName, origin) {
+function signedPhotoValue(value, fieldName, origin, defaultFolder) {
   if (typeof value !== 'string') return value;
   let expectedFolder = PRIVATE_PHOTO_FIELDS[fieldName];
   if (fieldName === 'motherPhoto' || fieldName === 'fatherPhoto') {
@@ -101,24 +101,25 @@ function signedPhotoValue(value, fieldName, origin) {
   return signed;
 }
 
-function transformPhotoValues(value, origin) {
-  if (Array.isArray(value)) return value.map((item) => transformPhotoValues(item, origin));
+function transformPhotoValues(value, origin, defaultFolder) {
+  if (Array.isArray(value)) return value.map((item) => transformPhotoValues(item, origin, defaultFolder));
   if (!value || typeof value !== 'object' || value instanceof Date || Buffer.isBuffer(value)) return value;
 
   const plain = typeof value.toJSON === 'function' ? value.toJSON() : value;
-  if (plain !== value) return transformPhotoValues(plain, origin);
+  if (plain !== value) return transformPhotoValues(plain, origin, defaultFolder);
 
   const output = {};
   for (const [key, child] of Object.entries(value)) {
     output[key] = PRIVATE_PHOTO_FIELDS.hasOwnProperty(key) || key === 'motherPhoto' || key === 'fatherPhoto'
-      ? signedPhotoValue(child, key, origin)
-      : transformPhotoValues(child, origin);
+      ? signedPhotoValue(child, key, origin, defaultFolder)
+      : transformPhotoValues(child, origin, defaultFolder);
   }
   return output;
 }
 
 function installPrivatePhotoResponseTransform(req, res, next) {
   const originalJson = res.json;
+  const defaultFolder = req.path.startsWith('/api/teachers') ? 'teachers' : req.path.startsWith('/api/students') ? 'students' : undefined;
   const origin = (() => {
     const forwardedProtocol = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
     const protocol = forwardedProtocol || req.protocol;
@@ -127,10 +128,11 @@ function installPrivatePhotoResponseTransform(req, res, next) {
 
   res.json = function privatePhotoJson(body) {
     try {
-      return originalJson.call(this, transformPhotoValues(body, origin));
+      return originalJson.call(this, transformPhotoValues(body, origin, defaultFolder));
     } catch (error) {
       console.error('Unable to prepare private photo URLs:', error.message);
-      return originalJson.call(this, body);
+      this.status(500);
+      return originalJson.call(this, { message: 'The response could not be prepared safely.' });
     }
   };
   return next();
