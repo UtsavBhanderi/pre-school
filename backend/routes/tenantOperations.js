@@ -25,6 +25,7 @@ const {
   normalizeInvoiceLines,
   calculateInvoiceBalance,
 } = require('../utils/tenantMoney');
+const { validateClassAge, validateClassCapacity } = require('../utils/classRules');
 
 const router = express.Router();
 const CHILD_READ_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
@@ -628,6 +629,8 @@ router.post('/children', requireBranchContext, async (req, res) => {
 
     const createdChild = await inTransaction(async (session) => {
       // A write lock keeps class archival from racing with a new admission.
+      const timeZone = req.tenant.branch.timezone || req.tenant.organization.timezone || 'Asia/Kolkata';
+      const today = getTodayInTimeZone(timeZone);
       const activeClass = await TenantClass.findOneAndUpdate(
         {
           organizationId: req.tenant.organization._id,
@@ -637,13 +640,30 @@ router.post('/children', requireBranchContext, async (req, res) => {
         },
         { $inc: { enrollmentVersion: 1 } },
         { new: true, runValidators: true, session },
-      ).select('_id').lean();
+      ).select('_id capacity minAgeMonths maxAgeMonths').lean();
       if (!activeClass) {
         const inactiveClass = new Error('Choose an active class configured for this branch.');
         inactiveClass.code = 'CLASS_NOT_ACTIVE';
         throw inactiveClass;
       }
-      const year = dateYear(new Date(), req.tenant.branch.timezone || req.tenant.organization.timezone);
+      const ageCheck = validateClassAge(validation.value.dob, today, activeClass);
+      if (!ageCheck.valid) {
+        const ageError = new Error(ageCheck.message);
+        ageError.code = ageCheck.code;
+        throw ageError;
+      }
+      const enrollmentCount = await Student.countDocuments({
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+        standard: validation.value.standard,
+      }).session(session);
+      const capacityCheck = validateClassCapacity(enrollmentCount, activeClass.capacity);
+      if (!capacityCheck.valid) {
+        const capacityError = new Error(capacityCheck.message);
+        capacityError.code = capacityCheck.code;
+        throw capacityError;
+      }
+      const year = dateYear(new Date(), timeZone);
       const sequence = await nextTenantSequence({
         organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id, sequenceType: 'admission', year, session,
       });
@@ -706,7 +726,12 @@ router.post('/children', requireBranchContext, async (req, res) => {
     const result = await serializeChildren([populated], req.tenant.organization._id, req.tenant.branch._id);
     return res.status(201).json({ message: 'Child registered successfully.', child: result[0] });
   } catch (error) {
-    if (error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
+    if (error.code === 'CLASS_NOT_ACTIVE' || error.code === 'DATE_OF_BIRTH_REQUIRED' ||
+        error.code === 'FUTURE_DATE_OF_BIRTH' || error.code === 'BELOW_MINIMUM_AGE' ||
+        error.code === 'ABOVE_MAXIMUM_AGE' || error.code === 'INVALID_ENROLLMENT_COUNT' ||
+        error.code === 'INVALID_CLASS_CAPACITY' || error.code === 'CLASS_CAPACITY_REACHED') {
+      return res.status(400).json({ message: error.message });
+    }
     if (error.code === 11000) return res.status(409).json({ message: 'A conflicting admission identifier already exists. Please try again.' });
     console.error('Unable to create tenant child:', error.message);
     return res.status(503).json({ message: 'Child registration could not be completed safely.' });
@@ -791,21 +816,59 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
     }
 
     const updated = await inTransaction(async (session) => {
-      if (updates.standard) {
+      const existingChild = await Student.findOne({
+        _id: req.params.id,
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+      }).select('_id standard dob').session(session).lean();
+      if (!existingChild) {
+        const notFound = new Error('Child record not found in this branch.');
+        notFound.code = 'NOT_FOUND';
+        throw notFound;
+      }
+
+      const targetStandard = updates.standard || existingChild.standard;
+      const targetDob = Object.prototype.hasOwnProperty.call(updates, 'dob') ? updates.dob : (existingChild.dob || '');
+      const classRelevantChange = Object.prototype.hasOwnProperty.call(updates, 'standard') ||
+        Object.prototype.hasOwnProperty.call(updates, 'dob');
+      if (classRelevantChange) {
+        const timeZone = req.tenant.branch.timezone || req.tenant.organization.timezone || 'Asia/Kolkata';
         const activeClass = await TenantClass.findOneAndUpdate(
           {
             organizationId: req.tenant.organization._id,
             branchId: req.tenant.branch._id,
-            name: updates.standard,
+            name: targetStandard,
             status: 'active',
           },
           { $inc: { enrollmentVersion: 1 } },
           { new: true, runValidators: true, session },
-        ).select('_id').lean();
+        ).select('_id capacity minAgeMonths maxAgeMonths').lean();
         if (!activeClass) {
           const inactiveClass = new Error('Choose an active class configured for this branch.');
           inactiveClass.code = 'CLASS_NOT_ACTIVE';
           throw inactiveClass;
+        }
+
+        const ageCheck = validateClassAge(targetDob, getTodayInTimeZone(timeZone), activeClass);
+        if (!ageCheck.valid) {
+          const ageError = new Error(ageCheck.message);
+          ageError.code = ageCheck.code;
+          throw ageError;
+        }
+
+        if (targetStandard !== existingChild.standard) {
+          const enrollmentCount = await Student.countDocuments({
+            organizationId: req.tenant.organization._id,
+            branchId: req.tenant.branch._id,
+            standard: targetStandard,
+            _id: { $ne: existingChild._id },
+          }).session(session);
+          const capacityCheck = validateClassCapacity(enrollmentCount, activeClass.capacity);
+          if (!capacityCheck.valid) {
+            const capacityError = new Error(capacityCheck.message);
+            capacityError.code = capacityCheck.code;
+            throw capacityError;
+          }
         }
       }
 
@@ -906,7 +969,12 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
     );
     return res.json({ message: 'Child and family details saved.', child: result[0] });
   } catch (error) {
-    if (error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
+    if (error.code === 'CLASS_NOT_ACTIVE' || error.code === 'DATE_OF_BIRTH_REQUIRED' ||
+        error.code === 'FUTURE_DATE_OF_BIRTH' || error.code === 'BELOW_MINIMUM_AGE' ||
+        error.code === 'ABOVE_MAXIMUM_AGE' || error.code === 'INVALID_ENROLLMENT_COUNT' ||
+        error.code === 'INVALID_CLASS_CAPACITY' || error.code === 'CLASS_CAPACITY_REACHED') {
+      return res.status(400).json({ message: error.message });
+    }
     if (error.code === 'NOT_FOUND' || error.code === 'PRIMARY_GUARDIAN_NOT_FOUND') return res.status(404).json({ message: error.message });
     if (error.code === 'GUARDIAN_EMAIL_HAS_PORTAL') return res.status(409).json({ message: error.message });
     console.error('Unable to update tenant child:', error.message);
