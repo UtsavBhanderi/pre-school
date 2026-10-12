@@ -42,3 +42,7 @@
   .tenant-work-report-card-actions > span { flex-basis: 100%; margin: 0; }
   .tenant-work-report-card-actions button { flex: 1 1 auto; }
 }
+
+.tenant-work-report-review-entry { display: grid; gap: .18rem; padding-top: .3rem; }
+.tenant-work-report-review-entry > span { color: #52688f; font-size: .7rem; font-weight: 750; line-height: 1.5; }
+.tenant-work-report-review-entry > p { margin: 0; color: #687b96; font-size: .75rem; line-height: 1.6; white-space: pre-wrap; }
