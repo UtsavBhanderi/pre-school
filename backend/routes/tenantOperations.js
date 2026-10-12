@@ -12,7 +12,7 @@ const FeeTransaction = require('../models/FeeTransaction');
 const TenantSequence = require('../models/TenantSequence');
 const Branch = require('../models/Branch');
 const AuditEvent = require('../models/AuditEvent');
-const { STANDARD_FEES } = require('../config/standardFees');
+
 const { tenantContext, requireBranchContext } = require('../middleware/tenantContext');
 const { hasTenantRole } = require('../utils/tenantAuthorization');
 const { parseDateOnly } = require('../utils/dateOnly');
@@ -608,6 +608,14 @@ router.post('/children', requireBranchContext, async (req, res) => {
   if (!validation.valid) return res.status(400).json({ message: 'Please correct the child and guardian information.', errors: validation.errors });
 
   try {
+    const configuredClass = await TenantClass.exists({
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+      name: validation.value.standard,
+      status: 'active',
+    });
+    if (!configuredClass) return res.status(400).json({ message: 'Choose an active class configured for this branch.' });
+
     const createdChild = await inTransaction(async (session) => {
       const year = dateYear(new Date(), req.tenant.branch.timezone || req.tenant.organization.timezone);
       const sequence = await nextTenantSequence({
@@ -688,7 +696,7 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
       const value = typeof req.body[field] === 'string' ? req.body[field].trim() : '';
       if (field === 'firstName' && !value) return res.status(400).json({ message: 'Child first name cannot be empty.' });
       if (field === 'gender' && value && !VALID_GENDER.has(value)) return res.status(400).json({ message: 'Choose a valid gender.' });
-      if (field === 'standard' && !Object.prototype.hasOwnProperty.call(STANDARD_FEES, value)) return res.status(400).json({ message: 'Choose a configured class.' });
+      if (field === 'standard' && !value) return res.status(400).json({ message: 'Choose a configured class.' });
       if (field === 'dob' && value && !parseDateOnly(value)) return res.status(400).json({ message: 'Enter a real date of birth.' });
       updates[field] = value;
     }
@@ -700,6 +708,15 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
   updates.updatedBy = req.user._id;
 
   try {
+    if (updates.standard) {
+      const configuredClass = await TenantClass.exists({
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+        name: updates.standard,
+        status: 'active',
+      });
+      if (!configuredClass) return res.status(400).json({ message: 'Choose an active class configured for this branch.' });
+    }
     const updated = await inTransaction(async (session) => {
       const child = await Student.findOneAndUpdate(
         { _id: req.params.id, organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id },
@@ -772,7 +789,7 @@ router.post('/attendance', requireBranchContext, async (req, res) => {
   const standard = clean(req.body?.className || req.body?.standard, 80);
   const submitted = Array.isArray(req.body?.children) ? req.body.children : [];
   if (!parsedDate) return res.status(400).json({ message: 'Choose a valid attendance date.' });
-  if (!standard || !Object.prototype.hasOwnProperty.call(STANDARD_FEES, standard)) return res.status(400).json({ message: 'Choose a configured class.' });
+  if (!standard) return res.status(400).json({ message: 'Choose a configured class.' });
   if (req.tenant.membership.role === 'teacher' && !(req.tenant.membership.classNames || []).includes(standard)) {
     return res.status(403).json({ message: 'You can only record attendance for classes assigned to you.' });
   }
@@ -793,6 +810,17 @@ router.post('/attendance', requireBranchContext, async (req, res) => {
 
   try {
     const saved = await inTransaction(async (session) => {
+      const configuredClass = await TenantClass.findOne({
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+        name: standard,
+        status: 'active',
+      }).select('_id').session(session).lean();
+      if (!configuredClass) {
+        const inactiveClass = new Error('Choose an active class configured for this branch.');
+        inactiveClass.code = 'CLASS_NOT_ACTIVE';
+        throw inactiveClass;
+      }
       const children = await Student.find({
         _id: { $in: ids }, organizationId: req.tenant.organization._id,
         branchId: req.tenant.branch._id, standard,
@@ -832,7 +860,7 @@ router.post('/attendance', requireBranchContext, async (req, res) => {
       absent: statuses.filter((entry) => entry.status === 'absent').length,
     });
   } catch (error) {
-    if (error.code === 'CLASS_MISMATCH' || error.code === 'INCOMPLETE_ATTENDANCE') return res.status(400).json({ message: error.message });
+    if (error.code === 'CLASS_MISMATCH' || error.code === 'INCOMPLETE_ATTENDANCE' || error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'Attendance was saved by another user. Reload the class and review it before saving again.' });
     console.error('Unable to save tenant attendance:', error.message);
     return res.status(503).json({ message: 'Attendance could not be saved safely.' });
