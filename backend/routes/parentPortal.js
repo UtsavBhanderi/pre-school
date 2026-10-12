@@ -9,7 +9,7 @@ const FeeInvoice = require('../models/FeeInvoice');
 const FeeTransaction = require('../models/FeeTransaction');
 const { tenantContext } = require('../middleware/tenantContext');
 const { parseDateOnly } = require('../utils/dateOnly');
-const { calculateInvoiceBalance, formatPaise } = require('../utils/tenantMoney');
+const { calculateInvoiceBalance, calculateInvoiceBalanceForStatus, formatPaise } = require('../utils/tenantMoney');
 const { getTodayInTimeZone } = require('../utils/zonedDate');
 
 const router = express.Router();
@@ -265,7 +265,7 @@ router.get('/fees', async (req, res) => {
     return res.json({
       invoices: invoices.map((invoice) => {
         const txns = txnsByInvoice.get(String(invoice._id)) || [];
-        const balance = calculateInvoiceBalance(invoice.totalAmountPaise, txns);
+        const balance = calculateInvoiceBalanceForStatus(invoice.status, invoice.totalAmountPaise, txns);
         const child = childById.get(String(invoice.childId));
         return {
           id: String(invoice._id),
