@@ -235,6 +235,20 @@ function validateChildInput(body = {}, timeZone) {
     };
 }
 
+router.get('/classes', requireBranchContext, async (req, res) => {
+  if (!allowed(req, CHILD_READ_ROLES, res)) return;
+  try {
+    return res.json(Object.entries(STANDARD_FEES).map(([name, amount]) => ({
+      name,
+      defaultFee: Number(amount) || 0,
+      currency: req.tenant.organization.currency || 'INR',
+    })));
+  } catch (error) {
+    console.error('Unable to load configured classes:', error);
+    return res.status(503).json({ message: 'Classes could not be loaded.' });
+  }
+});
+
 router.get('/summary', async (req, res) => {
   if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant', 'admissions'], res)) return;
 
