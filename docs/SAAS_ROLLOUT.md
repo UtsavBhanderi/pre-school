@@ -46,6 +46,7 @@ For organization context endpoints, send the authenticated token in `x-auth-toke
 
 - Tenant-scoped class configuration is branch-specific. Class names and codes are stable identifiers; fee default, frequency, capacity, age range and description can be updated by organization/branch administrators.
 - Owner, head-office and permitted branch administrators can invite staff with explicit branch scope; teacher invitations must include classes configured in every selected branch.
+- Existing staff membership roles, active/suspended status, branch access and teacher class assignments can be changed through an audited permission workflow. Branch administrators see/manage only members whose entire branch scope is within their own; parent membership family links cannot be edited from the staff permissions screen. Owner transfer and permanent membership deletion require separate workflows.
 - Parent invitations require an existing guardian record whose email matches the invitation and carry the exact selected guardian IDs into the parent membership.
 - Invitation secrets are random one-time tokens; only token hashes are stored. Links expire after 72 hours, can be revoked, and accepted links are recorded in audit events.
 - Parent portal reads only children linked through the invitation's guardian IDs. Parent fee records are shown only for linked contacts designated as billing contacts. Teacher roster and attendance APIs are restricted to assigned classes and do not include family contact details.
@@ -60,7 +61,7 @@ These workflows have automated unit/syntax/build checks, but the parent invitati
 3. Scope students, guardians, classes, attendance, fees/transactions, announcements, reports, teachers/users and related nested references to `organizationId` and `branchId`.
 4. Introduce parent/guardian identity and relationships, consent lifecycle and purpose/retention controls.
 5. Complete organization-aware media authorization for child/guardian photos, staff photos, gallery images, PDFs and videos. The current 120-second legacy-admin signed links are transitional; migrate the files to private storage and bind each download to the caller's membership, branch and record scope.
-6. Add secure staff invitations/account activation, session revocation and role/branch management UI.
+6. Add session-wide revocation and an audited owner-transfer workflow; verify effective suspension behavior with multi-session integration tests.
 7. Add signup/login onboarding, organization/branch switcher and the first owner/branch workspace.
 8. Add tenant-negative tests for each endpoint (tenant A cannot read, change, enumerate, export or download tenant B resources).
 9. Test backup restoration, audit-event completeness, financial reconciliation and representative user workflows.
