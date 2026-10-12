@@ -45,6 +45,16 @@ The parent portal does not currently process online payments or send notices by 
 **Production caveat:** this feature set still needs end-to-end integration tests against a replica-set MongoDB, private delivery for existing uploaded child media, migration of legacy school records into verified organization/branch scopes, backup/restore validation, and a real-school workflow review. Keep public organization registration disabled until every gate in [the SaaS rollout checklist](docs/SAAS_ROLLOUT.md) is signed off.
 
 
+
+### SaaS workspace capabilities in progress
+
+The new organization workspace now has tenant-scoped child/guardian registration, daily attendance, fee invoices and payment/refund ledger records, branch management, branch-specific class setup and default tuition, staff/parent invitations, and a read-only parent portal. Roles and branch access are checked on the server; teacher access is limited to assigned classes, and parent views are derived from exact guardian-child links.
+
+This is a staged rollout, not a claim that all legacy features are tenant-safe. Public self-service organization registration remains disabled. The older single-school routes, exports, notices, learning resources and public upload URLs still require organization-aware migration and private media delivery before multiple paying schools can use the platform safely. Review [the rollout gates](docs/SAAS_ROLLOUT.md) before any production onboarding.
+
+Invitation email is optional. To send invitations automatically, configure \`SMTP_HOST\`, \`SMTP_PORT\`, \`SMTP_SECURE\`, \`EMAIL_USER\`, \`EMAIL_PASS\`, \`EMAIL_FROM\` and \`FRONTEND_URL\`. If email delivery is not available, the authorized inviter is shown the single-use invitation URL to share through a verified channel. Invitation links expire after 72 hours.
+
+
 ## Requirements
 
 - Node.js 20 or newer
