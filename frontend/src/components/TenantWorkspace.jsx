@@ -1099,6 +1099,109 @@ export default function TenantWorkspace() {
     }
   };
 
+  const resetWorkReportEditor = () => {
+    setEditingWorkReportId("");
+    setWorkReportDraft({
+      reportDate: todayLocal(),
+      className: "",
+      subject: "",
+      startTime: "09:00",
+      endTime: "12:00",
+      workSummary: "",
+      studentsPresent: "0",
+    });
+  };
+
+  const editWorkReport = (report) => {
+    setEditingWorkReportId(report.id);
+    setWorkReportDraft({
+      reportDate: report.reportDate,
+      className: report.className,
+      subject: report.subject || "",
+      startTime: report.startTime || "09:00",
+      endTime: report.endTime || "12:00",
+      workSummary: report.workSummary || "",
+      studentsPresent: String(report.studentsPresent ?? 0),
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const saveWorkReport = async (event) => {
+    event.preventDefault();
+    if (!branchId) {
+      setErrorMessage("Choose a branch before submitting a work report.");
+      return;
+    }
+    if (!workReportDraft.className) {
+      setErrorMessage("Choose one of your assigned classes.");
+      return;
+    }
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        reportDate: workReportDraft.reportDate,
+        className: workReportDraft.className,
+        subject: workReportDraft.subject.trim(),
+        startTime: workReportDraft.startTime,
+        endTime: workReportDraft.endTime,
+        workSummary: workReportDraft.workSummary.trim(),
+        studentsPresent: Number(workReportDraft.studentsPresent),
+      };
+      const result = editingWorkReportId
+        ? await saasRequest("/api/saas/work-reports/" + editingWorkReportId, {
+          method: "PUT", organizationId, branchId, data: payload,
+        })
+        : await saasRequest("/api/saas/work-reports", {
+          method: "POST", organizationId, branchId, data: payload,
+        });
+      resetWorkReportEditor();
+      setSuccessMessage(result.message || "Daily work report submitted.");
+      setErrorMessage("");
+      await loadWorkReports();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reviewWorkReport = async (report, status) => {
+    if (!canManagePeople) return;
+    const needsFollowUp = status === "needs_follow_up";
+    const reviewNote = needsFollowUp
+      ? window.prompt("What should the teacher clarify or complete?")
+      : window.prompt("Review note (optional):") || "";
+    if (needsFollowUp && (!reviewNote || reviewNote.trim().length < 3)) return;
+    if (!window.confirm(needsFollowUp
+      ? "Request follow-up for this report?"
+      : "Mark this work report as reviewed?")) return;
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/work-reports/" + report.id + "/review", {
+        method: "PATCH",
+        organizationId,
+        branchId,
+        data: { status, reviewNote: String(reviewNote || "").trim() },
+      });
+      setSuccessMessage(result.message || "Work report review saved.");
+      setErrorMessage("");
+      await loadWorkReports();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openHandoverForm = (child, action) => {
     const eligibleGuardians = action === "check_out"
       ? (child.guardians || []).filter((guardian) => guardian.authorizedPickup)
