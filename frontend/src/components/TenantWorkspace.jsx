@@ -596,7 +596,7 @@ export default function TenantWorkspace() {
       : new Intl.DateTimeFormat("en-IN", {
         dateStyle: "long",
         timeStyle: "short",
-        timeZone: organization?.timezone || "Asia/Kolkata",
+        timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata",
       }).format(receiptDate);
     const branchName = activeBranch?.name || summary?.branch?.name || "All branches";
     const transactionLabel = transaction.type === "refund" ? "Refund receipt" : "Payment receipt";
