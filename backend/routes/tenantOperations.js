@@ -423,6 +423,18 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
         notFound.code = 'CLASS_NOT_FOUND';
         throw notFound;
       }
+      if (Object.prototype.hasOwnProperty.call(updates, 'capacity')) {
+        const enrolledChildren = await Student.countDocuments({
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          standard: current.name,
+        }).session(session);
+        if (updates.capacity < enrolledChildren) {
+          const tooSmall = new Error('Capacity cannot be lower than the ' + enrolledChildren + ' children already enrolled in this class.');
+          tooSmall.code = 'CLASS_CAPACITY_REDUCTION';
+          throw tooSmall;
+        }
+      }
       const nextMinAge = Object.prototype.hasOwnProperty.call(updates, 'minAgeMonths') ? updates.minAgeMonths : current.minAgeMonths;
       const nextMaxAge = Object.prototype.hasOwnProperty.call(updates, 'maxAgeMonths') ? updates.maxAgeMonths : current.maxAgeMonths;
       if (nextMinAge !== null && nextMinAge !== undefined && nextMaxAge !== null && nextMaxAge !== undefined && nextMinAge > nextMaxAge) {
@@ -467,6 +479,7 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
     if (error.code === 'CLASS_AGE_RANGE') return res.status(400).json({ message: error.message });
     if (error.code === 'CLASS_NOT_FOUND') return res.status(404).json({ message: error.message });
     if (error.code === 'CLASS_HAS_CHILDREN') return res.status(409).json({ message: error.message });
+    if (error.code === 'CLASS_CAPACITY_REDUCTION') return res.status(409).json({ message: error.message });
     console.error('Unable to update class settings:', error.message);
     return res.status(503).json({ message: 'Class settings could not be updated safely.' });
   }
@@ -766,6 +779,11 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
       if (field === 'gender' && value && !VALID_GENDER.has(value)) return res.status(400).json({ message: 'Choose a valid gender.' });
       if (field === 'standard' && !value) return res.status(400).json({ message: 'Choose a configured class.' });
       if (field === 'dob' && value && !parseDateOnly(value)) return res.status(400).json({ message: 'Enter a real date of birth.' });
+      if (field === 'dob' && value) {
+        const localToday = parseDateOnly(getTodayInTimeZone(req.tenant.branch.timezone || req.tenant.organization.timezone));
+        const parsedDob = parseDateOnly(value);
+        if (localToday && parsedDob && parsedDob > localToday) return res.status(400).json({ message: 'Date of birth cannot be in the future.' });
+      }
       updates[field] = value;
     }
   }
