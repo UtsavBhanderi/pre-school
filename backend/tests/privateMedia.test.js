@@ -59,3 +59,9 @@ test('external hosted images stay unchanged', () => {
   const external = 'https://images.example/photo.jpg';
   assert.equal(transformPhotoValues({ studentPhoto: external }, 'https://school.example', 'students').studentPhoto, external);
 });
+
+test('uploaded photo URLs from an old host are rewritten to short-lived links', () => {
+  const oldUrl = 'https://old-school.example/uploads/students/child.jpg';
+  const rewritten = transformPhotoValues({ studentPhoto: oldUrl }, 'https://new-school.example', 'students').studentPhoto;
+  assert.match(rewritten, /^uploads\/students\/child\.jpg\?expires=/);
+});
