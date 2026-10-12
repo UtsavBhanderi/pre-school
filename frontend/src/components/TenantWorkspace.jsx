@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore,
+  MdShield, MdClose, MdExpandMore, MdPrint,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -45,6 +45,9 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(parsed);
 };
 
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[character]));
 const displayError = (error) => error?.response?.data?.message || "Something went wrong. Please try again.";
 const createBlankChildDraft = (className = "") => ({
   firstName: "", middleName: "", lastName: "", dateOfBirth: "", gender: "",
@@ -582,6 +585,96 @@ export default function TenantWorkspace() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const printTransactionReceipt = (invoice, transaction) => {
+    const receiptDate = transaction.transactionAt
+      ? new Date(transaction.transactionAt)
+      : new Date();
+    const dateLabel = Number.isNaN(receiptDate.getTime())
+      ? "—"
+      : new Intl.DateTimeFormat("en-IN", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata",
+      }).format(receiptDate);
+    const branchName = activeBranch?.name || summary?.branch?.name || "All branches";
+    const transactionLabel = transaction.type === "refund" ? "Refund receipt" : "Payment receipt";
+    const transactionDescription = transaction.type === "refund" ? "Refund issued" : "Payment received";
+    const signedAmount = (transaction.type === "refund" ? "−" : "") + formatMoney(transaction.amount, currency);
+    const popup = window.open("", "_blank", "popup,width=820,height=920");
+    if (!popup) {
+      setErrorMessage("Your browser blocked the receipt window. Allow pop-ups for this school website and try again.");
+      return;
+    }
+
+    const rows = [
+      ["Receipt number", transaction.receiptNumber],
+      ["Transaction date", dateLabel],
+      ["Transaction type", transactionLabel],
+      ["Payment method", String(transaction.method || "").replaceAll("_", " ")],
+      ["Reference", transaction.reference || "—"],
+      ["Invoice number", invoice.invoiceNumber],
+      ["Academic year", invoice.academicYear],
+      ["Child", invoice.child?.name || "—"],
+      ["Admission number", invoice.child?.admissionNumber || "—"],
+      ["Class", invoice.child?.className || "—"],
+      ["Invoice total", formatMoney(invoice.totalAmount, currency)],
+      ["Discount", formatMoney(invoice.discount, currency)],
+      [transactionDescription, signedAmount],
+      ["Paid to date", formatMoney(invoice.paid, currency)],
+      ["Current balance", formatMoney(invoice.outstanding, currency)],
+    ];
+    const tableRows = rows.map(([label, value]) =>
+      "<tr><th>" + escapeHtml(label) + "</th><td>" + escapeHtml(value) + "</td></tr>"
+    ).join("");
+    const refundReason = transaction.type === "refund" && transaction.reason
+      ? "<p class='reason'><strong>Reason:</strong> " + escapeHtml(transaction.reason) + "</p>"
+      : "";
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(transactionLabel)} — ${escapeHtml(transaction.receiptNumber)}</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;padding:28px;color:#1e2f46;font:14px/1.5 Arial,Helvetica,sans-serif;background:#fff}
+  .receipt{max-width:700px;margin:0 auto;border:1px solid #dbe3ef;padding:30px}
+  header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;border-bottom:2px solid #243a66;padding-bottom:18px}
+  .brand{font-size:22px;font-weight:800;letter-spacing:-.3px}.branch{margin-top:4px;color:#68778c;font-size:12px}
+  .doc{text-align:right}.doc h1{margin:0;font-size:19px}.doc p{margin:4px 0;color:#60718a;font-size:12px}
+  .status{margin:20px 0;padding:12px 14px;border:1px solid #c9e5d4;background:#f2faf5;color:#276441;font-weight:800}
+  .status.refund{border-color:#f0d4d6;background:#fff6f6;color:#974148}
+  table{width:100%;border-collapse:collapse;margin:0}th,td{padding:10px 8px;border-bottom:1px solid #e7ecf3;text-align:left;vertical-align:top}
+  th{width:40%;color:#64748b;font-weight:600}td{color:#24364d;font-weight:700;overflow-wrap:anywhere}
+  .reason{margin:15px 0;padding:10px;background:#fafbfe;border-left:3px solid #d5deed}.note{margin-top:18px;color:#6c7b90;font-size:11px}
+  .signature{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:48px}.signature span{border-top:1px solid #8d9ab0;padding-top:8px;color:#65748a;font-size:11px}
+  .print-actions{max-width:700px;margin:14px auto 0;display:flex;gap:8px}.print-actions button{border:0;border-radius:6px;padding:10px 14px;color:white;background:#3655ce;font-weight:700;cursor:pointer}
+  .print-actions button.secondary{color:#31445f;background:#eef2f8}
+  @media print{body{padding:0}.receipt{max-width:none;border:0;padding:0}.print-actions{display:none}}
+</style>
+</head>
+<body>
+  <main class="receipt">
+    <header>
+      <div><div class="brand">${escapeHtml(organization?.name || "Preschool")}</div><div class="branch">${escapeHtml(branchName)}</div></div>
+      <div class="doc"><h1>${escapeHtml(transactionLabel)}</h1><p>Computer-generated transaction record</p></div>
+    </header>
+    <div class="status ${transaction.type === "refund" ? "refund" : ""}">${escapeHtml(transactionDescription)} · ${escapeHtml(signedAmount)}</div>
+    <table><tbody>${tableRows}</tbody></table>
+    ${refundReason}
+    <p class="note">The current balance shown above may include payments or refunds recorded after this transaction. Keep this receipt for your records. This copy confirms the transaction entry saved in the preschool system.</p>
+    <div class="signature"><span>Received / authorized by</span><span>School stamp / signature</span></div>
+  </main>
+  <div class="print-actions"><button onclick="window.print()">Print / Save as PDF</button><button class="secondary" onclick="window.close()">Close</button></div>
+</body>
+</html>`;
+    popup.addEventListener("load", () => popup.print(), { once: true });
+    popup.addEventListener("afterprint", () => popup.close(), { once: true });
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    popup.focus();
   };
 
   const updateFeeDraft = (event) => {
@@ -1145,7 +1238,15 @@ export default function TenantWorkspace() {
                         <details className="saas-ledger-details">
                           <summary><MdHistory /> Payment history ({invoice.transactions.length}) <MdExpandMore /></summary>
                           <div className="saas-ledger-list">{invoice.transactions.map((txn) => (
-                            <div className="saas-ledger-row" key={txn.id}><div><strong>{txn.type === "payment" ? "Payment received" : "Refund"}</strong><small>{txn.receiptNumber} · {formatDate(txn.transactionAt)} · {txn.method.replaceAll("_", " ")}</small>{txn.reason && <small>{txn.reason}</small>}</div><strong className={txn.type === "refund" ? "is-due" : "is-paid"}>{txn.type === "refund" ? "−" : "+"}{formatMoney(txn.amount, currency)}</strong>
+                            <div className="saas-ledger-row" key={txn.id}>
+                              <div>
+                                <strong>{txn.type === "payment" ? "Payment received" : "Refund"}</strong>
+                                <small>{txn.receiptNumber} · {formatDate(txn.transactionAt)} · {txn.method.replaceAll("_", " ")}</small>
+                                {txn.reference && <small>Reference: {txn.reference}</small>}
+                                {txn.reason && <small>{txn.reason}</small>}
+                              </div>
+                              <strong className={txn.type === "refund" ? "is-due" : "is-paid"}>{txn.type === "refund" ? "−" : "+"}{formatMoney(txn.amount, currency)}</strong>
+                              <button type="button" className="saas-text-button saas-receipt-button" onClick={() => printTransactionReceipt(invoice, txn)}><MdPrint aria-hidden="true" /> Print receipt</button>
                               {txn.type === "payment" && activeMembership?.role !== "branch_admin" && <button type="button" className="saas-text-button" onClick={() => openPayment(invoice, "refund", txn)}>Refund</button>}
                             </div>
                           ))}</div>

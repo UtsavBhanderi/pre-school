@@ -48,6 +48,8 @@ The parent portal does not currently process online payments or send notices by 
 
 ### SaaS workspace capabilities in progress
 
+Tenant fee history now supports printing a saved payment or refund receipt. Each copy shows its unique receipt number, transaction details, invoice reference, child/branch identification, and the current balance with an explicit note that later transactions may affect that balance. It never fabricates a receipt for a payment that was not saved.
+
 The new organization workspace now has tenant-scoped child/guardian registration, daily attendance, fee invoices and payment/refund ledger records, branch management, branch-specific class setup and default tuition, staff/parent invitations, and a read-only parent portal. Roles and branch access are checked on the server; teacher access is limited to assigned classes, and parent views are derived from exact guardian-child links.
 
 This is a staged rollout, not a claim that all legacy features are tenant-safe. Public self-service organization registration remains disabled. The older single-school routes, exports, notices, learning resources and public upload URLs still require organization-aware migration and private media delivery before multiple paying schools can use the platform safely. Review [the rollout gates](docs/SAAS_ROLLOUT.md) before any production onboarding.
