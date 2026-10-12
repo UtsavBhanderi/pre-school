@@ -5,6 +5,7 @@ import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
 import "../parent-portal.css";
+import "../tenant-notices.css";
 
 const PARENT_TABS = [
   { id: "overview", label: "Family overview", Icon: MdDashboard },
