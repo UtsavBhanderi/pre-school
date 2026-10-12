@@ -77,6 +77,24 @@ Use **PDF resources** for PDF/worksheet material, **Video resources** for videos
 
 The notice board is internal to this software. It does not send WhatsApp, SMS or email messages.
 
+## Submit and review daily teacher work reports (organization workspace)
+
+**Teachers**
+1. Open **Teacher work reports** and select the correct branch.
+2. Choose the report date and one of your assigned classes.
+3. Enter the subject or activity, start and end times, number of children present, and a clear classroom-work summary.
+4. Check the student count against the registered class roster, then choose **Submit for review**.
+5. A submitted report can be edited until a school administrator reviews it. You can submit one report per class for a given day; open the existing report if you need to correct it.
+6. If an administrator requests follow-up, open **Edit report**, make the correction, and resubmit. The earlier review remains in the report history.
+
+**School administrators**
+1. Select the branch and open **Teacher work reports**.
+2. Filter by date, class or status, then review the teacher's summary, times and student count.
+3. Choose **Mark reviewed** when it is complete, or **Request follow-up** and enter a clear note when something needs clarification.
+4. A report marked **Reviewed** becomes locked. If a correction is required later, follow the school's approved correction process and keep it auditable.
+
+Do not include sensitive family or medical details in a teaching summary. The report list is restricted by organization, branch, assigned teacher/classes and role; it is not the same as the legacy single-school daily-work-report page.
+
 ## If something goes wrong
 
 - **Can't sign in:** check spelling and Caps Lock. Ask the administrator to verify your account if it persists.
