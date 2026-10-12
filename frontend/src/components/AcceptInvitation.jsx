@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MdSchool, MdCheckCircle, MdErrorOutline, MdLock, MdArrowBack } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -7,7 +7,6 @@ import "../saas-workspace.css";
 import "../parent-portal.css";
 
 export default function AcceptInvitation() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { setSession } = useContext(AuthContext);
   const [invitation, setInvitation] = useState(null);
@@ -17,7 +16,12 @@ export default function AcceptInvitation() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const token = searchParams.get("token") || "";
+  const [token] = useState(() => {
+    const fragment = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+    const fragmentParams = new URLSearchParams(fragment);
+    return fragmentParams.get("token") || (fragment && !fragment.includes("=") ? fragment : "") ||
+      (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") : "") || "";
+  });
 
   useEffect(() => {
     let active = true;
@@ -30,13 +34,17 @@ export default function AcceptInvitation() {
         return;
       }
       try {
-        const response = await fetch(API_BASE_URL + "/api/invitations/inspect?token=" + encodeURIComponent(token));
+        // Remove the token from browser history immediately; the React state retains it for this one-time flow.
+        window.history.replaceState({}, document.title, window.location.pathname);
+        const response = await fetch(API_BASE_URL + "/api/invitations/inspect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "This invitation cannot be used.");
         if (active) {
           setInvitation(data.invitation);
-          // Remove the secret from the address bar after capturing it in state.
-          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (error) {
         if (active) setErrorMessage(error.message || "The invitation could not be checked.");
@@ -96,11 +104,11 @@ export default function AcceptInvitation() {
               <MdCheckCircle aria-hidden="true" />
               <div><strong>{invitation.organizationName}</strong><p>Invited as {String(invitation.role).replaceAll("_", " ")} · {invitation.fullName}</p><small>{invitation.email}</small></div>
             </div>
-            <p className="parent-entry-intro">Create a strong password to activate your account. Your invitation is single-use and expires on {new Date(invitation.expiresAt).toLocaleString("en-IN")}.</p>
+            <p className="parent-entry-intro">Activate access for {invitation.organizationName}. If you already have an account with this email, enter its current password; otherwise, create a new strong password. This single-use invitation expires on {new Date(invitation.expiresAt).toLocaleString("en-IN")}.</p>
             <form className="saas-modal-form parent-entry-form" onSubmit={accept}>
-              <label><span><MdLock aria-hidden="true" /> Password</span><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={12} maxLength={128} required aria-describedby="invite-password-note" /></label>
+              <label><span><MdLock aria-hidden="true" /> New password or existing account password</span><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={12} maxLength={128} required aria-describedby="invite-password-note" /></label>
               <label><span><MdLock aria-hidden="true" /> Confirm password</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={12} maxLength={128} required /></label>
-              <small id="invite-password-note">Use 12 or more characters. If this email already has an account in the system, enter that account’s current password here.</small>
+              <small id="invite-password-note">Use 12 or more characters. For an existing account, enter its current password; for a new account, create one now.</small>
               <div className="parent-entry-privacy">Your access is limited to the organization and branch permissions selected by the school administrator.</div>
               {errorMessage && <div className="saas-message error" role="alert"><MdErrorOutline /><span>{errorMessage}</span></div>}
               {successMessage && <div className="saas-message success" role="status"><MdCheckCircle /><span>{successMessage}</span></div>}
