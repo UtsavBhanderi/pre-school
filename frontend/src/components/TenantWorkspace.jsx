@@ -1644,6 +1644,119 @@ export default function TenantWorkspace() {
             </section>
           )}
 
+          {activeTab === "notices" && (
+            <section className="saas-section tenant-notices-section">
+              <SectionHeading
+                title="School notices"
+                description={canManageNotices
+                  ? "Publish announcements for the selected branch, schedule them, and archive notices that are no longer relevant."
+                  : "Read current school announcements shared with staff. Notices are only visible to the branches you can access."}
+                action={<button type="button" className="saas-secondary-button" onClick={() => loadNotices()} disabled={loading || saving}><MdRefresh aria-hidden="true" /> Refresh notices</button>}
+              />
+
+              {canManageNotices && (
+                <form className="saas-form-card tenant-notice-form" onSubmit={saveNotice}>
+                  <div className="saas-form-heading">
+                    <div>
+                      <h3>{editingNoticeId ? "Edit school notice" : "Publish a notice"}</h3>
+                      <p>Notices appear inside this school workspace and the linked parent portal. This does not send SMS, WhatsApp, or email messages.</p>
+                    </div>
+                    {editingNoticeId && <button type="button" className="saas-secondary-button" onClick={resetNoticeEditor}>Cancel edit</button>}
+                  </div>
+
+                  {!branchId && !editingNoticeId && <div className="saas-message error" role="status"><MdErrorOutline aria-hidden="true" /><span>Choose a branch using the selector above before publishing a new notice.</span></div>}
+
+                  <div className="saas-form-grid">
+                    <label>Notice title *
+                      <input name="title" value={noticeDraft.title} onChange={updateNoticeDraft} minLength={3} maxLength={120} required placeholder="e.g. Diwali holiday schedule" />
+                    </label>
+                    <label>Who should see it? *
+                      <select name="audience" value={noticeDraft.audience} onChange={updateNoticeDraft} required>
+                        <option value="all">Everyone (staff and parents)</option>
+                        <option value="staff">Staff only</option>
+                        <option value="parents">Parents and guardians only</option>
+                      </select>
+                    </label>
+                    <label>Priority *
+                      <select name="priority" value={noticeDraft.priority} onChange={updateNoticeDraft} required>
+                        <option value="normal">Normal</option>
+                        <option value="important">Important</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
+                    </label>
+                    <label>Show from *
+                      <input type="datetime-local" name="startsAt" value={noticeDraft.startsAt} onChange={updateNoticeDraft} required />
+                    </label>
+                    <label>Hide after (optional)
+                      <input type="datetime-local" name="expiresAt" value={noticeDraft.expiresAt} onChange={updateNoticeDraft} min={noticeDraft.startsAt || undefined} />
+                    </label>
+                  </div>
+                  <label className="tenant-notice-message-field">Message *
+                    <textarea name="message" value={noticeDraft.message} onChange={updateNoticeDraft} rows={5} minLength={1} maxLength={3000} required placeholder="Write the message in clear, simple language. Include dates, times, and any action parents need to take." />
+                  </label>
+                  <label className="tenant-notice-message-field">Audit note (optional)
+                    <input name="reason" value={noticeDraft.reason} onChange={updateNoticeDraft} maxLength={500} placeholder="e.g. Confirmed by school coordinator" />
+                  </label>
+                  <div className="saas-form-actions">
+                    <button type="submit" className="saas-primary-button" disabled={saving || (!editingNoticeId && !branchId)}>
+                      {saving ? "Saving notice…" : editingNoticeId ? "Save changes" : "Publish notice"}
+                    </button>
+                    {!editingNoticeId && <button type="button" className="saas-secondary-button" onClick={resetNoticeEditor} disabled={saving}>Clear form</button>}
+                  </div>
+                </form>
+              )}
+
+              <div className="tenant-notice-list-heading">
+                <div><h3>{canManageNotices ? "Notice history" : "Current announcements"}</h3><p>{canManageNotices ? "Scheduled, expired, active and archived notices within your access scope." : "Only active notices currently visible to your role are listed."}</p></div>
+                <span className="tenant-notice-count">{notices.length} {notices.length === 1 ? "notice" : "notices"}</span>
+              </div>
+
+              {notices.length ? (
+                <div className="tenant-notice-list">
+                  {notices.map((notice) => {
+                    const isFuture = new Date(notice.startsAt).getTime() > Date.now();
+                    const isExpired = Boolean(notice.expiresAt && new Date(notice.expiresAt).getTime() < Date.now());
+                    const noticeStatus = notice.status === "archived" ? "Archived" : isFuture ? "Scheduled" : isExpired ? "Expired" : "Active";
+                    return (
+                      <article className={"tenant-notice-card priority-" + notice.priority + (notice.status === "archived" ? " archived" : "")} key={notice.id}>
+                        <div className="tenant-notice-card-top">
+                          <div className="tenant-notice-badges">
+                            <span className={"tenant-notice-priority " + notice.priority}>{notice.priority}</span>
+                            <span className={"saas-pill " + (notice.status === "archived" ? "archived" : noticeStatus.toLowerCase())}>{noticeStatus}</span>
+                            <span className="tenant-notice-audience">{notice.audience === "parents" ? "Parents only" : notice.audience === "staff" ? "Staff only" : "Everyone"}</span>
+                          </div>
+                          {canManageNotices && notice.branch?.name && <small className="tenant-notice-branch">{notice.branch.name}</small>}
+                        </div>
+                        <h3>{notice.title}</h3>
+                        <p className="tenant-notice-message">{notice.message}</p>
+                        <div className="tenant-notice-meta">
+                          <span>Starts {formatDate(notice.startsAt)}{notice.startsAt ? " · " + new Date(notice.startsAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                          <span>{notice.expiresAt ? "Ends " + formatDate(notice.expiresAt) : "No end date"}</span>
+                          {notice.createdBy?.name && <span>Posted by {notice.createdBy.name}</span>}
+                        </div>
+                        {canManageNotices && (
+                          <div className="tenant-notice-actions">
+                            <button type="button" className="saas-secondary-button" onClick={() => beginNoticeEdit(notice)} disabled={saving}>Edit</button>
+                            {notice.status === "archived"
+                              ? <button type="button" className="saas-secondary-button" onClick={() => changeNoticeStatus(notice, "active")} disabled={saving}>Restore</button>
+                              : <button type="button" className="saas-text-button tenant-notice-archive" onClick={() => changeNoticeStatus(notice, "archived")} disabled={saving}>Archive</button>}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : !loading ? (
+                <BlankState
+                  title={canManageNotices ? "No notices yet" : "No current notices"}
+                  detail={canManageNotices
+                    ? "Publish the first school notice. Choose whether it is for staff, parents, or everyone."
+                    : "There are no notices visible to your role in the selected branch right now."}
+                />
+              ) : <div className="saas-loading" role="status">Loading school notices…</div>}
+            </section>
+          )}
+
           {activeTab === "team" && (
             <section className="saas-section">
               <SectionHeading title="Team and family access" description="Invite staff or parents using a one-time link, set their access, and revoke links that should no longer work." />
