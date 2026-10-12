@@ -14,6 +14,7 @@ import "../class-config.css";
 import "../tenant-notices.css";
 import "../tenant-reports.css";
 import "../tenant-calendar.css";
+import "../tenant-handover.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -22,6 +23,7 @@ const TABS = [
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
+  { id: "handover", label: "Arrival & pickup", Icon: MdShield },
   { id: "fees", label: "Fees & payments", Icon: MdCurrencyRupee },
   { id: "classes", label: "Classes & fees", Icon: MdSchool },
   { id: "branches", label: "Branches", Icon: MdApartment },
@@ -165,6 +167,7 @@ export default function TenantWorkspace() {
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
+    if (item.id === 'handover') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher', 'transport_staff'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
     if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
     if (item.id === 'classes') return ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
@@ -226,6 +229,13 @@ export default function TenantWorkspace() {
   const [attendanceDate, setAttendanceDate] = useState(todayLocal);
   const [attendanceClass, setAttendanceClass] = useState("");
   const [attendanceRows, setAttendanceRows] = useState([]);
+  const [handoverChildren, setHandoverChildren] = useState([]);
+  const [handoverEvents, setHandoverEvents] = useState([]);
+  const [handoverFrom, setHandoverFrom] = useState(() => localDateDaysAgo(6));
+  const [handoverTo, setHandoverTo] = useState(todayLocal);
+  const [handoverQuery, setHandoverQuery] = useState("");
+  const [handoverTarget, setHandoverTarget] = useState(null);
+  const [handoverDraft, setHandoverDraft] = useState({ method: "family", guardianId: "", personName: "", idChecked: false, staffNote: "" });
   const [feeDraft, setFeeDraft] = useState({
     childId: "", academicYear: academicYearNow(), description: "Tuition fee", amount: "", discount: "0", dueDate: "", notes: "",
   });
@@ -336,6 +346,21 @@ export default function TenantWorkspace() {
     }
   }, [organizationId]);
 
+  const loadHandover = useCallback(async () => {
+    if (!organizationId) return;
+    const historyPromise = saasRequest("/api/saas/handover", {
+      organizationId,
+      branchId: branchId || undefined,
+      params: { from: handoverFrom, to: handoverTo },
+    });
+    const rosterPromise = branchId
+      ? saasRequest("/api/saas/handover/children", { organizationId, branchId, params: { q: handoverQuery || undefined } })
+      : Promise.resolve({ children: [] });
+    const [history, roster] = await Promise.all([historyPromise, rosterPromise]);
+    setHandoverEvents(Array.isArray(history?.events) ? history.events : []);
+    setHandoverChildren(Array.isArray(roster?.children) ? roster.children : []);
+  }, [organizationId, branchId, handoverFrom, handoverTo, handoverQuery]);
+
   const loadCalendar = useCallback(async () => {
     if (!organizationId) return [];
     const data = await saasRequest("/api/saas/calendar", {
@@ -443,6 +468,8 @@ export default function TenantWorkspace() {
         } else if (activeTab === "fees") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
+        } else if (activeTab === "handover") {
+          await loadHandover();
         } else if (activeTab === "calendar") {
           await loadCalendar();
         } else if (activeTab === "notices") {
@@ -463,7 +490,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover,
   ]);
 
   useEffect(() => {
@@ -510,6 +537,9 @@ export default function TenantWorkspace() {
     setSummary(null);
     setChildren([]);
     setInvoices([]);
+    setHandoverChildren([]);
+    setHandoverEvents([]);
+    setHandoverTarget(null);
     setErrorMessage("");
     setSuccessMessage("");
   };
@@ -520,6 +550,9 @@ export default function TenantWorkspace() {
     setChildren([]);
     setInvoices([]);
     setAttendanceRows([]);
+    setHandoverChildren([]);
+    setHandoverEvents([]);
+    setHandoverTarget(null);
     setErrorMessage("");
     setSuccessMessage("");
   };
@@ -1031,6 +1064,69 @@ export default function TenantWorkspace() {
       setRefreshVersion((version) => version + 1);
     } catch (error) {
       setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openHandoverForm = (child, action) => {
+    const eligibleGuardians = action === "check_out"
+      ? (child.guardians || []).filter((guardian) => guardian.authorizedPickup)
+      : (child.guardians || []);
+    const preferred = eligibleGuardians.find((guardian) => guardian.isPrimaryContact) || eligibleGuardians[0];
+    setHandoverTarget({ child, action });
+    setHandoverDraft({
+      method: action === "check_in" ? "family" : "family",
+      guardianId: preferred?.guardianId || "",
+      personName: "",
+      idChecked: false,
+      staffNote: "",
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const submitHandover = async (event) => {
+    event.preventDefault();
+    if (!handoverTarget || !branchId) return;
+    const { child, action } = handoverTarget;
+    if (action === "check_in" && handoverDraft.method === "family" && !handoverDraft.guardianId) {
+      setErrorMessage("Choose the linked family member who brought the child.");
+      return;
+    }
+    if (action === "check_in" && handoverDraft.method !== "family" && handoverDraft.personName.trim().length < 2) {
+      setErrorMessage("Enter the name of the person bringing the child.");
+      return;
+    }
+    if (handoverDraft.staffNote.trim().length > 500) {
+      setErrorMessage("The staff note must be 500 characters or fewer.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        childId: child.id,
+        guardianId: handoverDraft.guardianId || "",
+        method: action === "check_in" ? handoverDraft.method : "family",
+        personName: handoverDraft.personName.trim(),
+        idChecked: handoverDraft.idChecked,
+        staffNote: handoverDraft.staffNote.trim(),
+      };
+      const result = await saasRequest("/api/saas/handover/" + (action === "check_in" ? "check-in" : "check-out"), {
+        method: "POST", organizationId, branchId, data: payload,
+      });
+      setHandoverTarget(null);
+      setSuccessMessage(result.message || (action === "check_in" ? "Arrival recorded." : "Pickup recorded."));
+      await loadHandover();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+      // A 409 response may mean a refusal was safely logged by the server.
+      // Refresh the event history without clearing the form, so staff can review it.
+      try { await loadHandover(); } catch { /* Keep the original actionable message. */ }
     } finally {
       setSaving(false);
     }
@@ -1919,6 +2015,141 @@ export default function TenantWorkspace() {
                 )}
               </div>
               <div className="parent-privacy-card tenant-report-privacy"><MdShield aria-hidden="true" /><div><strong>Exports are protected and traceable.</strong><p>The server checks your organization, branch, role and (for teachers) assigned classes. Child and invoice references are re-checked against the same branch, and the export action is written to the audit log.</p></div></div>
+            </section>
+          )}
+
+          {activeTab === "handover" && (
+            <section className="saas-section tenant-handover-section">
+              <SectionHeading
+                title="Child arrival and authorized pickup"
+                description="Record when a child arrives and when an approved contact collects them. Pickup releases require a linked authorized guardian and an identity check."
+                action={<button type="button" className="saas-secondary-button" onClick={() => loadHandover()} disabled={loading || saving}><MdRefresh /> Refresh status</button>}
+              />
+
+              <div className="tenant-handover-safety-note">
+                <MdShield aria-hidden="true" />
+                <div><strong>Safety rule: a name alone never authorizes release.</strong><p>Only contacts explicitly marked “Authorized pickup” can complete pickup. Confirm identity in person before recording release. Do not enter government-ID numbers, copies or photographs in the notes.</p></div>
+              </div>
+
+              {!branchId && <div className="saas-message error" role="status"><MdErrorOutline /><span>Choose a branch at the top to see the arrival roster and record arrivals or pickups. Authorized administrators can still review the history across their allowed branches.</span></div>}
+
+              {branchId && (
+                <>
+                  <div className="tenant-handover-toolbar">
+                    <form className="saas-search-box" onSubmit={(event) => { event.preventDefault(); loadHandover(); }}>
+                      <MdSearch aria-hidden="true" /><input value={handoverQuery} onChange={(event) => setHandoverQuery(event.target.value)} placeholder="Find a child by name or admission number" aria-label="Search handover roster" />
+                      <button type="submit" className="saas-secondary-button">Search</button>
+                    </form>
+                    <span>{handoverChildren.length} child{handoverChildren.length === 1 ? "" : "ren"} in the roster</span>
+                  </div>
+
+                  {handoverTarget && (
+                    <form className="saas-form-card tenant-handover-form" onSubmit={submitHandover}>
+                      <div className="saas-form-heading">
+                        <div><h3>{handoverTarget.action === "check_in" ? "Record child arrival" : "Record child pickup"}</h3><p>{handoverTarget.child.name} · {handoverTarget.child.className} · {handoverTarget.child.admissionNumber}</p></div>
+                        <button type="button" className="saas-secondary-button" onClick={() => setHandoverTarget(null)}>Cancel</button>
+                      </div>
+                      {handoverTarget.action === "check_in" ? (
+                        <>
+                          <div className="saas-form-grid">
+                            <label>Who brought the child? *
+                              <select value={handoverDraft.method} onChange={(event) => setHandoverDraft((draft) => ({ ...draft, method: event.target.value, guardianId: event.target.value === "family" ? draft.guardianId : "" }))} required>
+                                <option value="family">Family member</option><option value="school_transport">School transport</option><option value="other">Other / authorized arrangement</option>
+                              </select>
+                            </label>
+                            {handoverDraft.method === "family"
+                              ? <label>Linked family member *
+                                  <select value={handoverDraft.guardianId} onChange={(event) => setHandoverDraft((draft) => ({ ...draft, guardianId: event.target.value }))} required>
+                                    <option value="">Choose a linked contact</option>
+                                    {(handoverTarget.child.guardians || []).map((guardian) => <option key={guardian.guardianId} value={guardian.guardianId}>{guardian.name} · {guardian.relationship}</option>)}
+                                  </select>
+                                </label>
+                              : <label>Person bringing child *
+                                  <input value={handoverDraft.personName} onChange={(event) => setHandoverDraft((draft) => ({ ...draft, personName: event.target.value }))} minLength={2} maxLength={120} required />
+                                </label>}
+                          </div>
+                          <p className="tenant-handover-help">The arrival log records the linked contact or the transport/arrangement name. It does not verify pickup rights.</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="tenant-handover-child-state"><span>Child is currently</span><strong>On the premises</strong></div>
+                          <div className="saas-form-grid">
+                            <label>Authorized pickup contact *
+                              <select value={handoverDraft.guardianId} onChange={(event) => setHandoverDraft((draft) => ({ ...draft, guardianId: event.target.value }))}>
+                                <option value="">Choose an authorized person</option>
+                                {(handoverTarget.child.guardians || []).filter((guardian) => guardian.authorizedPickup).map((guardian) => <option key={guardian.guardianId} value={guardian.guardianId}>{guardian.name} · {guardian.relationship}</option>)}
+                              </select>
+                            </label>
+                            <label className="tenant-handover-id-check">
+                              <input type="checkbox" checked={handoverDraft.idChecked} onChange={(event) => setHandoverDraft((draft) => ({ ...draft, idChecked: event.target.checked }))} />
+                              <span>I checked this person's identity in person.</span>
+                            </label>
+                          </div>
+                          <p className="tenant-handover-help">If no authorized contact is selected or identity is not checked, the release will be refused and the attempt will be logged without changing the child's status.</p>
+                        </>
+                      )}
+                      <label className="tenant-handover-note">Staff note (optional)
+                        <textarea value={handoverDraft.staffNote} onChange={(event) => setHandoverDraft((draft) => ({ ...draft, staffNote: event.target.value }))} maxLength={500} rows="2" placeholder="Operational note only. Do not enter ID numbers or sensitive identity details." />
+                      </label>
+                      <div className="saas-form-actions"><button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Recording…" : handoverTarget.action === "check_in" ? "Record arrival" : "Verify and record pickup"}</button></div>
+                    </form>
+                  )}
+
+                  {handoverChildren.length ? (
+                    <div className="tenant-handover-roster">
+                      {handoverChildren.map((child) => (
+                        <article className="tenant-handover-child-card" key={child.id}>
+                          <div className="tenant-handover-child-main">
+                            <span className={"tenant-handover-status " + child.state}>{child.state === "on_premises" ? "On premises" : "Outside"}</span>
+                            <h3>{child.name}</h3><p>{child.className} · {child.admissionNumber || "No admission number"}</p>
+                            <small>{child.lastEventAt ? "Last completed handover: " + formatDate(child.lastEventAt) : "No completed arrival or pickup recorded yet"}</small>
+                          </div>
+                          <div className="tenant-handover-contacts">
+                            <strong>Linked contacts</strong>
+                            {(child.guardians || []).length ? child.guardians.map((guardian) => (
+                              <div key={guardian.guardianId}><span>{guardian.name}<small>{guardian.relationship}{guardian.isPrimaryContact ? " · Primary" : ""}</small></span><span className={guardian.authorizedPickup ? "tenant-handover-authorized" : "tenant-handover-not-authorized"}>{guardian.authorizedPickup ? "Authorized pickup" : "Not authorized"}</span></div>
+                            )) : <small>No guardian link is available. Update the child’s family record before accepting a family handover.</small>}
+                          </div>
+                          <div className="tenant-handover-card-actions">
+                            {child.state === "outside"
+                              ? <button type="button" className="saas-primary-button" onClick={() => openHandoverForm(child, "check_in")} disabled={saving}>Record arrival</button>
+                              : <button type="button" className="saas-primary-button" onClick={() => openHandoverForm(child, "check_out")} disabled={saving}>Record pickup</button>}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : !loading && <BlankState title="No children found" detail={handoverQuery ? "Try a different spelling or admission number." : "Registered children in this branch will appear here."} />}
+                </>
+              )}
+
+              <div className="tenant-handover-history-heading">
+                <div><h3>Arrival and pickup history</h3><p>Completed and refused attempts are kept for school review.</p></div>
+                <div className="tenant-handover-date-filters">
+                  <label>From<input type="date" value={handoverFrom} max={handoverTo || undefined} onChange={(event) => setHandoverFrom(event.target.value)} /></label>
+                  <label>To<input type="date" value={handoverTo} min={handoverFrom || undefined} onChange={(event) => setHandoverTo(event.target.value)} /></label>
+                  <button type="button" className="saas-secondary-button" onClick={() => loadHandover()} disabled={loading}>Apply dates</button>
+                </div>
+              </div>
+              {handoverEvents.length ? (
+                <div className="tenant-handover-history">
+                  {handoverEvents.map((event) => (
+                    <article key={event.id} className={"tenant-handover-history-row " + event.outcome}>
+                      <span className={"tenant-handover-history-icon " + event.eventType}><MdHistory /></span>
+                      <div className="tenant-handover-history-main">
+                        <strong>{event.child?.name || "Child record"}</strong>
+                        <p>{event.eventType === "check_in" ? "Arrival" : "Pickup"} · {event.outcome === "completed" ? "Completed" : "Refused"} · {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: activeBranch?.timezone || organization?.timezone || "Asia/Kolkata" }).format(new Date(event.eventAt))}</p>
+                        {event.guardianName && <small>{event.eventType === "check_in" ? "Brought by" : "Collected by"} {event.guardianName}{event.relationship ? " · " + event.relationship : ""}</small>}
+                        {event.personName && !event.guardianName && <small>Person recorded: {event.personName}</small>}
+                        {event.outcome === "refused" && <small className="tenant-handover-refusal">Reason: {event.refusalReason?.replaceAll("_", " ").toLowerCase() || "Not authorized"}</small>}
+                        {event.staffNote && <small>Staff note: {event.staffNote}</small>}
+                        {event.recordedBy && <small>Recorded by {event.recordedBy}</small>}
+                        {event.branch?.name && !branchId && <small>Branch: {event.branch.name}</small>}
+                      </div>
+                      <span className={"saas-pill " + (event.outcome === "completed" ? "success" : "denied")}>{event.outcome}</span>
+                    </article>
+                  ))}
+                </div>
+              ) : !loading && <BlankState title="No handover records in this date range" detail="Completed arrivals, pickups and refused attempts will appear here." />}
             </section>
           )}
 

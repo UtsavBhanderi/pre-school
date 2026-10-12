@@ -68,6 +68,17 @@ The SaaS workspace adds a branch-scoped calendar with these endpoints:
 
 Supported event types include holidays, school events, meetings, trips, birthdays and deadlines. Read visibility is limited by organization, active branch membership, role-based audience and (for parents) branches connected to verified guardian links. Only organization owners, head-office administrators and branch administrators can manage events. Creation, updates, cancellations and restorations generate audit events.
 
+## Child arrival and authorized pickup
+
+The tenant workspace also exposes a branch-scoped safety log:
+
+- GET /api/saas/handover/children returns the selected branch roster, current on-premises state, and guardian links with pickup permissions.
+- GET /api/saas/handover?from=YYYY-MM-DD&to=YYYY-MM-DD returns a maximum 31-day history. Parent accounts see only their linked children and a reduced response that excludes staff notes and names from refused attempts.
+- POST /api/saas/handover/check-in records arrival from a linked family contact, school transport, or another recorded arrangement.
+- POST /api/saas/handover/check-out records pickup only when the child is on the premises, the selected guardian is linked to that child and marked authorized for pickup, and staff confirm identity verification.
+
+Arrival/pickup events are immutable. The child's current presence state is updated in a MongoDB transaction, and refused attempts are retained with an audit event but do not change presence state. Repeated check-ins and attempts to release a child who is not recorded as present are refused. There are no dedicated government-ID fields or ID uploads in this workflow. Common long-number patterns (including 12-digit, grouped 4-4-4 and PAN-shaped values) are rejected in names and staff notes, but this is not a general-purpose identity-document scanner; staff must not put identity-document details into free text. The school must still follow its own documented safeguarding and identity-verification policy; this software feature is a recordkeeping control, not a substitute for in-person judgment or staff training.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
