@@ -10,6 +10,7 @@ const {
   decideCheckIn,
   decideCheckOut,
   parentSafeEvent,
+  containsLikelyIdNumber,
 } = require('../utils/childHandoverPolicy');
 
 test('only active staff memberships can record arrival and pickup', () => {
@@ -43,6 +44,13 @@ test('pickup only succeeds for linked, authorized contact after identity check',
   assert.equal(decideCheckOut({ currentState: 'on_premises', linkedContact: { authorizedPickup: false }, idChecked: true }).allowed, false);
   assert.equal(decideCheckOut({ currentState: 'on_premises', linkedContact: { authorizedPickup: true }, idChecked: false }).refusalReason, 'ID_NOT_VERIFIED');
   assert.equal(decideCheckOut({ currentState: 'on_premises', linkedContact: { authorizedPickup: true }, idChecked: true }).nextState, 'outside');
+});
+
+test('handover inputs block common long numeric and government-ID-shaped values', () => {
+  assert.equal(containsLikelyIdNumber('Aadhaar 1234 5678 9012'), true);
+  assert.equal(containsLikelyIdNumber('PAN ABCDE1234F'), true);
+  assert.equal(containsLikelyIdNumber('Phone 9876543210'), true);
+  assert.equal(containsLikelyIdNumber('Guardian is punctual'), false);
 });
 
 test('parent-safe history never includes staff notes or unverified person names', () => {
