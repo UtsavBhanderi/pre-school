@@ -4,6 +4,8 @@ import { MdMenu, MdClose, MdCalendarToday, MdSearch, MdHelpOutline, MdArrowForwa
 import { AuthContext } from "./context/AuthContext";
 import SideNav from "./pages/afterLogin/SideNav.jsx";
 import "./operations.css";
+import { Navigate } from "react-router-dom";
+import TenantWorkspace from "./components/TenantWorkspace.jsx";
 
 const PAGE_META = [
   ["/dashboard/home", "Start here", "Choose a common task or search using everyday words."],
@@ -92,6 +94,14 @@ export default function LayoutAdmin() {
     setCommandQuery("");
     setCommandOpen(true);
   };
+
+  if (Array.isArray(user?.memberships) && user.memberships.length > 0) {
+    return <TenantWorkspace />;
+  }
+
+  if (user && user.role !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
 
   const goToCommand = (to) => {
     navigate(to);

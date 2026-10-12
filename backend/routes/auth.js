@@ -5,6 +5,7 @@ const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
+const OrganizationMembership = require('../models/OrganizationMembership');
 
 const ALLOWED_ROLES = new Set(['teacher', 'admin', 'student']);
 
@@ -94,8 +95,52 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', auth, (req, res) => {
-  res.json({ user: req.user });
+router.get('/me', auth, async (req, res) => {
+  try {
+    const memberships = await OrganizationMembership.find({
+      userId: req.user._id,
+      status: 'active',
+    })
+      .populate({ path: 'organizationId', select: 'name slug status timezone locale currency subscription.plan subscription.status' })
+      .populate({ path: 'branchIds', select: 'name code status timezone' })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return res.json({
+      user: {
+        id: String(req.user._id),
+        username: req.user.username,
+        email: req.user.email,
+        role: req.user.role,
+        memberships: memberships.filter((entry) => entry.organizationId).map((entry) => ({
+          id: String(entry._id),
+          organization: {
+            id: String(entry.organizationId._id),
+            name: entry.organizationId.name,
+            slug: entry.organizationId.slug,
+            timezone: entry.organizationId.timezone,
+            locale: entry.organizationId.locale,
+            currency: entry.organizationId.currency,
+            status: entry.organizationId.status,
+            subscription: entry.organizationId.subscription || {},
+          },
+          role: entry.role,
+          status: entry.status,
+          branchIds: (entry.branchIds || []).map((branch) => ({
+            id: String(branch._id),
+            name: branch.name,
+            code: branch.code,
+            status: branch.status,
+            timezone: branch.timezone,
+          })),
+          accessAllBranches: Boolean(entry.accessAllBranches),
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Unable to load user workspace context:', error);
+    return res.status(503).json({ message: 'Your school workspace could not be loaded.' });
+  }
 });
 
 module.exports = router;

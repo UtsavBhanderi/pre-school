@@ -20,7 +20,9 @@ const Login = () => {
 
     try {
       const loggedInUser = await login({ email: email.trim(), password });
-      if (loggedInUser?.role === "admin") {
+      if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0) {
+        navigate("/dashboard", { replace: true });
+      } else if (loggedInUser?.role === "admin") {
         navigate("/dashboard", { replace: true });
       } else if (loggedInUser?.role === "teacher") {
         navigate("/teacher-dashboard", { replace: true });

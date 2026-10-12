@@ -9,6 +9,11 @@ const MarkSchema = new mongoose.Schema({
 });
 
 const studentSchema = new mongoose.Schema({
+  // Optional for the existing single-school data set; required by tenant APIs.
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null, index: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   studentPhoto: { type: String, required: false },
   motherPhoto: { type: String, required: false },
   fatherPhoto: { type: String, required: false },
@@ -81,6 +86,10 @@ const studentSchema = new mongoose.Schema({
 
 });
 
+
+studentSchema.index({ organizationId: 1, branchId: 1, standard: 1, middleName: 1 });
+studentSchema.index({ organizationId: 1, branchId: 1, createdAt: -1 });
+
 studentSchema.pre('save', function (next) {
   this.wasNew = this.isNew;
   next();
@@ -88,7 +97,9 @@ studentSchema.pre('save', function (next) {
 
 // Initialize a fee record only when a student is first created.
 studentSchema.post('save', async function (doc) {
-  if (!doc.wasNew) return;
+  // Tenant-aware students use FeeInvoice/FeeTransaction. Never create a legacy
+  // global fee record for a tenant record.
+  if (!doc.wasNew || doc.organizationId) return;
 
   try {
     const totalStandardFees = Number(STANDARD_FEES[doc.standard] || 0);
@@ -128,7 +139,8 @@ studentSchema.post('save', async function (doc) {
 // Keep the linked fee record in sync with student details without overwriting
 // payment history, discounts, or amounts already paid.
 studentSchema.post('findOneAndUpdate', async function (doc) {
-  if (!doc || !doc.stuNo) return;
+  // Tenant records are reconciled only through organization-scoped APIs.
+  if (!doc || !doc.stuNo || doc.organizationId) return;
 
   try {
     const feeRecord = await Fee.findOne({ stuNo: doc.stuNo });
