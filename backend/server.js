@@ -37,10 +37,12 @@ const publicInvitationsRoutes = require('./routes/publicInvitations');
 const parentPortalRoutes = require('./routes/parentPortal');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
+const { installPrivatePhotoResponseTransform, verifyPrivateMediaSignature, safeFilename } = require('./utils/privateMedia');
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+app.use(installPrivatePhotoResponseTransform);
 
 const allowedOrigins = String(process.env.FRONTEND_ORIGIN || 'http://localhost:5173')
   .split(',')
@@ -64,8 +66,51 @@ for (const directory of ['gallery', 'pdf', 'students', 'teachers', 'video']) {
 
 app.use('/uploads/gallery', express.static(path.join(uploadRoot, 'gallery')));
 app.use('/uploads/pdf', express.static(path.join(uploadRoot, 'pdf')));
-app.use('/uploads/students', express.static(path.join(uploadRoot, 'students')));
-app.use('/uploads/teachers', express.static(path.join(uploadRoot, 'teachers')));
+// Student and teacher photos must never be served from a public static folder.
+const privatePhotoTypes = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.avif': 'image/avif',
+  '.bmp': 'image/bmp',
+};
+
+function serveSignedPrivatePhoto(folder) {
+  return (req, res) => {
+    const filename = req.params.filename;
+    if (!safeFilename(filename) ||
+        !verifyPrivateMediaSignature(folder, filename, req.query.expires, req.query.signature)) {
+      return res.status(403).json({ message: 'This photo link is invalid or has expired. Reload the student or staff record to obtain a fresh link.' });
+    }
+
+    const photoDirectory = path.resolve(uploadRoot, folder);
+    const filePath = path.resolve(photoDirectory, filename);
+    if (!filePath.startsWith(photoDirectory + path.sep)) return res.sendStatus(404);
+
+    const contentType = privatePhotoTypes[path.extname(filename).toLowerCase()];
+    if (!contentType) return res.status(404).json({ message: 'This photo format is not supported.' });
+
+    fs.stat(filePath, (statError, stats) => {
+      if (statError || !stats.isFile()) return res.sendStatus(404);
+      res.set({
+        'Cache-Control': 'private, no-store, max-age=0',
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
+        'Cross-Origin-Resource-Policy': 'same-site',
+        'Content-Type': contentType,
+      });
+      return res.sendFile(filePath, { dotfiles: 'deny' }, (sendError) => {
+        if (sendError && !res.headersSent) return res.sendStatus(404);
+      });
+    });
+  };
+}
+
+app.get('/uploads/students/:filename', serveSignedPrivatePhoto('students'));
+app.get('/uploads/teachers/:filename', serveSignedPrivatePhoto('teachers'));
+
 app.use('/uploads/video', express.static(path.join(uploadRoot, 'video')));
 
 // Authentication endpoints must remain reachable before a session exists.
