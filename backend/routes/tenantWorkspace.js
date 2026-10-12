@@ -181,6 +181,7 @@ router.get('/members', async (req, res) => {
       },
       role: entry.role,
       status: entry.status,
+      classNames: entry.classNames || [],
       accessAllBranches: Boolean(entry.accessAllBranches),
       branches: entry.branchIds || [],
       createdAt: entry.createdAt,
