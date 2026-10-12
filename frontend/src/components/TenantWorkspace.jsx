@@ -1595,9 +1595,113 @@ export default function TenantWorkspace() {
                 <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Branch-limited administration</strong><p>You can invite or revoke access only for branches assigned to your account. Organization-wide member and audit details are reserved for the owner and head office.</p></div></div>
               ) : (
                 <>
-                  <SectionHeading title="Organization members" description="Current active and invited members of this organization." />
-                  {members.length ? <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Branches / classes</th><th>Status</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.user.name}</strong></td><td>{member.user.email}</td><td>{member.role.replaceAll("_", " ")}</td><td>{member.accessAllBranches ? "All branches" : member.branches.map((item) => item.name).join(", ") || "No branch assigned"}{member.role === "teacher" && member.classNames?.length ? <small>Classes: {member.classNames.join(", ")}</small> : null}</td><td><span className={"saas-pill " + member.status}>{member.status}</span></td></tr>)}</tbody></table></div> : <p className="saas-muted-note">No member list is available yet.</p>}
-                  <SectionHeading title="Recent activity" description="Recent organization actions are recorded here for accountability." />
+                  <SectionHeading title="Organization members" description="Review who can use this workspace, and update access when responsibilities change." />
+              {editingMemberId && memberEditDraft && (() => {
+                const member = members.find((item) => item.id === editingMemberId);
+                if (!member) return null;
+                const roleOptions = role === "organization_owner"
+                  ? [
+                    ["head_office_admin", "Head-office administrator"],
+                    ["branch_admin", "Branch administrator"],
+                    ["admissions", "Admissions staff"],
+                    ["teacher", "Teacher"],
+                    ["accountant", "Accountant"],
+                    ["hr_manager", "HR manager"],
+                    ["transport_staff", "Transport staff"],
+                  ]
+                  : role === "head_office_admin"
+                    ? [
+                      ["branch_admin", "Branch administrator"],
+                      ["admissions", "Admissions staff"],
+                      ["teacher", "Teacher"],
+                      ["accountant", "Accountant"],
+                      ["hr_manager", "HR manager"],
+                      ["transport_staff", "Transport staff"],
+                    ]
+                    : [
+                      ["teacher", "Teacher"],
+                      ["admissions", "Admissions staff"],
+                      ["transport_staff", "Transport staff"],
+                    ];
+                const editingParent = member.role === "parent";
+                return (
+                  <form className="saas-form-card" onSubmit={saveMemberAccess}>
+                    <div className="saas-form-heading">
+                      <div><h3>Update access for {member.user.name}</h3><p>Changes are saved on the server and added to the organization audit history.</p></div>
+                      <span className={"saas-pill " + member.status}>{member.status}</span>
+                    </div>
+                    {editingParent ? (
+                      <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Verified family link</strong><p>Parent access stays linked to the guardian records used for the invitation. This screen can suspend or restore access but cannot change family links or turn a parent into a staff account.</p></div></div>
+                    ) : (
+                      <>
+                        <div className="saas-form-grid">
+                          <label>Access role *
+                            <select value={memberEditDraft.role} onChange={(event) => changeMemberRole(event.target.value)} required>
+                              {roleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                            </select>
+                          </label>
+                          <label>Account status *
+                            <select value={memberEditDraft.status} onChange={(event) => setMemberEditDraft((draft) => ({ ...draft, status: event.target.value }))} required>
+                              <option value="active">Active</option>
+                              <option value="suspended">Suspended</option>
+                            </select>
+                          </label>
+                        </div>
+                        {role === "organization_owner" && memberEditDraft.role === "head_office_admin" && (
+                          <div className="saas-consent-checks">
+                            <label><input type="checkbox" checked={memberEditDraft.accessAllBranches} onChange={(event) => setMemberEditDraft((draft) => ({
+                              ...draft,
+                              accessAllBranches: event.target.checked,
+                              branchIds: event.target.checked ? [] : branches.map((item) => String(item.id || item._id)),
+                            }))} /> Can access every branch in this organization</label>
+                          </div>
+                        )}
+                        {!memberEditDraft.accessAllBranches && (
+                          <div className="saas-invite-selector">
+                            <div><h4>Assigned branches *</h4><p>Only these branches are available to this person after sign-in.</p></div>
+                            <div className="saas-invite-choice-list">
+                              {branches.map((branch) => {
+                                const id = String(branch.id || branch._id);
+                                return (
+                                  <label key={id} className="saas-invite-choice">
+                                    <input type="checkbox" checked={memberEditDraft.branchIds.includes(id)} onChange={(event) => toggleMemberBranch(id, event.target.checked)} />
+                                    <span><strong>{branch.name}</strong><small>{branch.code} · {branch.address?.city || "Location not added"}</small></span>
+                                  </label>
+                                );
+                              })}
+                              {!branches.length && <div className="saas-invite-empty">No branch is available within your own access scope.</div>}
+                            </div>
+                          </div>
+                        )}
+                        {memberEditDraft.role === "teacher" && (
+                          <div className="saas-invite-selector">
+                            <div><h4>Assigned classes *</h4><p>Class choices are limited to names that exist and are active in every branch selected above.</p></div>
+                            {memberEditClassOptions.length ? (
+                              <div className="saas-invite-class-grid">
+                                {memberEditClassOptions.map((className) => (
+                                  <label key={className} className="saas-invite-class-option">
+                                    <input type="checkbox" checked={memberEditDraft.classNames.includes(className)} onChange={(event) => toggleMemberClass(className, event.target.checked)} />
+                                    <span>{className}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            ) : <div className="saas-invite-empty">Choose one or more branches with configured active classes. The class list must be compatible across all selected branches.</div>}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <label className="saas-member-reason">Reason for this access change *
+                      <textarea value={memberEditDraft.reason} onChange={(event) => setMemberEditDraft((draft) => ({ ...draft, reason: event.target.value }))} rows="2" minLength={3} maxLength={500} required placeholder="e.g. Teacher moved to the junior classes from this term" />
+                    </label>
+                    <div className="saas-form-actions">
+                      <button type="button" className="saas-secondary-button" onClick={cancelMemberEdit}>Cancel</button>
+                      <button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Saving access…" : "Save access"}</button>
+                    </div>
+                  </form>
+                );
+              })()}
+              {members.length ? <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Branches / classes</th><th>Status</th><th>Access</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.user.name}</strong></td><td>{member.user.email}</td><td>{member.role.replaceAll("_", " ")}</td><td>{member.accessAllBranches ? "All branches" : member.branches.map((item) => item.name).join(", ") || "No branch assigned"}{member.role === "teacher" && member.classNames?.length ? <small>Classes: {member.classNames.join(", ")}</small> : null}</td><td><span className={"saas-pill " + member.status}>{member.status}</span></td><td>{canEditMember(member) ? <button type="button" className="saas-secondary-button saas-member-edit-button" onClick={() => beginMemberEdit(member)}>Edit access</button> : <span className="saas-muted-note">{member.role === "organization_owner" ? "Owner" : member.id === activeMembership?.id ? "Your account" : "Managed by owner"}</span>}</td></tr>)}</tbody></table></div> : <p className="saas-muted-note">No member list is available yet.</p>}
+              <SectionHeading title="Recent activity" description="Recent organization actions are recorded here for accountability." />
                   {auditEvents.length ? <div className="saas-audit-list">{auditEvents.map((event) => <article className="saas-audit-row" key={event._id}><span className="saas-audit-icon"><MdHistory /></span><div><strong>{event.summary || event.action}</strong><p>{event.action} · {event.resourceType}{event.branchId?.name ? " · " + event.branchId.name : ""}</p><small>{event.actorUserId?.username || "System"} · {formatDate(event.createdAt)}</small>{event.reason && <p>Reason: {event.reason}</p>}</div><span className={"saas-pill " + (event.outcome || "success")}>{event.outcome || "success"}</span></article>)}</div> : <BlankState title="No audit events yet" detail="Organization creation, invitations, branch creation and attendance/finance actions will appear here." />}
                 </>
               )}
