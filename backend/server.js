@@ -31,6 +31,7 @@ const eventRoutes = require('./routes/calendar');
 const announcementsRoutes = require('./routes/announcements');
 const organizationsRoutes = require('./routes/organizations');
 const tenantWorkspaceRoutes = require('./routes/tenantWorkspace');
+const tenantOperationsRoutes = require('./routes/tenantOperations');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
 
@@ -71,6 +72,7 @@ app.use('/api/auth', authRoutes);
 // single-school APIs. Public registration has two explicit readiness gates.
 app.use('/api/organizations', organizationsRoutes);
 app.use('/api/saas', auth, tenantWorkspaceRoutes);
+app.use('/api/saas/operations', auth, tenantOperationsRoutes);
 
 // Teachers can submit and view their own work reports; administrative listing
 // is separately protected inside the report router.
