@@ -72,10 +72,10 @@ export default function AcceptInvitation() {
       if (!response.ok) throw new Error(data.message || "The invitation could not be accepted.");
       if (!data.token) throw new Error("The server did not return a valid sign-in session.");
       setSuccessMessage(data.message || "Invitation accepted.");
-      await setSession(data.token);
-      const isParentOnly = Array.isArray(data.user?.memberships) &&
-        data.user.memberships.length > 0 &&
-        data.user.memberships.every((membership) => membership.role === "parent");
+      const activeUser = await setSession(data.token);
+      const isParentOnly = Array.isArray(activeUser?.memberships) &&
+        activeUser.memberships.length > 0 &&
+        activeUser.memberships.every((membership) => membership.role === "parent");
       navigate(isParentOnly ? "/parent-portal" : "/dashboard", { replace: true });
     } catch (error) {
       setErrorMessage(error.message || "The invitation could not be accepted.");
