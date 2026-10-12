@@ -29,12 +29,15 @@ function parseNoticeDates(body, existing = {}) {
 }
 
 function validateContent(body, existing = {}) {
-  return validateTenantNoticeContent({
+  const result = validateTenantNoticeContent({
     title: body.title === undefined ? existing.title : body.title,
     message: body.message === undefined ? existing.message : body.message,
     audience: body.audience === undefined ? (existing.audience || 'all') : body.audience,
     priority: body.priority === undefined ? (existing.priority || 'normal') : body.priority,
   });
+  if (!result.valid) return result;
+  const { valid, ...value } = result;
+  return { valid: true, value };
 }
 
 async function visibleBranchIds(req) {
@@ -199,7 +202,7 @@ router.post('/', async (req, res) => {
       const [created] = await TenantAnnouncement.create([{
         organizationId: req.tenant.organization._id,
         branchId: req.tenant.branch._id,
-        ...content,
+        ...content.value,
         startsAt: dates.startsAt,
         expiresAt: dates.expiresAt,
         status: 'active',
@@ -237,7 +240,7 @@ router.put('/:id', async (req, res) => {
         missing.code = 'NOTICE_NOT_FOUND';
         throw missing;
       }
-      Object.assign(notice, content, { startsAt: dates.startsAt, expiresAt: dates.expiresAt, updatedBy: req.user._id });
+      Object.assign(notice, content.value, { startsAt: dates.startsAt, expiresAt: dates.expiresAt, updatedBy: req.user._id });
       await notice.save({ session });
       await auditNotice(req, session, notice, 'tenant_notice.updated', reason);
       return notice;
