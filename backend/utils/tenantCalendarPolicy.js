@@ -53,7 +53,7 @@ function validateCalendarEvent(input = {}, existing = {}, now = new Date()) {
   if (!errors.startsAt && !errors.endsAt) {
     if (endsAt <= startsAt) errors.endsAt = 'The event end must be later than the start.';
     else if (endsAt.getTime() - startsAt.getTime() > MAX_EVENT_DURATION_MS) errors.endsAt = 'An event cannot last longer than 366 days.';
-    if (startsAt.getTime() > now.getTime() + 5 * 60 * 1000 * 60 * 24 * 366) {
+    if (startsAt.getTime() > now.getTime() + 366 * 24 * 60 * 60 * 1000) {
       errors.startsAt = 'An event cannot start more than 366 days in the future.';
     }
   }
