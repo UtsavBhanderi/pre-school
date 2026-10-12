@@ -12,6 +12,7 @@ import "../saas-workspace.css";
 import "../invitations.css";
 import "../class-config.css";
 import "../tenant-notices.css";
+import "../tenant-reports.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -1715,6 +1716,54 @@ export default function TenantWorkspace() {
                   ) : <BlankState title="Set up your first class" detail="Create a class above before registering children, recording attendance, or assigning teachers to classes." />}
                 </>
               )}
+            </section>
+          )}
+
+          {activeTab === "reports" && (
+            <section className="saas-section tenant-reports-section">
+              <SectionHeading
+                title="Reports and exports"
+                description="Download branch-scoped records for school reviews, attendance follow-up, and fee reconciliation. Every export is recorded in the audit history."
+              />
+
+              <div className="tenant-report-filter-card">
+                <div><h3>Choose your date range</h3><p>Exports include the start and end dates. You can report on up to 366 days at a time.</p></div>
+                <div className="tenant-report-date-grid">
+                  <label>From date *
+                    <input type="date" value={reportFrom} max={reportTo || undefined} onChange={(event) => setReportFrom(event.target.value)} required />
+                  </label>
+                  <label>To date *
+                    <input type="date" value={reportTo} min={reportFrom || undefined} max={todayLocal()} onChange={(event) => setReportTo(event.target.value)} required />
+                  </label>
+                </div>
+                {!branchId && <div className="saas-message error" role="status"><MdErrorOutline aria-hidden="true" /><span>Choose a branch in the selector above before exporting a report.</span></div>}
+              </div>
+
+              <div className="tenant-report-card-grid">
+                {canViewAttendanceReports && (
+                  <article className="tenant-report-card">
+                    <span className="tenant-report-icon"><MdFactCheck aria-hidden="true" /></span>
+                    <h3>Attendance report</h3>
+                    <p>One row per saved child attendance entry, including date, class, admission number, attendance status, and absence reason. Teachers are limited to their assigned classes.</p>
+                    <div className="tenant-report-file-note">CSV file · Opens in Excel or Google Sheets</div>
+                    <button type="button" className="saas-primary-button" onClick={() => downloadTenantReport("attendance")} disabled={!branchId || !reportFrom || !reportTo || reportFrom > reportTo || Boolean(reportDownloading)}>
+                      <MdDownload aria-hidden="true" /> {reportDownloading === "attendance" ? "Preparing attendance…" : "Download attendance CSV"}
+                    </button>
+                  </article>
+                )}
+                {canViewFeeReports && (
+                  <article className="tenant-report-card">
+                    <span className="tenant-report-icon"><MdReceiptLong aria-hidden="true" /></span>
+                    <h3>Fee transaction report</h3>
+                    <p>Saved payments and refunds with receipt number, invoice, child, date, amount, payment method, reference, and refund reason. Use it to reconcile the ledger.</p>
+                    <div className="tenant-report-file-note">CSV file · Includes transaction type for each amount</div>
+                    <button type="button" className="saas-primary-button" onClick={() => downloadTenantReport("fees")} disabled={!branchId || !reportFrom || !reportTo || reportFrom > reportTo || Boolean(reportDownloading)}>
+                      <MdDownload aria-hidden="true" /> {reportDownloading === "fees" ? "Preparing fee report…" : "Download fee CSV"}
+                    </button>
+                  </article>
+                )}
+              </div>
+              <div className="parent-privacy-card tenant-report-privacy"><MdShield aria-hidden="true" /><div><strong>Exports are protected and traceable.</strong><p>The server checks your organization, branch, role and (for teachers) assigned classes. Child and invoice references are re-checked against the same branch, and the export action is written to the audit log.</p></div></div>
             </section>
           )}
 
