@@ -367,14 +367,18 @@ const Fees = () => {
         {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
         <div className="page-header">
           <div>
-            <h2 className="mb-0">Fees & payments</h2>
-            <p className="page-subtitle">Record payments accurately and review each student’s outstanding balance.</p>
+            <h2 className="mb-0">Fees and payments</h2>
+            <p className="page-subtitle">Enter a child’s fee details, record money received, and print a receipt.</p>
           </div>
         </div>
-        <form className="page-card" onSubmit={handleFormSubmit}>
+        <form className="page-card fees-entry-card" onSubmit={handleFormSubmit}>
           <div className="row g-3">
+            <div className="col-12 fees-step-heading">
+              <h3>{editMode ? "Update a fee record" : "1. Child details"}</h3>
+              <p>Enter the child’s name, parent contact number, class and school year.</p>
+            </div>
             <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Student Name</label>
+              <label>Child’s full name</label>
               <input
                 type="text"
                 name="studentName"
@@ -385,7 +389,7 @@ const Fees = () => {
               />
             </div>
             <div className="form-group col-3">
-              <label>Phone Number</label>
+              <label>Parent / guardian mobile number</label>
               <input
                 type="text"
                 name="studentPhoneNumber"
@@ -397,7 +401,7 @@ const Fees = () => {
             </div>
 
             <div className="form-group col-3">
-              <label>Batch Year</label>
+              <label>School year</label>
               <select
                 name="batchYear"
                 className="form-select"
@@ -405,7 +409,7 @@ const Fees = () => {
                 onChange={handleInputChange}
                 required={!editMode}
               >
-                <option value="">Select Batch Year</option>
+                <option value="">Choose school year</option>
                 <option value="2022-23">2022-2023</option>
                 <option value="2023-24">2023-2024</option>
                 <option value="2024-25">2024-2025 (legacy)</option>
@@ -416,7 +420,7 @@ const Fees = () => {
             </div>
 
             <div className="form-group col-3">
-              <label>Standard</label>
+              <label>Class</label>
               <select
                 name="standard"
                 value={formData.standard}
@@ -424,7 +428,7 @@ const Fees = () => {
                 className="form-control"
                 required
               >
-                <option value="">Select Standard</option>
+                <option value="">Choose class</option>
                 {Object.keys(standardFees).map((key) => (
                   <option key={key} value={key}>
                     {key}
@@ -433,8 +437,12 @@ const Fees = () => {
               </select>
             </div>
 
+            <div className="col-12 fees-step-heading">
+              <h3>2. Fee summary</h3>
+              <p>Check the class fee, amount already paid and remaining balance. These totals update automatically.</p>
+            </div>
             <div className="form-group col-3">
-              <label>Total Standard Fees</label>
+              <label>Total class fees (₹)</label>
               <input
                 type="number"
                 name="totalStandardFees"
@@ -445,7 +453,7 @@ const Fees = () => {
               />
             </div>
             <div className="form-group col-3">
-              <label>Total Fees Paid</label>
+              <label>Total paid so far (₹)</label>
               <input
                 type="number"
                 name="totalFeesPaid"
@@ -456,7 +464,7 @@ const Fees = () => {
               />
             </div>
             <div className="form-group col-3">
-              <label>Total Remaining Fees</label>
+              <label>Balance still due (₹)</label>
               <input
                 type="number"
                 value={Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.totalFeesPaid || 0) - Number(formData.discount || 0))}
@@ -465,7 +473,7 @@ const Fees = () => {
               />
             </div>
             <div className="form-group col-3">
-              <label>Discount Fees</label>
+              <label>Discount (₹)</label>
               <input
                 type="number"
                 className="form-control"
@@ -476,19 +484,26 @@ const Fees = () => {
                 onChange={handleInputChange}
               />
             </div>
-            <div className="form-group">
-              <label className="fw-semibold">Payment Details</label>
+            <div className="col-12 fees-step-heading">
+              <h3>3. Money received</h3>
+              <p>Click “Add a payment” for each payment you have collected. Enter the amount received; the totals update automatically.</p>
+            </div>
+            <div className="form-group col-12">
+              <label className="fw-semibold">Payments received</label>
               <button
                 type="button"
                 onClick={addPaymentDetail}
                 className="btn btn-primary btn-sm ms-2 fw-semibold"
               >
-                Add Payment
+                Add a payment
               </button>
               {formData.paymentDetails.map((detail, index) => (
                 <div key={index} className="form-row row g-3">
-                  <div className="col">
+                  <div className="col-12 col-md-3">
+                    <label className="form-label small mb-1" htmlFor={"fee-payment-date-" + index}>Date received</label>
                     <input
+                      id={"fee-payment-date-" + index}
+                      aria-label={"Date received for payment " + (index + 1)}
                       type="text"
                       name="date"
                       value={detail.date}
@@ -497,8 +512,11 @@ const Fees = () => {
                       readOnly
                     />
                   </div>
-                  <div className="col">
+                  <div className="col-12 col-md-3">
+                    <label className="form-label small mb-1" htmlFor={"fee-payment-time-" + index}>Time received</label>
                     <input
+                      id={"fee-payment-time-" + index}
+                      aria-label={"Time received for payment " + (index + 1)}
                       type="text"
                       name="time"
                       value={detail.time}
@@ -507,8 +525,10 @@ const Fees = () => {
                       readOnly
                     />
                   </div>
-                  <div className="col">
+                  <div className="col-12 col-md-3">
+                    <label className="form-label small mb-1" htmlFor={"fee-payment-amount-" + index}>Amount received (₹)</label>
                     <input
+                      id={"fee-payment-amount-" + index}
                       type="number"
                       name="amount"
                       value={detail.amount}
@@ -526,7 +546,7 @@ const Fees = () => {
             </div>
             <div className="row m-1 mt-2 gap-3">
               <button type="submit" className="btn btn-primary col-12 col-md-4" disabled={savingFees}>
-                {savingFees ? "Saving…" : editMode ? "Save changes" : "Create fee record"}
+                {savingFees ? "Saving…" : editMode ? "Save changes" : "Save fee record"}
               </button>
               {/* <div className="btn btn-primary col-2" onClick={exportToExcel}> */}
               <button
