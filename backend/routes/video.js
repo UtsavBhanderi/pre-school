@@ -17,8 +17,10 @@ const upload = multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype || !file.mimetype.startsWith('video/')) {
-      return cb(new Error('Only video files can be uploaded in this section.'));
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    const allowedExtensions = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv']);
+    if (!file.mimetype || !file.mimetype.startsWith('video/') || !allowedExtensions.has(extension)) {
+      return cb(new Error('Upload an MP4, WEBM, MOV, M4V or OGV video file.'));
     }
     cb(null, true);
   },
