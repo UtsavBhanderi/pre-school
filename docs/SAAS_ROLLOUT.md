@@ -56,6 +56,18 @@ For organization context endpoints, send the authenticated token in `x-auth-toke
 
 These workflows have automated unit/syntax/build checks, but the parent invitation and attendance/finance workflows still need isolated MongoDB integration tests using organizations A and B. Parent/guardian identity verification and real-world acceptance testing remain release gates.
 
+## Tenant calendar
+
+The SaaS workspace adds a branch-scoped calendar with these endpoints:
+
+- GET /api/saas/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD lists active events in a validated date range of up to 366 days.
+- Authorized calendar managers may add includeCancelled=true to review cancelled events.
+- POST /api/saas/calendar creates an event for the selected branch.
+- PUT /api/saas/calendar/:id updates an event in the selected branch.
+- PATCH /api/saas/calendar/:id/status cancels or restores an event without deleting its history.
+
+Supported event types include holidays, school events, meetings, trips, birthdays and deadlines. Read visibility is limited by organization, active branch membership, role-based audience and (for parents) branches connected to verified guardian links. Only organization owners, head-office administrators and branch administrators can manage events. Creation, updates, cancellations and restorations generate audit events.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
