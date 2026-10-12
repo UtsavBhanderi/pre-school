@@ -202,7 +202,12 @@ router.get('/members', async (req, res) => {
       .limit(500)
       .lean();
 
-    return res.json(memberships.filter((entry) => entry.userId).map((entry) => {
+    return res.json(memberships.filter((entry) => {
+      if (!entry.userId) return false;
+      if (!branchManager) return true;
+      const assigned = memberBranchIds(entry);
+      return assigned.length > 0 && assigned.every((id) => managerBranches.includes(id));
+    }).map((entry) => {
       const branches = branchManager
         ? (entry.branchIds || []).filter((branch) => managerBranches.includes(String(branch._id)))
         : (entry.branchIds || []);
@@ -275,8 +280,8 @@ router.patch('/members/:id', async (req, res) => {
         ? clean(body.status, 20)
         : membership.status;
 
-      if (!['active', 'suspended', 'removed'].includes(requestedStatus)) {
-        const badStatus = new Error('Choose Active, Suspended or Removed.');
+      if (!['active', 'suspended'].includes(requestedStatus)) {
+        const badStatus = new Error('Choose Active or Suspended.');
         badStatus.code = 'INVALID_STATUS';
         throw badStatus;
       }
@@ -430,6 +435,12 @@ router.patch('/members/:id', async (req, res) => {
       if (memberBranchIds(membership).join(',') !== branchIds.join(',')) changedFields.push('branchIds');
       if ((membership.classNames || []).join(',') !== classNames.join(',')) changedFields.push('classNames');
 
+      if (!changedFields.length) {
+        const noChanges = new Error('No access settings changed. Edit a role, branch, class or status before saving.');
+        noChanges.code = 'NO_CHANGES';
+        throw noChanges;
+      }
+
       membership.role = requestedRole;
       membership.status = requestedStatus;
       membership.accessAllBranches = accessAllBranches;
@@ -459,9 +470,7 @@ router.patch('/members/:id', async (req, res) => {
       response = {
         message: requestedStatus === 'suspended'
           ? 'Access suspended. The person can no longer use this organization workspace.'
-          : requestedStatus === 'removed'
-            ? 'Access removed from this organization.'
-            : 'Team access saved.',
+          : 'Team access saved.',
         memberId: String(membership._id),
         role: membership.role,
         status: membership.status,
@@ -475,6 +484,7 @@ router.patch('/members/:id', async (req, res) => {
       SELF_ACCESS_CHANGE: 409,
       OWNER_TRANSFER_REQUIRED: 409,
       INVALID_STATUS: 400,
+      NO_CHANGES: 400,
       PARENT_SCOPE_LOCKED: 409,
       INVALID_ROLE: 400,
       BRANCH_ADMIN_SCOPE: 403,
