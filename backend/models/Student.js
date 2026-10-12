@@ -97,7 +97,9 @@ studentSchema.pre('save', function (next) {
 
 // Initialize a fee record only when a student is first created.
 studentSchema.post('save', async function (doc) {
-  // Tenant-aware students use FeeInvoice/FeeTransaction. Never create a legacy\n  // global fee record for a tenant record.\n  if (!doc.wasNew || doc.organizationId) return;
+  // Tenant-aware students use FeeInvoice/FeeTransaction. Never create a legacy
+  // global fee record for a tenant record.
+  if (!doc.wasNew || doc.organizationId) return;
 
   try {
     const totalStandardFees = Number(STANDARD_FEES[doc.standard] || 0);
@@ -137,7 +139,8 @@ studentSchema.post('save', async function (doc) {
 // Keep the linked fee record in sync with student details without overwriting
 // payment history, discounts, or amounts already paid.
 studentSchema.post('findOneAndUpdate', async function (doc) {
-  // Tenant records are reconciled only through organization-scoped APIs.\n  if (!doc || !doc.stuNo || doc.organizationId) return;
+  // Tenant records are reconciled only through organization-scoped APIs.
+  if (!doc || !doc.stuNo || doc.organizationId) return;
 
   try {
     const feeRecord = await Fee.findOne({ stuNo: doc.stuNo });
