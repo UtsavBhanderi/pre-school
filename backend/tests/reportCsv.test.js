@@ -14,6 +14,7 @@ test('CSV cells neutralize spreadsheet formulas but leave numeric values usable'
   assert.equal(csvCell('=HYPERLINK("https://example.com")'), '"\'=HYPERLINK(""https://example.com"")"');
   assert.equal(csvCell('  +SUM(A1:A2)'), '"\'  +SUM(A1:A2)"');
   assert.equal(csvCell('@command'), '"\'@command"');
+  assert.equal(csvCell('\n=SUM(A1:A2)'), '"\'\n=SUM(A1:A2)"');
   assert.equal(csvCell(-10), '-10');
   assert.equal(csvCell(1200.5), '1200.5');
 });
