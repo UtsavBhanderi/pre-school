@@ -30,6 +30,7 @@ const CHILD_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_ad
 const MONEY_READ_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'];
 const MONEY_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'];
 const REFUND_ROLES = ['organization_owner', 'head_office_admin', 'accountant'];
+const ATTENDANCE_ROLES = [...CHILD_READ_ROLES, 'teacher'];
 const VALID_GENDER = new Set(['Male', 'Female', 'Other']);
 const VALID_RELATIONSHIPS = new Set(['mother', 'father', 'guardian', 'grandparent', 'other']);
 const VALID_METHODS = new Set(['cash', 'upi', 'bank_transfer', 'card', 'online', 'cheque', 'other']);
@@ -138,15 +139,15 @@ function serializeGuardianLink(link) {
   };
 }
 
-async function serializeChildren(children, organizationId, branchId) {
+async function serializeChildren(children, organizationId, branchId, includeGuardians = true) {
   if (!children.length) return [];
-  const links = await ChildGuardian.find({
+  const links = includeGuardians ? await ChildGuardian.find({
     organizationId,
     branchId,
     childId: { $in: children.map((child) => child._id) },
   })
     .populate({ path: 'guardianId', select: 'fullName email phone alternatePhone preferredLanguage' })
-    .lean();
+    .lean() : [];
   const guardiansByChild = new Map();
   for (const link of links) {
     const key = String(link.childId);
@@ -236,9 +237,12 @@ function validateChildInput(body = {}, timeZone) {
 }
 
 router.get('/classes', requireBranchContext, async (req, res) => {
-  if (!allowed(req, CHILD_READ_ROLES, res)) return;
+  if (!allowed(req, [...CHILD_READ_ROLES, 'teacher'], res)) return;
   try {
-    return res.json(Object.entries(STANDARD_FEES).map(([name, amount]) => ({
+    const availableFees = req.tenant.membership.role === 'teacher'
+      ? Object.entries(STANDARD_FEES).filter(([name]) => (req.tenant.membership.classNames || []).includes(name))
+      : Object.entries(STANDARD_FEES);
+    return res.json(availableFees.map(([name, amount]) => ({
       name,
       defaultFee: Number(amount) || 0,
       currency: req.tenant.organization.currency || 'INR',
@@ -250,7 +254,8 @@ router.get('/classes', requireBranchContext, async (req, res) => {
 });
 
 router.get('/summary', async (req, res) => {
-  if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant', 'admissions'], res)) return;
+  if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant', 'admissions', 'teacher', 'hr_manager', 'transport_staff'], res)) return;
+  const canViewFees = MONEY_READ_ROLES.includes(req.tenant.membership.role);
 
   const scope = { organizationId: req.tenant.organization._id };
   if (req.tenant.branch) {
@@ -270,8 +275,8 @@ router.get('/summary', async (req, res) => {
       Student.countDocuments(scope),
       Student.countDocuments({ ...scope, createdAt: { $gte: dayBounds.start, $lt: dayBounds.end } }),
       Attendance.find({ ...scope, date: attendanceDate }).select('studentDetails').lean(),
-      FeeInvoice.find({ ...scope, status: 'open' }).select('_id totalAmountPaise').lean(),
-      FeeTransaction.find({ ...scope, transactionAt: { $gte: dayBounds.start, $lt: dayBounds.end } }).select('type amountPaise').lean(),
+      canViewFees ? FeeInvoice.find({ ...scope, status: 'open' }).select('_id totalAmountPaise').lean() : Promise.resolve([]),
+      canViewFees ? FeeTransaction.find({ ...scope, transactionAt: { $gte: dayBounds.start, $lt: dayBounds.end } }).select('type amountPaise').lean() : Promise.resolve([]),
       Branch.countDocuments({ organizationId: req.tenant.organization._id, status: 'active', ...(req.tenant.membership.accessAllBranches ? {} : { _id: { $in: req.tenant.membership.branchIds || [] } }) }),
     ]);
 
@@ -310,13 +315,13 @@ router.get('/summary', async (req, res) => {
       branchCount,
       children: { total: childrenCount, addedToday: newChildrenCount },
       attendance: attendanceSummary,
-      fees: {
+      fees: canViewFees ? {
         collectedTodayPaise,
         collectedToday: Number(formatPaise(collectedTodayPaise)),
         outstandingPaise,
         outstanding: Number(formatPaise(outstandingPaise)),
         currency: req.tenant.organization.currency || 'INR',
-      },
+      } : null,
     });
   } catch (error) {
     console.error('Unable to load tenant dashboard summary:', error);
@@ -325,15 +330,24 @@ router.get('/summary', async (req, res) => {
 });
 
 router.get('/children', requireBranchContext, async (req, res) => {
-  if (!allowed(req, CHILD_READ_ROLES, res)) return;
+  if (!allowed(req, [...CHILD_READ_ROLES, 'teacher'], res)) return;
   const organizationId = req.tenant.organization._id;
   const branchId = req.tenant.branch._id;
   const search = clean(req.query.q, 100);
   const filter = { organizationId, branchId };
-  if (req.query.className || req.query.standard) filter.standard = clean(req.query.className || req.query.standard, 80);
+  const requestedClass = clean(req.query.className || req.query.standard, 80);
+  if (req.tenant.membership.role === 'teacher') {
+    const assignedClasses = req.tenant.membership.classNames || [];
+    if (!assignedClasses.length) return res.status(403).json({ message: 'No classes are assigned to your teacher account yet.' });
+    if (requestedClass && !assignedClasses.includes(requestedClass)) return res.status(403).json({ message: 'You can only view children in classes assigned to you.' });
+    filter.standard = requestedClass || { $in: assignedClasses };
+  } else if (requestedClass) {
+    filter.standard = requestedClass;
+  }
   if (search) {
     const regex = new RegExp(escapeRegex(search), 'i');
     const or = [{ firstName: regex }, { middleName: regex }, { lastName: regex }, { stuNo: regex }];
+    if (req.tenant.membership.role !== 'teacher') {
     const matchingGuardians = await Guardian.find({
       organizationId,
       $or: [{ fullName: regex }, { phone: regex }, { email: regex }],
@@ -344,6 +358,7 @@ router.get('/children', requireBranchContext, async (req, res) => {
       }).select('childId').lean();
       if (links.length) or.push({ _id: { $in: links.map((link) => link.childId) } });
     }
+    }
     filter.$or = or;
   }
   try {
@@ -352,7 +367,7 @@ router.get('/children', requireBranchContext, async (req, res) => {
       .sort({ middleName: 1, lastName: 1, firstName: 1 })
       .limit(500)
       .lean();
-    return res.json({ total: children.length, children: await serializeChildren(children, organizationId, branchId) });
+    return res.json({ total: children.length, children: await serializeChildren(children, organizationId, branchId, req.tenant.membership.role !== 'teacher') });
   } catch (error) {
     console.error('Unable to list tenant children:', error);
     return res.status(503).json({ message: 'Child records could not be loaded.' });
@@ -501,14 +516,21 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
 });
 
 router.get('/attendance', requireBranchContext, async (req, res) => {
-  if (!allowed(req, CHILD_READ_ROLES, res)) return;
+  if (!allowed(req, ATTENDANCE_ROLES, res)) return;
   const timeZone = req.tenant.branch.timezone || req.tenant.organization.timezone;
   const date = clean(req.query.date, 10) || getTodayInTimeZone(timeZone);
   const parsedDate = parseDateOnly(date);
   if (!parsedDate) return res.status(400).json({ message: 'Choose a valid attendance date.' });
   const standard = clean(req.query.className || req.query.standard, 80);
   const filter = { organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id, date: parsedDate };
-  if (standard) filter.standard = standard;
+  if (req.tenant.membership.role === 'teacher') {
+    const assignedClasses = req.tenant.membership.classNames || [];
+    if (!assignedClasses.length) return res.status(403).json({ message: 'No classes are assigned to your teacher account yet.' });
+    if (standard && !assignedClasses.includes(standard)) return res.status(403).json({ message: 'You can only view attendance for classes assigned to you.' });
+    filter.standard = standard || { $in: assignedClasses };
+  } else if (standard) {
+    filter.standard = standard;
+  }
   try {
     const records = await Attendance.find(filter)
       .populate({ path: 'studentDetails.studentId', select: 'firstName middleName lastName stuNo standard' })
@@ -531,13 +553,16 @@ router.get('/attendance', requireBranchContext, async (req, res) => {
 });
 
 router.post('/attendance', requireBranchContext, async (req, res) => {
-  if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'], res)) return;
+  if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'], res)) return;
   const date = clean(req.body?.date, 10);
   const parsedDate = parseDateOnly(date);
   const standard = clean(req.body?.className || req.body?.standard, 80);
   const submitted = Array.isArray(req.body?.children) ? req.body.children : [];
   if (!parsedDate) return res.status(400).json({ message: 'Choose a valid attendance date.' });
   if (!standard || !Object.prototype.hasOwnProperty.call(STANDARD_FEES, standard)) return res.status(400).json({ message: 'Choose a configured class.' });
+  if (req.tenant.membership.role === 'teacher' && !(req.tenant.membership.classNames || []).includes(standard)) {
+    return res.status(403).json({ message: 'You can only record attendance for classes assigned to you.' });
+  }
   if (!submitted.length || submitted.length > 500) return res.status(400).json({ message: 'Attendance must include between 1 and 500 children.' });
 
   const ids = submitted.map((entry) => String(entry?.childId || ''));
