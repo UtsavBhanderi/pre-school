@@ -58,6 +58,11 @@ test('teachers can submit reports only for classes assigned to their active memb
   assert.equal(canTeacherAccessClass({ status: 'active', role: 'branch_admin', classNames: ['Nursery'] }, 'Nursery'), false);
 });
 
+test('reviewed reports are locked against later state changes', () => {
+  assert.equal(reviewTransition('reviewed', 'needs_follow_up', 'Please clarify').valid, false);
+  assert.equal(reviewTransition('needs_follow_up', 'reviewed', 'Resolved').valid, false);
+});
+
 test('review decisions require a clear follow-up note when action is needed', () => {
   assert.equal(reviewTransition('submitted', 'reviewed', '').valid, true);
   assert.equal(reviewTransition('submitted', 'needs_follow_up', '').valid, false);
