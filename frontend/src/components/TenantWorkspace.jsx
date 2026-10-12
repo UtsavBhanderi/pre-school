@@ -755,7 +755,7 @@ export default function TenantWorkspace() {
         </div>
         <div className="saas-sidebar-label">WORKSPACE</div>
         <nav className="saas-sidebar-nav" aria-label="Preschool workspace">
-          {TABS.map(({ id, label, Icon }) => (
+          {visibleTabs.map(({ id, label, Icon }) => (
             <button key={id} type="button" className={"saas-nav-item" + (activeTab === id ? " active" : "")} onClick={() => setActiveTab(id)}>
               <Icon aria-hidden="true" /><span>{label}</span>
             </button>
@@ -1020,12 +1020,114 @@ export default function TenantWorkspace() {
 
           {activeTab === "team" && (
             <section className="saas-section">
-              <SectionHeading title="Team and activity" description="Review organization membership and changes recorded in the audit history." />
-              <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Access is controlled by membership and branch permissions.</strong><p>This view is read-only. User invitations, access changes and parent portal activation will be added with their own verification and audit workflows.</p></div></div>
-              <SectionHeading title="Organization members" description="Only owner and head-office roles can view the member list." />
-              {members.length ? <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Branches</th><th>Status</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.user.name}</strong></td><td>{member.user.email}</td><td>{member.role.replaceAll("_", " ")}</td><td>{member.accessAllBranches ? "All branches" : member.branches.map((item) => item.name).join(", ") || "No branch assigned"}</td><td><span className={"saas-pill " + member.status}>{member.status}</span></td></tr>)}</tbody></table></div> : <p className="saas-muted-note">No member list is available for this role or organization.</p>}
-              <SectionHeading title="Recent activity" description="Recent actions recorded for this organization. Select the entry to review its details." />
-              {auditEvents.length ? <div className="saas-audit-list">{auditEvents.map((event) => <article className="saas-audit-row" key={event._id}><span className="saas-audit-icon"><MdHistory /></span><div><strong>{event.summary || event.action}</strong><p>{event.action} · {event.resourceType}{event.branchId?.name ? " · " + event.branchId.name : ""}</p><small>{event.actorUserId?.username || "System"} · {formatDate(event.createdAt)}</small>{event.reason && <p>Reason: {event.reason}</p>}</div><span className={"saas-pill " + (event.outcome || "success")}>{event.outcome || "success"}</span></article>)}</div> : <BlankState title="No audit events yet" detail="Organization creation, branch creation and tenant operations will appear here as they are recorded." />}
+              <SectionHeading title="Team and family access" description="Invite staff or parents using a one-time link, set their access, and revoke links that should no longer work." />
+
+              {canManagePeople && (
+                <form className="saas-form-card" onSubmit={createInvitation}>
+                  <div className="saas-form-heading">
+                    <div><h3>Invite someone</h3><p>Each invitation expires after 72 hours and can be accepted only once. The role and branch access are checked by the server.</p></div>
+                  </div>
+
+                  <div className="saas-form-grid">
+                    <label>Full name *<input value={inviteDraft.fullName} onChange={(event) => updateInvitationDraft("fullName", event.target.value)} required minLength={2} maxLength={120} /></label>
+                    <label>Email address *<input type="email" value={inviteDraft.email} onChange={(event) => updateInvitationDraft("email", event.target.value)} required maxLength={254} placeholder="person@example.com" /></label>
+                    <label>Access role *
+                      <select value={inviteDraft.role} onChange={(event) => changeInvitationRole(event.target.value)} required>
+                        {(role === "branch_admin" ? [
+                          ["teacher", "Teacher"], ["admissions", "Admissions staff"], ["transport_staff", "Transport staff"], ["parent", "Parent / guardian"],
+                        ] : [
+                          ["head_office_admin", "Head-office administrator"], ["branch_admin", "Branch administrator"],
+                          ["admissions", "Admissions staff"], ["teacher", "Teacher"], ["accountant", "Accountant"],
+                          ["hr_manager", "HR manager"], ["transport_staff", "Transport staff"], ["parent", "Parent / guardian"],
+                        ]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  {inviteDraft.role === "parent" ? (
+                    <div className="saas-invite-selector">
+                      <div><h4>Link existing family contact(s) *</h4><p>The invitation email must match every selected guardian record. Parents will only see children connected to these specific contacts.</p></div>
+                      {!branchId ? <div className="saas-invite-empty">Choose a branch from the top of the page to load its family contacts.</div> :
+                        availableGuardianContacts.filter((guardian) => guardian.email).length ? (
+                          <div className="saas-invite-choice-list">
+                            {availableGuardianContacts.filter((guardian) => guardian.email).map((guardian) => (
+                              <label key={guardian.id} className="saas-invite-choice">
+                                <input type="checkbox" checked={inviteDraft.guardianIds.includes(guardian.id)} onChange={(event) => toggleInviteGuardian(guardian, event.target.checked)} />
+                                <span><strong>{guardian.name}</strong><small>{guardian.relationship} · {guardian.childName}</small><small>{guardian.email}{guardian.phone ? " · " + guardian.phone : ""}</small></span>
+                                {guardian.primaryContact && <span className="saas-pill">Primary contact</span>}
+                              </label>
+                            ))}
+                          </div>
+                        ) : <div className="saas-invite-empty">No contacts with email addresses are available for this branch. Add or correct the family email in the child record first.</div>
+                      }
+                    </div>
+                  ) : (
+                    <div className="saas-invite-selector">
+                      <div><h4>Branch access *</h4><p>Only selected branches will be available after sign-in. Select one or more branches this person actually works in.</p></div>
+                      <div className="saas-invite-choice-list">
+                        {branches.map((branch) => (
+                          <label key={branch.id || branch._id} className="saas-invite-choice">
+                            <input type="checkbox" checked={inviteDraft.branchIds.includes(String(branch.id || branch._id))} onChange={(event) => toggleInviteBranch(String(branch.id || branch._id), event.target.checked)} />
+                            <span><strong>{branch.name}</strong><small>{branch.code} · {branch.address?.city || "Location not added"}</small></span>
+                          </label>
+                        ))}
+                        {!branches.length && <div className="saas-invite-empty">No accessible branch is available to assign.</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {inviteDraft.role === "teacher" && (
+                    <div className="saas-invite-selector">
+                      <div><h4>Assigned classes *</h4><p>Teachers can view and record attendance only for the classes assigned here. Choose at least one class.</p></div>
+                      {!branchId ? <div className="saas-invite-empty">Choose a branch from the top of the page to load its class list.</div> : classes.length ? (
+                        <div className="saas-invite-class-grid">
+                          {classes.map((classItem) => (
+                            <label key={classItem.name} className="saas-invite-class-option"><input type="checkbox" checked={inviteDraft.classNames.includes(classItem.name)} onChange={(event) => toggleInviteClass(classItem.name, event.target.checked)} /><span>{classItem.name}</span></label>
+                          ))}
+                        </div>
+                      ) : <div className="saas-invite-empty">No class list available. Choose a branch or check the school's configured classes.</div>}
+                    </div>
+                  )}
+
+                  <div className="saas-invite-note"><MdShield aria-hidden="true" /><span>Do not invite a person to a role or branch they do not need. Parents require an existing guardian record with a matching email address. Teachers are limited to the classes selected above.</span></div>
+                  <div className="saas-form-actions"><button type="submit" className="saas-primary-button" disabled={saving || !branches.length}>{saving ? "Creating invitation…" : "Create invitation"}</button></div>
+                  {invitationUrl && (
+                    <div className="saas-invite-link-panel" role="status">
+                      <div><strong>Share this one-time invitation link</strong><p>Email is not configured or could not send. Share the link only with the person named in the invitation.</p></div>
+                      <textarea readOnly value={invitationUrl} rows={3} aria-label="One-time invitation link" onFocus={(event) => event.target.select()} />
+                      <div className="saas-form-actions"><button type="button" className="saas-secondary-button" onClick={copyInvitationUrl}>Copy link</button><a className="saas-secondary-button" href={invitationUrl} target="_blank" rel="noopener noreferrer">Preview invite</a></div>
+                    </div>
+                  )}
+                </form>
+              )}
+
+              <SectionHeading title="Invitations" description="Pending invitations can be revoked immediately. Used and expired invitations remain listed for accountability." />
+              {invitations.length ? (
+                <div className="saas-table-wrap"><table className="saas-table">
+                  <thead><tr><th>Person</th><th>Access role</th><th>Branch / classes</th><th>Status</th><th>Expires</th><th>Action</th></tr></thead>
+                  <tbody>{invitations.map((invitation) => (
+                    <tr key={invitation.id}>
+                      <td><strong>{invitation.fullName}</strong><small>{invitation.email}</small></td>
+                      <td>{String(invitation.role).replaceAll("_", " ")}</td>
+                      <td>{invitation.role === "teacher" ? (invitation.classNames || []).join(", ") : (invitation.branches || []).map((item) => item.name || String(item)).join(", ") || "Assigned family links"}</td>
+                      <td><span className={"saas-pill " + invitation.status}>{invitation.status}</span><small>{invitation.deliveryStatus === "sent" ? "Email sent" : invitation.deliveryStatus === "failed" ? "Manual link required" : invitation.deliveryStatus}</small></td>
+                      <td>{formatDate(invitation.expiresAt)}</td>
+                      <td>{invitation.status === "pending" ? <button type="button" className="saas-secondary-button" disabled={saving} onClick={() => revokeInvitation(invitation)}>Revoke</button> : "—"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table></div>
+              ) : <BlankState title="No invitations yet" detail="Create the first invitation above. Each link is one-time and expires after 72 hours." />}
+
+              {role === "branch_admin" ? (
+                <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Branch-limited administration</strong><p>You can invite or revoke access only for branches assigned to your account. Organization-wide member and audit details are reserved for the owner and head office.</p></div></div>
+              ) : (
+                <>
+                  <SectionHeading title="Organization members" description="Current active and invited members of this organization." />
+                  {members.length ? <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Branches / classes</th><th>Status</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.user.name}</strong></td><td>{member.user.email}</td><td>{member.role.replaceAll("_", " ")}</td><td>{member.accessAllBranches ? "All branches" : member.branches.map((item) => item.name).join(", ") || "No branch assigned"}{member.role === "teacher" && member.classNames?.length ? <small>Classes: {member.classNames.join(", ")}</small> : null}</td><td><span className={"saas-pill " + member.status}>{member.status}</span></td></tr>)}</tbody></table></div> : <p className="saas-muted-note">No member list is available yet.</p>}
+                  <SectionHeading title="Recent activity" description="Recent organization actions are recorded here for accountability." />
+                  {auditEvents.length ? <div className="saas-audit-list">{auditEvents.map((event) => <article className="saas-audit-row" key={event._id}><span className="saas-audit-icon"><MdHistory /></span><div><strong>{event.summary || event.action}</strong><p>{event.action} · {event.resourceType}{event.branchId?.name ? " · " + event.branchId.name : ""}</p><small>{event.actorUserId?.username || "System"} · {formatDate(event.createdAt)}</small>{event.reason && <p>Reason: {event.reason}</p>}</div><span className={"saas-pill " + (event.outcome || "success")}>{event.outcome || "success"}</span></article>)}</div> : <BlankState title="No audit events yet" detail="Organization creation, invitations, branch creation and attendance/finance actions will appear here." />}
+                </>
+              )}
             </section>
           )}
         </div>
