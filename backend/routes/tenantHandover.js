@@ -247,7 +247,7 @@ router.get('/children', requireBranchContext, async (req, res) => {
         organizationId: req.tenant.organization._id,
         branchId: req.tenant.branch._id,
         childId: { $in: ids },
-      }).populate({ path: 'guardianId', select: 'fullName phone' }).lean(),
+      }).populate({ path: 'guardianId', select: 'fullName' }).lean(),
     ]);
 
     const stateByChild = new Map(states.map((state) => [String(state.childId), state]));
@@ -259,7 +259,6 @@ router.get('/children', requireBranchContext, async (req, res) => {
       contacts.push({
         guardianId: String(link.guardianId._id),
         name: link.guardianId.fullName,
-        phone: link.guardianId.phone || '',
         relationship: link.relationship,
         isPrimaryContact: Boolean(link.isPrimaryContact),
         authorizedPickup: Boolean(link.authorizedPickup),
