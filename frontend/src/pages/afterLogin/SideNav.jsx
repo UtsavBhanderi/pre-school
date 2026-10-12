@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import {
   MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
@@ -71,6 +71,7 @@ function SidebarLink({ to, label, icon: Icon, onNavigate }) {
 
 export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
   const { user, logout } = useContext(AuthContext);
+  const location = useLocation();
   const displayName = user?.username || user?.name || "School administrator";
 
   return (
@@ -93,13 +94,17 @@ export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
           />
         </div>
 
-        {navigation.map((group) => (
+        {navigation.map((group) => {
+          const groupIsActive = group.items.some((item) =>
+            location.pathname === item.to || location.pathname.startsWith(item.to + "/")
+          );
+          return (
           <details
             className="sidebar-nav-group"
             key={group.label}
-            open={group.defaultOpen ? true : undefined}
+            open={group.defaultOpen || groupIsActive || undefined}
           >
-            <summary className="sidebar-section-title">
+            <summary className={"sidebar-section-title" + (groupIsActive ? " group-has-active" : "")}>
               <span>{group.label}</span>
               <MdExpandMore className="sidebar-group-chevron" aria-hidden="true" />
             </summary>
@@ -109,7 +114,8 @@ export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
               ))}
             </ul>
           </details>
-        ))}
+          );
+        })}
 
         <div className="sidebar-pinned-links sidebar-help-link">
           <SidebarLink
