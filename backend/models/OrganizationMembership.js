@@ -22,6 +22,14 @@ const OrganizationMembershipSchema = new mongoose.Schema({
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
     default: [],
   },
+  guardianIds: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Guardian' }],
+    default: [],
+  },
+  classNames: {
+    type: [{ type: String, trim: true, maxlength: 80 }],
+    default: [],
+  },
   guardianIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Guardian' }], default: [] },
   classNames: { type: [{ type: String, trim: true, maxlength: 80 }], default: [] },
   accessAllBranches: { type: Boolean, default: false },
