@@ -97,14 +97,20 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', auth, async (req, res) => {
   try {
-    const memberships = await OrganizationMembership.find({
+    const allMemberships = await OrganizationMembership.find({
       userId: req.user._id,
-      status: 'active',
     })
       .populate({ path: 'organizationId', select: 'name slug status timezone locale currency subscription.plan subscription.status' })
       .populate({ path: 'branchIds', select: 'name code status timezone' })
       .sort({ createdAt: 1 })
       .lean();
+
+    const memberships = allMemberships.filter((entry) =>
+      entry.status === 'active' && entry.organizationId?.status === 'active'
+    );
+    const hasInactiveWorkspaceMemberships = allMemberships.some((entry) =>
+      entry.status !== 'active' || entry.organizationId?.status !== 'active'
+    );
 
     return res.json({
       user: {
@@ -112,6 +118,7 @@ router.get('/me', auth, async (req, res) => {
         username: req.user.username,
         email: req.user.email,
         role: req.user.role,
+        hasInactiveWorkspaceMemberships,
         memberships: memberships.filter((entry) => entry.organizationId).map((entry) => ({
           id: String(entry._id),
           organization: {
