@@ -54,7 +54,7 @@ export default function LayoutAdmin() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const commandInputRef = useRef(null);
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const page = PAGE_META.find(([path]) => location.pathname === path || location.pathname.startsWith(path + "/")) || PAGE_META[0];
@@ -94,6 +94,19 @@ export default function LayoutAdmin() {
     setCommandQuery("");
     setCommandOpen(true);
   };
+
+  if (user?.hasInactiveWorkspaceMemberships &&
+      (!Array.isArray(user?.memberships) || user.memberships.length === 0)) {
+    return (
+      <main className="container py-5">
+        <section className="mx-auto p-4 border rounded-3 shadow-sm" style={{ maxWidth: "620px" }}>
+          <h1 className="h3">School workspace access is inactive</h1>
+          <p className="text-secondary">This account no longer has an active organization workspace. Your school data has not been deleted. Ask the preschool administrator to review your account access.</p>
+          <button type="button" className="btn btn-primary" onClick={logout}>Sign out</button>
+        </section>
+      </main>
+    );
+  }
 
   if (Array.isArray(user?.memberships) && user.memberships.length > 0 &&
       user.memberships.every((membership) => membership.role === "parent")) {
