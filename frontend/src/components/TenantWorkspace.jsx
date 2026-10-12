@@ -4,16 +4,18 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
 import "../invitations.css";
 import "../class-config.css";
+import "../tenant-notices.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
+  { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fees & payments", Icon: MdCurrencyRupee },
@@ -25,6 +27,20 @@ const TABS = [
 const todayLocal = () => {
   const now = new Date();
   return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+};
+
+const localDateTimeInputNow = () => {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+};
+
+const toLocalDateTimeInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
 };
 
 const academicYearNow = () => {
@@ -124,8 +140,10 @@ export default function TenantWorkspace() {
   const canSeeAllBranches = Boolean(activeMembership?.accessAllBranches);
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+  const canManageNotices = canManagePeople;
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
     if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -143,6 +161,17 @@ export default function TenantWorkspace() {
   const [invoices, setInvoices] = useState([]);
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [editingNoticeId, setEditingNoticeId] = useState("");
+  const [noticeDraft, setNoticeDraft] = useState(() => ({
+    title: "",
+    message: "",
+    audience: "all",
+    priority: "normal",
+    startsAt: localDateTimeInputNow(),
+    expiresAt: "",
+    reason: "",
+  }));
   const [editingMemberId, setEditingMemberId] = useState("");
   const [memberEditDraft, setMemberEditDraft] = useState(null);
   const [memberEditClassOptions, setMemberEditClassOptions] = useState([]);
