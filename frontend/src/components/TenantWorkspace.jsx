@@ -537,6 +537,9 @@ export default function TenantWorkspace() {
     setSummary(null);
     setChildren([]);
     setInvoices([]);
+    setHandoverChildren([]);
+    setHandoverEvents([]);
+    setHandoverTarget(null);
     setErrorMessage("");
     setSuccessMessage("");
   };
@@ -547,6 +550,9 @@ export default function TenantWorkspace() {
     setChildren([]);
     setInvoices([]);
     setAttendanceRows([]);
+    setHandoverChildren([]);
+    setHandoverEvents([]);
+    setHandoverTarget(null);
     setErrorMessage("");
     setSuccessMessage("");
   };
