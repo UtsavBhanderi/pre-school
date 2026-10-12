@@ -10,6 +10,7 @@ const TenantClassSchema = new mongoose.Schema({
   minAgeMonths: { type: Number, min: 0, max: 240, default: null },
   maxAgeMonths: { type: Number, min: 0, max: 240, default: null },
   defaultFeePaise: { type: Number, min: 0, max: 100000000000, default: 0 },
+  enrollmentVersion: { type: Number, min: 0, default: 0 },
   feeFrequency: { type: String, enum: ['annual', 'term', 'monthly', 'one_time'], default: 'annual' },
   capacity: { type: Number, min: 1, max: 1000, default: 30 },
   description: { type: String, trim: true, maxlength: 500, default: '' },
