@@ -618,6 +618,22 @@ router.post('/children', requireBranchContext, async (req, res) => {
     if (!configuredClass) return res.status(400).json({ message: 'Choose an active class configured for this branch.' });
 
     const createdChild = await inTransaction(async (session) => {
+      // A write lock keeps class archival from racing with a new admission.
+      const activeClass = await TenantClass.findOneAndUpdate(
+        {
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          name: validation.value.standard,
+          status: 'active',
+        },
+        { $inc: { enrollmentVersion: 1 } },
+        { new: true, runValidators: true, session },
+      ).select('_id').lean();
+      if (!activeClass) {
+        const inactiveClass = new Error('Choose an active class configured for this branch.');
+        inactiveClass.code = 'CLASS_NOT_ACTIVE';
+        throw inactiveClass;
+      }
       const year = dateYear(new Date(), req.tenant.branch.timezone || req.tenant.organization.timezone);
       const sequence = await nextTenantSequence({
         organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id, sequenceType: 'admission', year, session,
@@ -681,6 +697,7 @@ router.post('/children', requireBranchContext, async (req, res) => {
     const result = await serializeChildren([populated], req.tenant.organization._id, req.tenant.branch._id);
     return res.status(201).json({ message: 'Child registered successfully.', child: result[0] });
   } catch (error) {
+    if (error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'A conflicting admission identifier already exists. Please try again.' });
     console.error('Unable to create tenant child:', error.message);
     return res.status(503).json({ message: 'Child registration could not be completed safely.' });
@@ -719,6 +736,23 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
       if (!configuredClass) return res.status(400).json({ message: 'Choose an active class configured for this branch.' });
     }
     const updated = await inTransaction(async (session) => {
+      if (updates.standard) {
+        const activeClass = await TenantClass.findOneAndUpdate(
+          {
+            organizationId: req.tenant.organization._id,
+            branchId: req.tenant.branch._id,
+            name: updates.standard,
+            status: 'active',
+          },
+          { $inc: { enrollmentVersion: 1 } },
+          { new: true, runValidators: true, session },
+        ).select('_id').lean();
+        if (!activeClass) {
+          const inactiveClass = new Error('Choose an active class configured for this branch.');
+          inactiveClass.code = 'CLASS_NOT_ACTIVE';
+          throw inactiveClass;
+        }
+      }
       const child = await Student.findOneAndUpdate(
         { _id: req.params.id, organizationId: req.tenant.organization._id, branchId: req.tenant.branch._id },
         { $set: updates },
@@ -740,6 +774,7 @@ router.put('/children/:id', requireBranchContext, async (req, res) => {
     const result = await serializeChildren([updated.toObject ? updated.toObject() : updated], req.tenant.organization._id, req.tenant.branch._id);
     return res.json({ message: 'Child record updated.', child: result[0] });
   } catch (error) {
+    if (error.code === 'CLASS_NOT_ACTIVE') return res.status(400).json({ message: error.message });
     if (error.code === 'NOT_FOUND') return res.status(404).json({ message: error.message });
     console.error('Unable to update tenant child:', error.message);
     return res.status(503).json({ message: 'Child record could not be updated safely.' });
