@@ -70,4 +70,12 @@ function calculateInvoiceBalance(totalAmountPaise, transactions) {
   };
 }
 
-module.exports = { MAX_MONEY_PAISE, parseMoneyToPaise, formatPaise, normalizeInvoiceLines, calculateInvoiceBalance };
+function calculateInvoiceBalanceForStatus(status, totalAmountPaise, transactions) {
+  const balance = calculateInvoiceBalance(totalAmountPaise, transactions);
+  // A void invoice is not an amount owed, even if its original face value is retained for audit.
+  if (status === 'void') return { ...balance, outstandingPaise: 0 };
+  if (status !== 'open') throw new TypeError('Unknown invoice status.');
+  return balance;
+}
+
+module.exports = { MAX_MONEY_PAISE, parseMoneyToPaise, formatPaise, normalizeInvoiceLines, calculateInvoiceBalance, calculateInvoiceBalanceForStatus };
