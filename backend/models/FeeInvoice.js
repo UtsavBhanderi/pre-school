@@ -26,6 +26,7 @@ const FeeInvoiceSchema = new mongoose.Schema({
   totalAmountPaise: { type: Number, required: true, min: 0, max: 100000000000, immutable: true },
   dueDate: { type: Date, default: null },
   status: { type: String, enum: ['open', 'void'], default: 'open', index: true },
+  ledgerVersion: { type: Number, min: 0, default: 0 },
   notes: { type: String, trim: true, maxlength: 1000, default: '' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
   voidedAt: { type: Date, default: null },
