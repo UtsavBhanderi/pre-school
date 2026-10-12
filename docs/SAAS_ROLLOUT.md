@@ -79,6 +79,17 @@ The tenant workspace also exposes a branch-scoped safety log:
 
 Arrival/pickup events are immutable. The child's current presence state is updated in a MongoDB transaction, and refused attempts are retained with an audit event but do not change presence state. Repeated check-ins and attempts to release a child who is not recorded as present are refused. There are no dedicated government-ID fields or ID uploads in this workflow. Common long-number patterns (including 12-digit, grouped 4-4-4 and PAN-shaped values) are rejected in names and staff notes, but this is not a general-purpose identity-document scanner; staff must not put identity-document details into free text. The school must still follow its own documented safeguarding and identity-verification policy; this software feature is a recordkeeping control, not a substitute for in-person judgment or staff training.
 
+## Tenant teacher work reports
+
+The tenant workspace includes a branch-scoped daily teaching report workflow:
+
+- GET /api/saas/work-reports?from=YYYY-MM-DD&to=YYYY-MM-DD lists the user's own reports for teachers or reports in the selected branch for authorized managers. The date range is limited to 92 inclusive calendar days.
+- POST /api/saas/work-reports lets a teacher submit one report per assigned class and date, including the subject/activity, start/end time, teaching summary and number of children present.
+- PUT /api/saas/work-reports/:id lets the original teacher revise a report while it is submitted or has a follow-up request. Report date/class are fixed, revisions are counted, and the current enrollment snapshot caps the student count.
+- PATCH /api/saas/work-reports/:id/review lets organization owners, head-office administrators and branch administrators mark a submitted report reviewed or request follow-up with a note.
+
+Teacher access is limited to assigned classes, the authenticated teacher's own reports and the selected organization/branch. Managers review reports inside their permitted branch scope. A reviewed report is locked; a report sent back for follow-up may be corrected and resubmitted, preserving the previous review history. Creation, revisions and reviews write audit events. Report times and student counts are validated server-side; report dates cannot be in the future and teacher backdating is limited to seven days.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
