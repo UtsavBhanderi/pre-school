@@ -466,6 +466,11 @@ router.get('/summary', async (req, res) => {
   const canViewFees = MONEY_READ_ROLES.includes(req.tenant.membership.role);
 
   const scope = { organizationId: req.tenant.organization._id };
+  if (req.tenant.membership.role === 'teacher') {
+    const classNames = Array.isArray(req.tenant.membership.classNames) ? req.tenant.membership.classNames : [];
+    if (!classNames.length) return res.status(403).json({ message: 'No classes are assigned to this teacher account yet.' });
+    scope.standard = { $in: classNames };
+  }
   if (req.tenant.branch) {
     scope.branchId = req.tenant.branch._id;
   } else if (!req.tenant.membership.accessAllBranches) {
