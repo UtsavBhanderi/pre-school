@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee, MdRefresh, MdShield, MdCalendarMonth, MdArrowForward, MdErrorOutline, MdCheckCircle } from "react-icons/md";
+import { MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee, MdRefresh, MdShield, MdCalendarMonth, MdArrowForward, MdErrorOutline, MdCheckCircle, MdCampaign } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
@@ -8,6 +8,7 @@ import "../parent-portal.css";
 
 const PARENT_TABS = [
   { id: "overview", label: "Family overview", Icon: MdDashboard },
+  { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "My children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fee status", Icon: MdCurrencyRupee },
@@ -50,6 +51,7 @@ export default function ParentPortal() {
   const [children, setChildren] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [refreshed, setRefreshed] = useState(0);
@@ -92,6 +94,9 @@ export default function ParentPortal() {
         const feeResult = await parentRequest("/api/saas/parent/fees", organizationId, branchId);
         setInvoices(feeResult.invoices || []);
         if (feeResult.message) setError(feeResult.message);
+      } else if (tab === "notices") {
+        const noticeResult = await parentRequest("/api/saas/notices", organizationId, branchId);
+        setNotices(Array.isArray(noticeResult) ? noticeResult : []);
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Your family information could not be loaded. Please try again.");
@@ -113,7 +118,7 @@ export default function ParentPortal() {
       <header className="parent-portal-header">
         <div className="parent-portal-brand"><span><MdSchool aria-hidden="true" /></span><div><strong>Family portal</strong><small>{organization?.name || "Your preschool"}</small></div></div>
         <div className="parent-portal-header-actions">
-          {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
+          {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); setNotices([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
           {branches.length > 1 && <label><span>Branch</span><select value={branchId} onChange={(event) => setBranchId(event.target.value)} aria-label="Choose branch"><option value="">All my linked branches</option>{branches.map((branch) => <option key={branch.id || branch._id} value={branch.id || branch._id}>{branch.name}</option>)}</select></label>}
           <button type="button" className="saas-icon-button" onClick={() => setRefreshed((value) => value + 1)} aria-label="Refresh family information"><MdRefresh /></button>
           <button type="button" className="parent-signout-button" onClick={logout}><MdLogout /> Sign out</button>
@@ -158,6 +163,39 @@ export default function ParentPortal() {
             <div className="parent-portal-section-heading"><div><h2>Attendance history</h2><p>Review attendance recorded by your preschool for your linked children.</p></div></div>
             <div className="parent-date-filters"><label>From<input type="date" value={attendanceFrom} onChange={(event) => setAttendanceFrom(event.target.value)} /></label><label>To<input type="date" value={attendanceTo} onChange={(event) => setAttendanceTo(event.target.value)} /></label><button type="button" className="saas-secondary-button" onClick={() => setRefreshed((value) => value + 1)}>Apply dates</button></div>
             {attendance.length ? <div className="parent-attendance-list">{attendance.map(({ child, records }) => <article key={child.id}><div className="parent-portal-section-heading"><div><h3>{child.name}</h3><p>{child.className} · {child.branch?.name || ""}</p></div><span>{records.length} entries</span></div>{records.length ? <div className="parent-attendance-table">{records.map((record, index) => <div key={record.date + index}><time>{dateLabel(record.date)}</time><span className={"parent-attendance-status " + record.status}>{record.status === "present" ? "Present" : "Absent"}</span><small>{record.status === "absent" ? record.reason : "—"}</small></div>)}</div> : <p className="parent-muted">No attendance entry in this date range.</p>}</article>)}</div> : !loading && <div className="saas-empty-state"><strong>No attendance history</strong><p>There are no saved attendance entries for your linked children in this date range.</p></div>}
+          </section>
+        )}
+
+        {tab === "notices" && (
+          <section className="parent-portal-section">
+            <div className="parent-portal-section-heading">
+              <div><h2>School notices</h2><p>Updates shared by your preschool for your linked branch or branches.</p></div>
+              <span className="tenant-notice-count">{notices.length} {notices.length === 1 ? "notice" : "notices"}</span>
+            </div>
+            {notices.length ? (
+              <div className="tenant-notice-list parent-tenant-notice-list">
+                {notices.map((notice) => (
+                  <article className={"tenant-notice-card priority-" + notice.priority} key={notice.id}>
+                    <div className="tenant-notice-card-top">
+                      <div className="tenant-notice-badges">
+                        <span className={"tenant-notice-priority " + notice.priority}>{notice.priority}</span>
+                        {notice.audience !== "all" && <span className="tenant-notice-audience">Parents and guardians</span>}
+                      </div>
+                      {notice.branch?.name && <small className="tenant-notice-branch">{notice.branch.name}</small>}
+                    </div>
+                    <h3>{notice.title}</h3>
+                    <p className="tenant-notice-message">{notice.message}</p>
+                    <div className="tenant-notice-meta">
+                      <span>Posted {dateLabel(notice.createdAt)}</span>
+                      <span>{notice.expiresAt ? "Valid until " + dateLabel(notice.expiresAt) : "No end date provided"}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : !loading ? (
+              <div className="saas-empty-state"><strong>No current school notices</strong><p>When your preschool posts an update for parents, it will appear here. You do not need to check other branches or contact lists.</p></div>
+            ) : <div className="saas-loading" role="status">Loading school notices…</div>}
+            <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Branch-aware updates</strong><p>These notices are limited to branches connected to the family records linked to your account.</p></div></div>
           </section>
         )}
 
