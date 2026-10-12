@@ -163,6 +163,7 @@ router.post('/accept', async (req, res) => {
             role: invitation.role,
             branchIds: invitation.branchIds,
             guardianIds: invitation.role === 'parent' ? invitation.guardianIds : [],
+            classNames: invitation.classNames || [],
             accessAllBranches: false,
             status: 'active',
             invitedBy: invitation.invitedBy,
