@@ -6,7 +6,7 @@ function csvCell(value) {
 
   let text = String(value);
   // Excel and similar spreadsheet apps may execute cells beginning with formula characters.
-  if (/^[\t\r ]*[=+\-@]/.test(text)) text = "'" + text;
+  if (/^[\s\uFEFF]*[=+\-@]/.test(text)) text = "'" + text;
   return '"' + text.replace(/"/g, '""').replace(/\r\n|\r|\n/g, '\n') + '"';
 }
 
