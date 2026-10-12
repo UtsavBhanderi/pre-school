@@ -132,13 +132,14 @@ router.post('/', async (req, res) => {
           return res.status(403).json({ message: 'A branch administrator may only invite a parent linked to their assigned branches.' });
         }
       }
-      const alreadyConnected = await Guardian.find({
-        _id: { $in: guardianIds },
+      const alreadyConnected = await OrganizationMembership.findOne({
         organizationId: req.tenant.organization._id,
-        portalUserId: { $exists: true, $ne: null },
+        role: 'parent',
+        status: 'active',
+        guardianIds: { $in: guardianIds },
       }).select('_id').lean();
-      if (alreadyConnected.length) {
-        return res.status(409).json({ message: 'One of the selected guardian contacts already has a portal account. Review the existing account before sending another invitation.' });
+      if (alreadyConnected) {
+        return res.status(409).json({ message: 'One of the selected guardian contacts already belongs to an active parent portal account.' });
       }
     } catch (error) {
       console.error('Unable to validate guardian invitation:', error.message);
