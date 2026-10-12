@@ -16,6 +16,7 @@ const INVITABLE_ROLES = [
 const OrganizationInvitationSchema = new mongoose.Schema({
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true, immutable: true, index: true },
   branchIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }], default: [], immutable: true },
+  classNames: { type: [{ type: String, trim: true, maxlength: 80 }], default: [], immutable: true },
   role: { type: String, enum: INVITABLE_ROLES, required: true, immutable: true },
   email: { type: String, required: true, lowercase: true, trim: true, maxlength: 254, immutable: true },
   fullName: { type: String, required: true, trim: true, maxlength: 120, immutable: true },
