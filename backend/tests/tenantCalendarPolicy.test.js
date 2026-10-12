@@ -18,6 +18,7 @@ test('calendar read and manage permissions fail closed for inactive memberships'
   assert.equal(canReadCalendar({ status: 'invited', role: 'teacher' }), false);
   assert.equal(canManageCalendar({ status: 'active', role: 'organization_owner' }), true);
   assert.equal(canManageCalendar({ status: 'active', role: 'teacher' }), false);
+  assert.deepEqual(audienceForRole('organization_owner'), ['all', 'staff', 'parents']);
   assert.deepEqual(audienceForRole('parent'), ['all', 'parents']);
   assert.deepEqual(audienceForRole('teacher'), ['all', 'staff']);
 });
