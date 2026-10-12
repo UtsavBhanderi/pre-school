@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -15,10 +15,12 @@ import "../tenant-notices.css";
 import "../tenant-reports.css";
 import "../tenant-calendar.css";
 import "../tenant-handover.css";
+import "../tenant-work-reports.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
   { id: "reports", label: "Reports & exports", Icon: MdAssessment },
+  { id: "workreports", label: "Teacher work reports", Icon: MdAssignment },
   { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
@@ -166,6 +168,7 @@ export default function TenantWorkspace() {
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
+    if (item.id === 'workreports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'handover') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher', 'transport_staff'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
@@ -236,6 +239,13 @@ export default function TenantWorkspace() {
   const [handoverQuery, setHandoverQuery] = useState("");
   const [handoverTarget, setHandoverTarget] = useState(null);
   const [handoverDraft, setHandoverDraft] = useState({ method: "family", guardianId: "", personName: "", idChecked: false, staffNote: "" });
+  const [workReports, setWorkReports] = useState([]);
+  const [workReportFrom, setWorkReportFrom] = useState(() => localDateDaysAgo(29));
+  const [workReportTo, setWorkReportTo] = useState(todayLocal);
+  const [workReportClassFilter, setWorkReportClassFilter] = useState("");
+  const [workReportStatusFilter, setWorkReportStatusFilter] = useState("all");
+  const [editingWorkReportId, setEditingWorkReportId] = useState("");
+  const [workReportDraft, setWorkReportDraft] = useState({ reportDate: todayLocal(), className: "", subject: "", startTime: "09:00", endTime: "12:00", workSummary: "", studentsPresent: "0" });
   const [feeDraft, setFeeDraft] = useState({
     childId: "", academicYear: academicYearNow(), description: "Tuition fee", amount: "", discount: "0", dueDate: "", notes: "",
   });
@@ -345,6 +355,24 @@ export default function TenantWorkspace() {
       throw invitationResult.reason;
     }
   }, [organizationId]);
+
+  const loadWorkReports = useCallback(async () => {
+    if (!organizationId || !branchId) {
+      setWorkReports([]);
+      return [];
+    }
+    const params = { from: workReportFrom, to: workReportTo };
+    if (workReportClassFilter) params.className = workReportClassFilter;
+    if (workReportStatusFilter !== "all") params.status = workReportStatusFilter;
+    const data = await saasRequest("/api/saas/work-reports", {
+      organizationId,
+      branchId,
+      params,
+    });
+    const result = Array.isArray(data?.reports) ? data.reports : [];
+    setWorkReports(result);
+    return result;
+  }, [organizationId, branchId, workReportFrom, workReportTo, workReportClassFilter, workReportStatusFilter]);
 
   const loadHandover = useCallback(async () => {
     if (!organizationId) return;
@@ -468,6 +496,9 @@ export default function TenantWorkspace() {
         } else if (activeTab === "fees") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
+        } else if (activeTab === "workreports") {
+          if (!branchId) return;
+          await Promise.all([loadClasses(), loadWorkReports()]);
         } else if (activeTab === "handover") {
           await loadHandover();
         } else if (activeTab === "calendar") {
@@ -490,7 +521,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover, loadWorkReports,
   ]);
 
   useEffect(() => {
@@ -537,6 +568,9 @@ export default function TenantWorkspace() {
     setSummary(null);
     setChildren([]);
     setInvoices([]);
+    setWorkReports([]);
+    setEditingWorkReportId("");
+    setWorkReportClassFilter("");
     setHandoverChildren([]);
     setHandoverEvents([]);
     setHandoverTarget(null);
@@ -550,6 +584,9 @@ export default function TenantWorkspace() {
     setChildren([]);
     setInvoices([]);
     setAttendanceRows([]);
+    setWorkReports([]);
+    setEditingWorkReportId("");
+    setWorkReportClassFilter("");
     setHandoverChildren([]);
     setHandoverEvents([]);
     setHandoverTarget(null);
@@ -1061,6 +1098,109 @@ export default function TenantWorkspace() {
       setSuccessMessage(result.message || (editingNoticeId ? "Notice updated." : "Notice published."));
       resetNoticeEditor();
       await loadNotices();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetWorkReportEditor = () => {
+    setEditingWorkReportId("");
+    setWorkReportDraft({
+      reportDate: todayLocal(),
+      className: classes[0]?.name || "",
+      subject: "",
+      startTime: "09:00",
+      endTime: "12:00",
+      workSummary: "",
+      studentsPresent: "0",
+    });
+  };
+
+  const editWorkReport = (report) => {
+    setEditingWorkReportId(report.id);
+    setWorkReportDraft({
+      reportDate: report.reportDate,
+      className: report.className,
+      subject: report.subject || "",
+      startTime: report.startTime || "09:00",
+      endTime: report.endTime || "12:00",
+      workSummary: report.workSummary || "",
+      studentsPresent: String(report.studentsPresent ?? 0),
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const saveWorkReport = async (event) => {
+    event.preventDefault();
+    if (!branchId) {
+      setErrorMessage("Choose a branch before submitting a work report.");
+      return;
+    }
+    if (!workReportDraft.className) {
+      setErrorMessage("Choose one of your assigned classes.");
+      return;
+    }
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        reportDate: workReportDraft.reportDate,
+        className: workReportDraft.className,
+        subject: workReportDraft.subject.trim(),
+        startTime: workReportDraft.startTime,
+        endTime: workReportDraft.endTime,
+        workSummary: workReportDraft.workSummary.trim(),
+        studentsPresent: Number(workReportDraft.studentsPresent),
+      };
+      const result = editingWorkReportId
+        ? await saasRequest("/api/saas/work-reports/" + editingWorkReportId, {
+          method: "PUT", organizationId, branchId, data: payload,
+        })
+        : await saasRequest("/api/saas/work-reports", {
+          method: "POST", organizationId, branchId, data: payload,
+        });
+      resetWorkReportEditor();
+      setSuccessMessage(result.message || "Daily work report submitted.");
+      setErrorMessage("");
+      await loadWorkReports();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reviewWorkReport = async (report, status) => {
+    if (!canManagePeople) return;
+    const needsFollowUp = status === "needs_follow_up";
+    const reviewNote = needsFollowUp
+      ? window.prompt("What should the teacher clarify or complete?")
+      : window.prompt("Review note (optional):") || "";
+    if (needsFollowUp && (!reviewNote || reviewNote.trim().length < 3)) return;
+    if (!window.confirm(needsFollowUp
+      ? "Request follow-up for this report?"
+      : "Mark this work report as reviewed?")) return;
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/work-reports/" + report.id + "/review", {
+        method: "PATCH",
+        organizationId,
+        branchId,
+        data: { status, reviewNote: String(reviewNote || "").trim() },
+      });
+      setSuccessMessage(result.message || "Work report review saved.");
+      setErrorMessage("");
+      await loadWorkReports();
       setRefreshVersion((version) => version + 1);
     } catch (error) {
       setErrorMessage(displayError(error));
@@ -2015,6 +2155,127 @@ export default function TenantWorkspace() {
                 )}
               </div>
               <div className="parent-privacy-card tenant-report-privacy"><MdShield aria-hidden="true" /><div><strong>Exports are protected and traceable.</strong><p>The server checks your organization, branch, role and (for teachers) assigned classes. Child and invoice references are re-checked against the same branch, and the export action is written to the audit log.</p></div></div>
+            </section>
+          )}
+
+          {activeTab === "workreports" && (
+            <section className="saas-section tenant-work-reports-section">
+              <SectionHeading
+                title="Teacher daily work reports"
+                description={canManagePeople
+                  ? "Review teaching activity, time spent and attendance counts. Ask for follow-up when something needs clarification."
+                  : "Record the learning activities and classroom work completed for one of your assigned classes."}
+                action={<button type="button" className="saas-secondary-button" onClick={() => loadWorkReports()} disabled={loading || saving}><MdRefresh aria-hidden="true" /> Refresh reports</button>}
+              />
+
+              {!branchId && <div className="saas-message error" role="status"><MdErrorOutline aria-hidden="true" /><span>Choose a branch above before viewing or submitting work reports.</span></div>}
+
+              {role === "teacher" && branchId && (
+                <form className="saas-form-card tenant-work-report-form" onSubmit={saveWorkReport}>
+                  <div className="saas-form-heading">
+                    <div>
+                      <h3>{editingWorkReportId ? "Edit unreviewed daily report" : "Submit today's teaching report"}</h3>
+                      <p>Submit one report per assigned class and school day. After an administrator reviews it, the report becomes read-only.</p>
+                    </div>
+                    {editingWorkReportId && <button type="button" className="saas-secondary-button" onClick={resetWorkReportEditor}>Cancel edit</button>}
+                  </div>
+                  <div className="saas-form-grid">
+                    <label>Report date *
+                      <input type="date" value={workReportDraft.reportDate} min={localDateDaysAgo(7)} max={todayLocal()} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, reportDate: event.target.value }))} disabled={Boolean(editingWorkReportId)} required />
+                    </label>
+                    <label>Assigned class *
+                      <select value={workReportDraft.className} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, className: event.target.value }))} disabled={Boolean(editingWorkReportId)} required>
+                        <option value="">Choose a class</option>
+                        {classes.map((item) => <option key={item.id || item._id || item.name} value={item.name}>{item.name}</option>)}
+                      </select>
+                    </label>
+                    <label>Subject or activity *
+                      <input value={workReportDraft.subject} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, subject: event.target.value }))} minLength={2} maxLength={100} required placeholder="e.g. Early literacy" />
+                    </label>
+                    <label>Start time *
+                      <input type="time" value={workReportDraft.startTime} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, startTime: event.target.value }))} required />
+                    </label>
+                    <label>End time *
+                      <input type="time" value={workReportDraft.endTime} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, endTime: event.target.value }))} min={workReportDraft.startTime || undefined} required />
+                    </label>
+                    <label>Children present *
+                      <input type="number" min="0" max="1000" step="1" value={workReportDraft.studentsPresent} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, studentsPresent: event.target.value }))} required />
+                    </label>
+                    <label className="saas-full-width">What did you teach or complete? *
+                      <textarea value={workReportDraft.workSummary} onChange={(event) => setWorkReportDraft((draft) => ({ ...draft, workSummary: event.target.value }))} minLength={10} maxLength={5000} rows="4" required placeholder="Describe lessons, activities, learning materials and any general classroom follow-up. Avoid including sensitive family or medical details." />
+                    </label>
+                  </div>
+                  <div className="tenant-work-report-form-note"><MdShield aria-hidden="true" /><span>Reports are visible to authorized school administrators. A reviewed report cannot be edited; ask an administrator to record a correction if needed.</span></div>
+                  <div className="saas-form-actions">
+                    <button type="submit" className="saas-primary-button" disabled={saving || !branchId}>{saving ? "Saving report…" : editingWorkReportId ? "Save changes" : "Submit for review"}</button>
+                  </div>
+                </form>
+              )}
+
+              <div className="tenant-work-report-filters">
+                <label>From date<input type="date" value={workReportFrom} max={workReportTo || undefined} onChange={(event) => setWorkReportFrom(event.target.value)} /></label>
+                <label>To date<input type="date" value={workReportTo} min={workReportFrom || undefined} max={todayLocal()} onChange={(event) => setWorkReportTo(event.target.value)} /></label>
+                <label>Class
+                  <select value={workReportClassFilter} onChange={(event) => setWorkReportClassFilter(event.target.value)}>
+                    <option value="">All classes</option>
+                    {classes.map((item) => <option key={item.id || item._id || item.name} value={item.name}>{item.name}</option>)}
+                  </select>
+                </label>
+                <label>Status
+                  <select value={workReportStatusFilter} onChange={(event) => setWorkReportStatusFilter(event.target.value)}>
+                    <option value="all">All statuses</option><option value="submitted">Needs review</option><option value="needs_follow_up">Follow-up needed</option><option value="reviewed">Reviewed</option>
+                  </select>
+                </label>
+                <button type="button" className="saas-secondary-button" onClick={() => loadWorkReports()} disabled={loading || !branchId}><MdSearch aria-hidden="true" /> Apply filters</button>
+                <span>{workReports.length} report{workReports.length === 1 ? "" : "s"} in this view</span>
+              </div>
+
+              {workReports.length ? (
+                <div className="tenant-work-report-list">
+                  {workReports.map((report) => {
+                    const isOwnReport = report.submittedBy?.id === user?.id;
+                    const mayEdit = role === "teacher" && isOwnReport && ["submitted", "needs_follow_up"].includes(report.status);
+                    const mayReview = canManagePeople && report.status === "submitted";
+                    return (
+                      <article className="tenant-work-report-card" key={report.id}>
+                        <div className="tenant-work-report-card-top">
+                          <div className="tenant-work-report-date">
+                            <span>{formatDate(report.reportDate)}</span>
+                            <strong>{report.className}</strong>
+                            <small>{report.subject}</small>
+                          </div>
+                          <span className={"saas-pill " + report.status}>{report.status === "submitted" ? "Needs review" : report.status === "reviewed" ? "Reviewed" : "Follow-up needed"}</span>
+                        </div>
+                        <div className="tenant-work-report-meta">
+                          <span><MdHistory aria-hidden="true" /> {report.startTime}–{report.endTime} · {Math.floor(report.durationMinutes / 60)}h {report.durationMinutes % 60}m</span>
+                          <span><MdPeople aria-hidden="true" /> {report.studentsPresent} present of {report.classEnrollmentCount} registered</span>
+                          {canManagePeople && <span><MdManageAccounts aria-hidden="true" /> {report.submittedBy?.name || "Teacher"}</span>}
+                        </div>
+                        <p className="tenant-work-report-summary">{report.workSummary}</p>
+                        {report.reviewHistory?.length > 0 && <div className="tenant-work-report-review">
+                          <strong>Review history</strong>
+                          {report.reviewHistory.map((review, index) => (
+                            <div className="tenant-work-report-review-entry" key={report.id + "-review-" + index}>
+                              <span>{review.status === "reviewed" ? "Reviewed" : "Follow-up requested"} by {review.reviewedBy?.name || "school administrator"} · {formatDate(review.reviewedAt)}</span>
+                              {review.reviewNote && <p>{review.reviewNote}</p>}
+                            </div>
+                          ))}
+                        </div>}
+                        <div className="tenant-work-report-card-actions">
+                          <span>Revision {report.revision || 1} · Updated {formatDate(report.updatedAt)}</span>
+                          {mayEdit && <button type="button" className="saas-secondary-button" onClick={() => editWorkReport(report)} disabled={saving}>Edit report</button>}
+                          {mayReview && <>
+                            <button type="button" className="saas-secondary-button" onClick={() => reviewWorkReport(report, "needs_follow_up")} disabled={saving}>Request follow-up</button>
+                            <button type="button" className="saas-primary-button" onClick={() => reviewWorkReport(report, "reviewed")} disabled={saving}>Mark reviewed</button>
+                          </>}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : !loading && branchId ? (
+                <BlankState title="No work reports in this date range" detail={role === "teacher" ? "Submit a daily report above after you finish classroom activities. You can edit it until an administrator reviews it." : "Teacher submissions for the selected branch will appear here for review."} />
+              ) : !branchId ? null : <div className="saas-loading" role="status">Loading daily work reports…</div>}
             </section>
           )}
 
