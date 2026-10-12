@@ -36,6 +36,7 @@ const invitationsRoutes = require('./routes/invitations');
 const publicInvitationsRoutes = require('./routes/publicInvitations');
 const parentPortalRoutes = require('./routes/parentPortal');
 const tenantAnnouncementRoutes = require('./routes/tenantAnnouncements');
+const tenantCalendarRoutes = require('./routes/tenantCalendar');
 const privateMediaRoutes = require('./routes/privateMedia');
 const privateMediaResponse = require('./middleware/privateMediaResponse');
 const subjectRoutes = require('./routes/subject');
@@ -78,6 +79,7 @@ app.use('/api/invitations', publicInvitationsRoutes);
 app.use('/api/saas/invitations', auth, invitationsRoutes);
 app.use('/api/saas/parent', auth, parentPortalRoutes);
 app.use('/api/saas/notices', auth, tenantAnnouncementRoutes);
+app.use('/api/saas/calendar', auth, tenantCalendarRoutes);
 app.use('/api/saas/operations', auth, tenantOperationsRoutes);
 app.use('/api/saas', auth, tenantWorkspaceRoutes);
 
