@@ -18,6 +18,7 @@ test('only authorized active managers can edit staff attendance or decide leave'
   assert.equal(canReviewStaffLeave({ status: 'suspended', role: 'branch_admin' }), false);
   assert.equal(canReviewStaffLeave({ status: 'active', role: 'head_office_admin' }), true);
   assert.equal(canSelfPunch({ status: 'active', role: 'teacher' }), true);
+  assert.equal(canSelfPunch({ status: 'active', role: 'organization_owner' }), true);
   assert.equal(canSelfPunch({ status: 'active', role: 'parent' }), false);
 });
 
