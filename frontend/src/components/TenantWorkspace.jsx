@@ -568,6 +568,9 @@ export default function TenantWorkspace() {
     setSummary(null);
     setChildren([]);
     setInvoices([]);
+    setWorkReports([]);
+    setEditingWorkReportId("");
+    setWorkReportClassFilter("");
     setHandoverChildren([]);
     setHandoverEvents([]);
     setHandoverTarget(null);
@@ -581,6 +584,9 @@ export default function TenantWorkspace() {
     setChildren([]);
     setInvoices([]);
     setAttendanceRows([]);
+    setWorkReports([]);
+    setEditingWorkReportId("");
+    setWorkReportClassFilter("");
     setHandoverChildren([]);
     setHandoverEvents([]);
     setHandoverTarget(null);
@@ -1104,7 +1110,7 @@ export default function TenantWorkspace() {
     setEditingWorkReportId("");
     setWorkReportDraft({
       reportDate: todayLocal(),
-      className: "",
+      className: classes[0]?.name || "",
       subject: "",
       startTime: "09:00",
       endTime: "12:00",
@@ -2228,7 +2234,7 @@ export default function TenantWorkspace() {
                 <div className="tenant-work-report-list">
                   {workReports.map((report) => {
                     const isOwnReport = report.submittedBy?.id === user?.id;
-                    const mayEdit = role === "teacher" && isOwnReport && report.status === "submitted";
+                    const mayEdit = role === "teacher" && isOwnReport && ["submitted", "needs_follow_up"].includes(report.status);
                     const mayReview = canManagePeople && report.status === "submitted";
                     return (
                       <article className="tenant-work-report-card" key={report.id}>
@@ -2246,7 +2252,15 @@ export default function TenantWorkspace() {
                           {canManagePeople && <span><MdManageAccounts aria-hidden="true" /> {report.submittedBy?.name || "Teacher"}</span>}
                         </div>
                         <p className="tenant-work-report-summary">{report.workSummary}</p>
-                        {report.reviewedAt && <div className="tenant-work-report-review"><strong>{report.status === "reviewed" ? "Reviewed" : "Follow-up requested"} by {report.reviewedBy?.name || "school administrator"} · {formatDate(report.reviewedAt)}</strong>{report.reviewNote && <p>{report.reviewNote}</p>}</div>}
+                        {report.reviewHistory?.length > 0 && <div className="tenant-work-report-review">
+                          <strong>Review history</strong>
+                          {report.reviewHistory.map((review, index) => (
+                            <div className="tenant-work-report-review-entry" key={report.id + "-review-" + index}>
+                              <span>{review.status === "reviewed" ? "Reviewed" : "Follow-up requested"} by {review.reviewedBy?.name || "school administrator"} · {formatDate(review.reviewedAt)}</span>
+                              {review.reviewNote && <p>{review.reviewNote}</p>}
+                            </div>
+                          ))}
+                        </div>}
                         <div className="tenant-work-report-card-actions">
                           <span>Revision {report.revision || 1} · Updated {formatDate(report.updatedAt)}</span>
                           {mayEdit && <button type="button" className="saas-secondary-button" onClick={() => editWorkReport(report)} disabled={saving}>Edit report</button>}
