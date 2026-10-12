@@ -13,6 +13,7 @@ const { hasTenantRole, canAccessBranch } = require('../utils/tenantAuthorization
 const { INVITABLE_ROLES } = require('../models/OrganizationInvitation');
 const { createInvitationToken, invitationExpiry } = require('../utils/invitationTokens');
 const { createInvitationUrl, sendInvitationEmail } = require('../utils/invitationEmail');
+const { STANDARD_FEES } = require('../config/standardFees');
 
 const router = express.Router();
 router.use(tenantContext);
@@ -59,6 +60,7 @@ router.get('/', async (req, res) => {
       email: invitation.email,
       fullName: invitation.fullName,
       role: invitation.role,
+      classNames: invitation.classNames || [],
       status: invitation.status,
       deliveryStatus: invitation.deliveryStatus,
       expiresAt: invitation.expiresAt,
@@ -92,6 +94,7 @@ router.post('/', async (req, res) => {
 
   let branchIds = [];
   let guardianIds = [];
+  let classNames = [];
   if (role === 'parent') {
     if (!hasTenantRole(req.tenant.membership, [...ORG_ADMINS, 'branch_admin'])) {
       return res.status(403).json({ message: 'You do not have permission to invite a parent.' });
@@ -142,6 +145,16 @@ router.post('/', async (req, res) => {
       return res.status(503).json({ message: 'Parent access could not be verified.' });
     }
   } else {
+    if (role === 'teacher') {
+      const requestedClasses = Array.isArray(req.body?.classNames)
+        ? [...new Set(req.body.classNames.map((value) => clean(value, 80)))]
+        : [];
+      if (!requestedClasses.length || requestedClasses.some((className) => !Object.prototype.hasOwnProperty.call(STANDARD_FEES, className))) {
+        return res.status(400).json({ message: 'Assign at least one configured class to this teacher.' });
+      }
+      classNames = requestedClasses;
+    }
+
     const submittedBranchIds = Array.isArray(req.body?.branchIds)
       ? [...new Set(req.body.branchIds.map((value) => String(value)))]
       : [];
@@ -188,6 +201,7 @@ router.post('/', async (req, res) => {
             organizationId: req.tenant.organization._id,
             branchIds,
             guardianIds,
+            classNames,
             role,
             email,
             fullName,
@@ -223,6 +237,7 @@ router.post('/', async (req, res) => {
         email,
         fullName,
         role,
+        classNames,
         status: invitation.status,
         deliveryStatus: invitation.deliveryStatus,
         expiresAt,
