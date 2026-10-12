@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -15,6 +15,7 @@ import "../tenant-notices.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
+  { id: "reports", label: "Reports & exports", Icon: MdAssessment },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
@@ -27,6 +28,12 @@ const TABS = [
 const todayLocal = () => {
   const now = new Date();
   return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+};
+
+const localDateDaysAgo = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
 };
 
 const localDateTimeInputNow = () => {
@@ -141,9 +148,12 @@ export default function TenantWorkspace() {
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
   const canManageNotices = canManagePeople;
+  const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
+  const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
     if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -162,6 +172,9 @@ export default function TenantWorkspace() {
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [reportFrom, setReportFrom] = useState(() => localDateDaysAgo(29));
+  const [reportTo, setReportTo] = useState(todayLocal);
+  const [reportDownloading, setReportDownloading] = useState("");
   const [editingNoticeId, setEditingNoticeId] = useState("");
   const [noticeDraft, setNoticeDraft] = useState(() => ({
     title: "",
