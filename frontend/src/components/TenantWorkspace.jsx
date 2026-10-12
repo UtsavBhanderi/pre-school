@@ -9,6 +9,7 @@ import {
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
+import "../invitations.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -989,7 +990,7 @@ export default function TenantWorkspace() {
           {activeTab === "branches" && (
             <section className="saas-section">
               <SectionHeading title="Your branches" description="Run each preschool branch independently while keeping one organization-wide view." />
-              {canSeeAllBranches && (
+              {canManageOrganization && (
                 <form className="saas-form-card" onSubmit={createBranch}>
                   <div className="saas-form-heading"><div><h3>Add a branch</h3><p>Use a short unique code, such as SURAT-01. Branch codes cannot be reused within your organization.</p></div></div>
                   <div className="saas-form-grid">
