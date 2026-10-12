@@ -9,12 +9,15 @@ import {
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
+import "../invitations.css";
+import "../class-config.css";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fees & payments", Icon: MdCurrencyRupee },
+  { id: "classes", label: "Classes & fees", Icon: MdSchool },
   { id: "branches", label: "Branches", Icon: MdApartment },
   { id: "team", label: "Team & activity", Icon: MdManageAccounts },
 ];
@@ -100,13 +103,26 @@ function BlankState({ title, detail, action }) {
 export default function TenantWorkspace() {
   const { user, logout } = useContext(AuthContext);
   const memberships = useMemo(
-    () => (Array.isArray(user?.memberships) ? user.memberships.filter((item) => item?.organization?.id) : []),
+    () => (Array.isArray(user?.memberships) ? user.memberships.filter((item) => item?.organization?.id && item.role !== 'parent') : []),
     [user?.memberships],
   );
   const [organizationId, setOrganizationId] = useState(() => memberships[0]?.organization?.id || "");
   const activeMembership = memberships.find((item) => item.organization.id === organizationId) || memberships[0];
   const organization = activeMembership?.organization || null;
+  const role = activeMembership?.role || '';
   const canSeeAllBranches = Boolean(activeMembership?.accessAllBranches);
+  const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
+  const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+  const visibleTabs = TABS.filter((item) => {
+    if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
+    if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
+    if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
+    if (item.id === 'classes') return ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+    if (item.id === 'branches') return ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+    if (item.id === 'team') return canManagePeople;
+    return false;
+  });
   const [branchId, setBranchId] = useState(() => activeMembership?.accessAllBranches ? "" : activeMembership?.branchIds?.[0]?.id || "");
   const [branches, setBranches] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
@@ -116,6 +132,9 @@ export default function TenantWorkspace() {
   const [invoices, setInvoices] = useState([]);
   const [members, setMembers] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [invitations, setInvitations] = useState([]);
+  const [inviteDraft, setInviteDraft] = useState({ fullName: '', email: '', role: 'teacher', branchIds: [], guardianIds: [], classNames: [] });
+  const [invitationUrl, setInvitationUrl] = useState('');
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -131,6 +150,8 @@ export default function TenantWorkspace() {
     guardianPickup: true, communicationConsent: false, photoConsent: false,
   });
   const [branchDraft, setBranchDraft] = useState({ name: "", code: "", phone: "", email: "", city: "", state: "", postalCode: "" });
+  const [classDraft, setClassDraft] = useState({ name: "", code: "", minAgeMonths: "", maxAgeMonths: "", defaultFee: "0", feeFrequency: "annual", capacity: "30", description: "", status: "active" });
+  const [editingClassId, setEditingClassId] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(todayLocal);
   const [attendanceClass, setAttendanceClass] = useState("");
   const [attendanceRows, setAttendanceRows] = useState([]);
@@ -152,6 +173,24 @@ export default function TenantWorkspace() {
 
   const activeBranch = branches.find((item) => item._id === branchId || item.id === branchId) || null;
   const currency = organization?.currency || "INR";
+  const availableGuardianContacts = useMemo(() => {
+    const unique = new Map();
+    for (const child of children) {
+      for (const guardian of child.guardians || []) {
+        if (!guardian.id) continue;
+        if (!unique.has(guardian.id)) unique.set(guardian.id, {
+          id: guardian.id,
+          name: guardian.name || "Parent / guardian",
+          email: String(guardian.email || "").toLowerCase(),
+          phone: guardian.phone || "",
+          relationship: guardian.relationship || "guardian",
+          childName: child.fullName || "Child",
+          primaryContact: Boolean(guardian.primaryContact),
+        });
+      }
+    }
+    return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [children]);
 
   const loadBranches = useCallback(async () => {
     if (!organizationId) return;
@@ -212,14 +251,16 @@ export default function TenantWorkspace() {
 
   const loadMembersAndAudit = useCallback(async () => {
     if (!organizationId) return;
-    const [memberResult, auditResult] = await Promise.allSettled([
+    const [memberResult, auditResult, invitationResult] = await Promise.allSettled([
       saasRequest("/api/saas/members", { organizationId }),
       saasRequest("/api/saas/audit", { organizationId, params: { limit: 50 } }),
+      saasRequest("/api/saas/invitations", { organizationId }),
     ]);
     setMembers(memberResult.status === "fulfilled" ? memberResult.value : []);
     setAuditEvents(auditResult.status === "fulfilled" ? auditResult.value : []);
-    if (memberResult.status === "rejected" && auditResult.status === "rejected") {
-      throw memberResult.reason;
+    setInvitations(invitationResult.status === "fulfilled" ? invitationResult.value : []);
+    if (memberResult.status === "rejected" && auditResult.status === "rejected" && invitationResult.status === "rejected") {
+      throw invitationResult.reason;
     }
   }, [organizationId]);
 
@@ -261,6 +302,9 @@ export default function TenantWorkspace() {
         if (!organizationId) return;
         if (activeTab === "branches") {
           await loadBranches();
+        } else if (activeTab === "classes") {
+          if (!branchId) return;
+          await loadClasses();
         } else if (activeTab === "children") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(appliedQuery)]);
@@ -303,7 +347,7 @@ export default function TenantWorkspace() {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(""), loadInvoices()]);
         } else if (activeTab === "team") {
-          await loadMembersAndAudit();
+          await Promise.all([loadBranches(), loadMembersAndAudit(), branchId ? loadChildren("") : Promise.resolve([]), branchId ? loadClasses() : Promise.resolve([])]);
         } else if (activeTab === "overview") {
           const data = await saasRequest("/api/saas/operations/summary", { organizationId, branchId });
           if (active) setSummary(data);
@@ -583,6 +627,205 @@ export default function TenantWorkspace() {
     }
   };
 
+
+  const updateClassDraft = (event) => {
+    const { name, value } = event.target;
+    setClassDraft((draft) => ({ ...draft, [name]: value }));
+  };
+
+  const beginClassEdit = (classroom) => {
+    setEditingClassId(classroom.id);
+    setClassDraft({
+      name: classroom.name,
+      code: classroom.code,
+      minAgeMonths: classroom.minAgeMonths ?? "",
+      maxAgeMonths: classroom.maxAgeMonths ?? "",
+      defaultFee: String(classroom.defaultFee ?? 0),
+      feeFrequency: classroom.feeFrequency || "annual",
+      capacity: String(classroom.capacity || 30),
+      description: classroom.description || "",
+      status: classroom.status || "active",
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const cancelClassEdit = () => {
+    setEditingClassId("");
+    setClassDraft({ name: "", code: "", minAgeMonths: "", maxAgeMonths: "", defaultFee: "0", feeFrequency: "annual", capacity: "30", description: "", status: "active" });
+  };
+
+  const saveClass = async (event) => {
+    event.preventDefault();
+    if (!branchId) {
+      setErrorMessage("Choose a branch before configuring classes.");
+      return;
+    }
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        minAgeMonths: classDraft.minAgeMonths,
+        maxAgeMonths: classDraft.maxAgeMonths,
+        defaultFee: classDraft.defaultFee,
+        feeFrequency: classDraft.feeFrequency,
+        capacity: classDraft.capacity,
+        description: classDraft.description,
+      };
+      const result = editingClassId
+        ? await saasRequest("/api/saas/operations/classes/" + editingClassId, {
+            method: "PUT", organizationId, branchId, data: payload,
+          })
+        : await saasRequest("/api/saas/operations/classes", {
+            method: "POST",
+            organizationId,
+            branchId,
+            data: { ...payload, name: classDraft.name, code: classDraft.code },
+          });
+      setSuccessMessage(result.message || (editingClassId ? "Class settings saved." : "Class created."));
+      setErrorMessage("");
+      cancelClassEdit();
+      await loadClasses();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const archiveClass = async (classroom) => {
+    if (!window.confirm("Archive " + classroom.name + "? It will no longer be available for new admissions or attendance. Classes with enrolled children cannot be archived.")) return;
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/operations/classes/" + classroom.id, {
+        method: "PUT", organizationId, branchId, data: { status: "inactive" },
+      });
+      setSuccessMessage(result.message || "Class archived.");
+      await loadClasses();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateInvitationDraft = (field, value) => {
+    setInviteDraft((draft) => ({ ...draft, [field]: value }));
+  };
+
+  const changeInvitationRole = (nextRole) => {
+    setInviteDraft((draft) => ({ ...draft, role: nextRole, classNames: [], guardianIds: [] }));
+    setInvitationUrl("");
+  };
+
+  const toggleInviteBranch = (id, checked) => {
+    setInviteDraft((draft) => ({
+      ...draft,
+      branchIds: checked ? [...new Set([...draft.branchIds, id])] : draft.branchIds.filter((value) => value !== id),
+    }));
+  };
+
+  const toggleInviteClass = (name, checked) => {
+    setInviteDraft((draft) => ({
+      ...draft,
+      classNames: checked ? [...new Set([...draft.classNames, name])] : draft.classNames.filter((value) => value !== name),
+    }));
+  };
+
+  const toggleInviteGuardian = (guardian, checked) => {
+    setInviteDraft((draft) => {
+      const guardianIds = checked
+        ? [...new Set([...draft.guardianIds, guardian.id])]
+        : draft.guardianIds.filter((id) => id !== guardian.id);
+      return {
+        ...draft,
+        guardianIds,
+        fullName: checked && !draft.fullName.trim() ? guardian.name : draft.fullName,
+        email: checked && !draft.email.trim() ? guardian.email : draft.email,
+      };
+    });
+  };
+
+  const createInvitation = async (event) => {
+    event.preventDefault();
+    if (inviteDraft.role === "parent" && !inviteDraft.guardianIds.length) {
+      setErrorMessage("Choose at least one existing parent/guardian contact to link to this invitation.");
+      return;
+    }
+    if (inviteDraft.role === "teacher" && !inviteDraft.classNames.length) {
+      setErrorMessage("Assign at least one class to this teacher.");
+      return;
+    }
+    if (inviteDraft.role !== "parent" && !inviteDraft.branchIds.length) {
+      setErrorMessage("Select at least one branch for this team member.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setInvitationUrl("");
+    try {
+      const result = await saasRequest("/api/saas/invitations", {
+        method: "POST",
+        organizationId,
+        branchId: branchId || undefined,
+        data: {
+          fullName: inviteDraft.fullName,
+          email: inviteDraft.email,
+          role: inviteDraft.role,
+          branchIds: inviteDraft.role === "parent" ? [] : inviteDraft.branchIds,
+          guardianIds: inviteDraft.role === "parent" ? inviteDraft.guardianIds : [],
+          classNames: inviteDraft.role === "teacher" ? inviteDraft.classNames : [],
+        },
+      });
+      setSuccessMessage(result.message || "Invitation created.");
+      setErrorMessage("");
+      setInvitationUrl(result.invitationUrl || "");
+      setInviteDraft({ fullName: "", email: "", role: "teacher", branchIds: branchId ? [branchId] : [], guardianIds: [], classNames: [] });
+      await loadMembersAndAudit();
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revokeInvitation = async (invitation) => {
+    if (!window.confirm("Revoke the pending invitation for " + invitation.email + "? Its link will stop working.")) return;
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/invitations/" + invitation.id + "/revoke", {
+        method: "PATCH",
+        organizationId,
+        branchId: branchId || undefined,
+      });
+      setSuccessMessage(result.message || "Invitation revoked.");
+      await loadMembersAndAudit();
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyInvitationUrl = async () => {
+    if (!invitationUrl) return;
+    try {
+      await navigator.clipboard.writeText(invitationUrl);
+      setSuccessMessage("Invitation link copied. Share it only with the invited person.");
+    } catch {
+      setErrorMessage("Copy was blocked by the browser. Select the invitation link and copy it manually.");
+    }
+  };
+
   if (!memberships.length) {
     return (
       <main className="saas-setup-shell">
@@ -596,7 +839,7 @@ export default function TenantWorkspace() {
     );
   }
 
-  const needBranch = ["children", "attendance", "fees"].includes(activeTab) && !branchId;
+  const needBranch = ["children", "attendance", "fees", "classes"].includes(activeTab) && !branchId;
 
   return (
     <div className="saas-workspace">
@@ -607,7 +850,7 @@ export default function TenantWorkspace() {
         </div>
         <div className="saas-sidebar-label">WORKSPACE</div>
         <nav className="saas-sidebar-nav" aria-label="Preschool workspace">
-          {TABS.map(({ id, label, Icon }) => (
+          {visibleTabs.map(({ id, label, Icon }) => (
             <button key={id} type="button" className={"saas-nav-item" + (activeTab === id ? " active" : "")} onClick={() => setActiveTab(id)}>
               <Icon aria-hidden="true" /><span>{label}</span>
             </button>
@@ -672,8 +915,8 @@ export default function TenantWorkspace() {
                   <MetricCard label="Active branches" value={summary?.branchCount ?? "—"} detail="Across this organization" Icon={MdApartment} />
                   <MetricCard label="Children registered" value={summary?.children?.total ?? "—"} detail={(summary?.children?.addedToday ?? 0) + " added today"} Icon={MdPeople} />
                   <MetricCard label="Present today" value={summary?.attendance?.present ?? "—"} detail={(summary?.attendance?.absent ?? 0) + " absent · " + (summary?.attendance?.recorded ?? 0) + " marked"} Icon={MdFactCheck} />
-                  <MetricCard label="Money collected today" value={summary ? formatMoney(summary.fees?.collectedToday, currency) : "—"} detail="Net of any refunds" Icon={MdCurrencyRupee} />
-                  <MetricCard label="Fees still due" value={summary ? formatMoney(summary.fees?.outstanding, currency) : "—"} detail="On open invoices" Icon={MdReceiptLong} />
+                  <MetricCard label="Money collected today" value={summary?.fees ? formatMoney(summary.fees.collectedToday, currency) : role === "teacher" || role === "hr_manager" || role === "transport_staff" ? "Restricted" : "—"} detail={summary?.fees ? "Net of any refunds" : "Finance access is limited by role"} Icon={MdCurrencyRupee} />
+                  <MetricCard label="Fees still due" value={summary?.fees ? formatMoney(summary.fees.outstanding, currency) : role === "teacher" || role === "hr_manager" || role === "transport_staff" ? "Restricted" : "—"} detail={summary?.fees ? "On open invoices" : "Finance access is limited by role"} Icon={MdReceiptLong} />
                 </div>
               )}
               {canSeeAllBranches && !branchId && <div className="saas-hint"><MdApartment /> You are viewing the whole organization. Choose a branch above to work on children, attendance and payments.</div>}
@@ -708,7 +951,7 @@ export default function TenantWorkspace() {
                         <label>Middle name<input name="middleName" value={childDraft.middleName} onChange={updateChildDraft} maxLength={80} /></label>
                         <label>Last name<input name="lastName" value={childDraft.lastName} onChange={updateChildDraft} maxLength={80} /></label>
                         <label>Date of birth<input type="date" name="dateOfBirth" value={childDraft.dateOfBirth} onChange={updateChildDraft} /></label>
-                        <label>Class *<select name="className" value={childDraft.className} onChange={updateChildDraft} required><option value="">Choose a class</option>{classes.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>
+                        <label>Class *<select name="className" value={childDraft.className} onChange={updateChildDraft} required><option value="">Choose a class</option>{classes.map((item) => <option key={item.id || item.name} value={item.name}>{item.name}</option>)}</select></label>
                         <label>Academic year *<input name="academicYear" value={childDraft.academicYear} onChange={updateChildDraft} pattern="\d{4}-\d{4}" required /></label>
                         <label>Gender<select name="gender" value={childDraft.gender} onChange={updateChildDraft}><option value="">Not specified</option><option>Female</option><option>Male</option><option>Other</option></select></label>
                         <label className="saas-full-width">Home address<textarea name="address" value={childDraft.address} onChange={updateChildDraft} rows="2" maxLength={500} /></label>
@@ -796,7 +1039,7 @@ export default function TenantWorkspace() {
                   <form className="saas-form-card" onSubmit={createInvoice}>
                     <div className="saas-form-heading"><div><h3>Create a fee invoice</h3><p>Amounts are saved precisely in paise. Payments and refunds are recorded as separate ledger entries.</p></div></div>
                     <div className="saas-form-grid">
-                      <label className="saas-full-width">Child *<select name="childId" value={feeDraft.childId} onChange={(event) => setFeeDraft((draft) => ({ ...draft, childId: event.target.value }))} required><option value="">Choose a child</option>{children.map((child) => <option key={child.id} value={child.id}>{child.fullName} · {child.className} · {child.admissionNumber}</option>)}</select></label>
+                      <label className="saas-full-width">Child *<select name="childId" value={feeDraft.childId} onChange={(event) => { const selected = children.find((child) => child.id === event.target.value); const defaultFee = classes.find((item) => item.name === selected?.className)?.defaultFee; setFeeDraft((draft) => ({ ...draft, childId: event.target.value, amount: Number(defaultFee) > 0 ? String(defaultFee) : draft.amount })); }} required><option value="">Choose a child</option>{children.map((child) => <option key={child.id} value={child.id}>{child.fullName} · {child.className} · {child.admissionNumber}</option>)}</select></label>
                       <label>Academic year *<input name="academicYear" value={feeDraft.academicYear} onChange={updateFeeDraft} pattern="\d{4}-\d{4}" required /></label>
                       <label>Fee item name *<input name="description" value={feeDraft.description} onChange={updateFeeDraft} required maxLength={160} /></label>
                       <label>Amount (₹) *<input name="amount" type="number" min="0.01" step="0.01" value={feeDraft.amount} onChange={updateFeeDraft} required /></label>
@@ -841,7 +1084,7 @@ export default function TenantWorkspace() {
           {activeTab === "branches" && (
             <section className="saas-section">
               <SectionHeading title="Your branches" description="Run each preschool branch independently while keeping one organization-wide view." />
-              {canSeeAllBranches && (
+              {canManageOrganization && (
                 <form className="saas-form-card" onSubmit={createBranch}>
                   <div className="saas-form-heading"><div><h3>Add a branch</h3><p>Use a short unique code, such as SURAT-01. Branch codes cannot be reused within your organization.</p></div></div>
                   <div className="saas-form-grid">
@@ -870,14 +1113,161 @@ export default function TenantWorkspace() {
             </section>
           )}
 
+          {activeTab === "classes" && (
+            <section className="saas-section">
+              <SectionHeading title="Classes and fee defaults" description="Configure the classes offered at this branch. Admissions, attendance, and teacher access use this list." />
+              {needBranch ? <BlankState title="Choose a branch first" detail="Class settings belong to a branch. Choose a branch from the top of the page to manage its classes." /> : (
+                <>
+                  <form className="saas-form-card" onSubmit={saveClass}>
+                    <div className="saas-form-heading"><div><h3>{editingClassId ? "Edit class settings" : "Add a class"}</h3><p>Class names and codes are fixed once created so historical student and attendance records remain consistent.</p></div></div>
+                    <div className="saas-form-grid">
+                      <label>Class name *<input name="name" value={classDraft.name} onChange={updateClassDraft} required minLength={2} maxLength={80} disabled={Boolean(editingClassId)} placeholder="e.g. Nursery" /></label>
+                      <label>Class code (optional)<input name="code" value={classDraft.code} onChange={(event) => setClassDraft((draft) => ({ ...draft, code: event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") }))} minLength={2} maxLength={16} pattern="[A-Z0-9]+(-[A-Z0-9]+)*" disabled={Boolean(editingClassId)} placeholder="Auto-generated from name" /></label>
+                      <label>Minimum age (months)<input type="number" name="minAgeMonths" value={classDraft.minAgeMonths} onChange={updateClassDraft} min="0" max="240" step="1" /></label>
+                      <label>Maximum age (months)<input type="number" name="maxAgeMonths" value={classDraft.maxAgeMonths} onChange={updateClassDraft} min="0" max="240" step="1" /></label>
+                      <label>Default fee (₹) *<input type="number" name="defaultFee" value={classDraft.defaultFee} onChange={updateClassDraft} min="0" step="0.01" required /></label>
+                      <label>Fee frequency *<select name="feeFrequency" value={classDraft.feeFrequency} onChange={updateClassDraft} required><option value="annual">Annual</option><option value="term">Per term</option><option value="monthly">Monthly</option><option value="one_time">One-time</option></select></label>
+                      <label>Class capacity *<input type="number" name="capacity" value={classDraft.capacity} onChange={updateClassDraft} min="1" max="1000" step="1" required /></label>
+                      <label className="saas-full-width">Description (optional)<textarea name="description" value={classDraft.description} onChange={updateClassDraft} maxLength={500} rows="2" placeholder="Age group, schedule, or notes for staff" /></label>
+                    </div>
+                    <div className="saas-class-setup-note"><MdShield aria-hidden="true" /><span>Fee defaults are specific to this branch. Creating a class does not create invoices or charge families automatically; an authorized staff member must create an invoice.</span></div>
+                    <div className="saas-form-actions">
+                      {editingClassId && <button type="button" className="saas-secondary-button" onClick={cancelClassEdit}>Cancel edit</button>}
+                      <button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Saving class…" : editingClassId ? "Save class settings" : "Create class"}</button>
+                    </div>
+                  </form>
+
+                  <SectionHeading title="Configured classes" description={classes.length + " active class" + (classes.length === 1 ? "" : "es") + " in " + (activeBranch?.name || "this branch") + "."} />
+                  {classes.length ? (
+                    <div className="saas-class-grid">
+                      {classes.map((classroom) => (
+                        <article className="saas-class-card" key={classroom.id}>
+                          <div className="saas-class-card-top"><span className="saas-class-symbol"><MdSchool aria-hidden="true" /></span><span className="saas-pill active">Active</span></div>
+                          <div className="saas-class-name"><h3>{classroom.name}</h3><span>{classroom.code}</span></div>
+                          <div className="saas-class-fee"><span>Default fee</span><strong>{formatMoney(classroom.defaultFee, currency)}</strong><small>{String(classroom.feeFrequency || "annual").replaceAll("_", " ")}</small></div>
+                          <div className="saas-class-meta"><span>Age range</span><strong>{classroom.minAgeMonths == null && classroom.maxAgeMonths == null ? "Not specified" : (classroom.minAgeMonths == null ? "Any" : classroom.minAgeMonths + " mo") + " – " + (classroom.maxAgeMonths == null ? "Any" : classroom.maxAgeMonths + " mo")}</strong></div>
+                          <div className="saas-class-meta"><span>Capacity</span><strong>{classroom.capacity} children</strong></div>
+                          {classroom.description && <p className="saas-class-description">{classroom.description}</p>}
+                          <div className="saas-class-actions"><button type="button" className="saas-secondary-button" onClick={() => beginClassEdit(classroom)}>Edit settings</button><button type="button" className="saas-text-button" disabled={saving} onClick={() => archiveClass(classroom)}>Archive</button></div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : <BlankState title="Set up your first class" detail="Create a class above before registering children, recording attendance, or assigning teachers to classes." />}
+                </>
+              )}
+            </section>
+          )}
+
           {activeTab === "team" && (
             <section className="saas-section">
-              <SectionHeading title="Team and activity" description="Review organization membership and changes recorded in the audit history." />
-              <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Access is controlled by membership and branch permissions.</strong><p>This view is read-only. User invitations, access changes and parent portal activation will be added with their own verification and audit workflows.</p></div></div>
-              <SectionHeading title="Organization members" description="Only owner and head-office roles can view the member list." />
-              {members.length ? <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Branches</th><th>Status</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.user.name}</strong></td><td>{member.user.email}</td><td>{member.role.replaceAll("_", " ")}</td><td>{member.accessAllBranches ? "All branches" : member.branches.map((item) => item.name).join(", ") || "No branch assigned"}</td><td><span className={"saas-pill " + member.status}>{member.status}</span></td></tr>)}</tbody></table></div> : <p className="saas-muted-note">No member list is available for this role or organization.</p>}
-              <SectionHeading title="Recent activity" description="Recent actions recorded for this organization. Select the entry to review its details." />
-              {auditEvents.length ? <div className="saas-audit-list">{auditEvents.map((event) => <article className="saas-audit-row" key={event._id}><span className="saas-audit-icon"><MdHistory /></span><div><strong>{event.summary || event.action}</strong><p>{event.action} · {event.resourceType}{event.branchId?.name ? " · " + event.branchId.name : ""}</p><small>{event.actorUserId?.username || "System"} · {formatDate(event.createdAt)}</small>{event.reason && <p>Reason: {event.reason}</p>}</div><span className={"saas-pill " + (event.outcome || "success")}>{event.outcome || "success"}</span></article>)}</div> : <BlankState title="No audit events yet" detail="Organization creation, branch creation and tenant operations will appear here as they are recorded." />}
+              <SectionHeading title="Team and family access" description="Invite staff or parents using a one-time link, set their access, and revoke links that should no longer work." />
+
+              {canManagePeople && (
+                <form className="saas-form-card" onSubmit={createInvitation}>
+                  <div className="saas-form-heading">
+                    <div><h3>Invite someone</h3><p>Each invitation expires after 72 hours and can be accepted only once. The role and branch access are checked by the server.</p></div>
+                  </div>
+
+                  <div className="saas-form-grid">
+                    <label>Full name *<input value={inviteDraft.fullName} onChange={(event) => updateInvitationDraft("fullName", event.target.value)} required minLength={2} maxLength={120} /></label>
+                    <label>Email address *<input type="email" value={inviteDraft.email} onChange={(event) => updateInvitationDraft("email", event.target.value)} required maxLength={254} placeholder="person@example.com" /></label>
+                    <label>Access role *
+                      <select value={inviteDraft.role} onChange={(event) => changeInvitationRole(event.target.value)} required>
+                        {(role === "branch_admin" ? [
+                          ["teacher", "Teacher"], ["admissions", "Admissions staff"], ["transport_staff", "Transport staff"], ["parent", "Parent / guardian"],
+                        ] : [
+                          ["head_office_admin", "Head-office administrator"], ["branch_admin", "Branch administrator"],
+                          ["admissions", "Admissions staff"], ["teacher", "Teacher"], ["accountant", "Accountant"],
+                          ["hr_manager", "HR manager"], ["transport_staff", "Transport staff"], ["parent", "Parent / guardian"],
+                        ]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  {inviteDraft.role === "parent" ? (
+                    <div className="saas-invite-selector">
+                      <div><h4>Link existing family contact(s) *</h4><p>The invitation email must match every selected guardian record. Parents will only see children connected to these specific contacts.</p></div>
+                      {!branchId ? <div className="saas-invite-empty">Choose a branch from the top of the page to load its family contacts.</div> :
+                        availableGuardianContacts.filter((guardian) => guardian.email).length ? (
+                          <div className="saas-invite-choice-list">
+                            {availableGuardianContacts.filter((guardian) => guardian.email).map((guardian) => (
+                              <label key={guardian.id} className="saas-invite-choice">
+                                <input type="checkbox" checked={inviteDraft.guardianIds.includes(guardian.id)} onChange={(event) => toggleInviteGuardian(guardian, event.target.checked)} />
+                                <span><strong>{guardian.name}</strong><small>{guardian.relationship} · {guardian.childName}</small><small>{guardian.email}{guardian.phone ? " · " + guardian.phone : ""}</small></span>
+                                {guardian.primaryContact && <span className="saas-pill">Primary contact</span>}
+                              </label>
+                            ))}
+                          </div>
+                        ) : <div className="saas-invite-empty">No contacts with email addresses are available for this branch. Add or correct the family email in the child record first.</div>
+                      }
+                    </div>
+                  ) : (
+                    <div className="saas-invite-selector">
+                      <div><h4>Branch access *</h4><p>Only selected branches will be available after sign-in. Select one or more branches this person actually works in.</p></div>
+                      <div className="saas-invite-choice-list">
+                        {branches.map((branch) => (
+                          <label key={branch.id || branch._id} className="saas-invite-choice">
+                            <input type="checkbox" checked={inviteDraft.branchIds.includes(String(branch.id || branch._id))} onChange={(event) => toggleInviteBranch(String(branch.id || branch._id), event.target.checked)} />
+                            <span><strong>{branch.name}</strong><small>{branch.code} · {branch.address?.city || "Location not added"}</small></span>
+                          </label>
+                        ))}
+                        {!branches.length && <div className="saas-invite-empty">No accessible branch is available to assign.</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {inviteDraft.role === "teacher" && (
+                    <div className="saas-invite-selector">
+                      <div><h4>Assigned classes *</h4><p>Teachers can view and record attendance only for the classes assigned here. Choose at least one class.</p></div>
+                      {!branchId ? <div className="saas-invite-empty">Choose a branch from the top of the page to load its class list.</div> : classes.length ? (
+                        <div className="saas-invite-class-grid">
+                          {classes.map((classItem) => (
+                            <label key={classItem.name} className="saas-invite-class-option"><input type="checkbox" checked={inviteDraft.classNames.includes(classItem.name)} onChange={(event) => toggleInviteClass(classItem.name, event.target.checked)} /><span>{classItem.name}</span></label>
+                          ))}
+                        </div>
+                      ) : <div className="saas-invite-empty">No class list available. Choose a branch or check the school's configured classes.</div>}
+                    </div>
+                  )}
+
+                  <div className="saas-invite-note"><MdShield aria-hidden="true" /><span>Do not invite a person to a role or branch they do not need. Parents require an existing guardian record with a matching email address. Teachers are limited to the classes selected above.</span></div>
+                  <div className="saas-form-actions"><button type="submit" className="saas-primary-button" disabled={saving || !branches.length}>{saving ? "Creating invitation…" : "Create invitation"}</button></div>
+                  {invitationUrl && (
+                    <div className="saas-invite-link-panel" role="status">
+                      <div><strong>Share this one-time invitation link</strong><p>Email is not configured or could not send. Share the link only with the person named in the invitation.</p></div>
+                      <textarea readOnly value={invitationUrl} rows={3} aria-label="One-time invitation link" onFocus={(event) => event.target.select()} />
+                      <div className="saas-form-actions"><button type="button" className="saas-secondary-button" onClick={copyInvitationUrl}>Copy link</button><a className="saas-secondary-button" href={invitationUrl} target="_blank" rel="noopener noreferrer">Preview invite</a></div>
+                    </div>
+                  )}
+                </form>
+              )}
+
+              <SectionHeading title="Invitations" description="Pending invitations can be revoked immediately. Used and expired invitations remain listed for accountability." />
+              {invitations.length ? (
+                <div className="saas-table-wrap"><table className="saas-table">
+                  <thead><tr><th>Person</th><th>Access role</th><th>Branch / classes</th><th>Status</th><th>Expires</th><th>Action</th></tr></thead>
+                  <tbody>{invitations.map((invitation) => (
+                    <tr key={invitation.id}>
+                      <td><strong>{invitation.fullName}</strong><small>{invitation.email}</small></td>
+                      <td>{String(invitation.role).replaceAll("_", " ")}</td>
+                      <td>{invitation.role === "teacher" ? (invitation.classNames || []).join(", ") : (invitation.branches || []).map((item) => item.name || String(item)).join(", ") || "Assigned family links"}</td>
+                      <td><span className={"saas-pill " + invitation.status}>{invitation.status}</span><small>{invitation.deliveryStatus === "sent" ? "Email sent" : invitation.deliveryStatus === "failed" ? "Manual link required" : invitation.deliveryStatus}</small></td>
+                      <td>{formatDate(invitation.expiresAt)}</td>
+                      <td>{invitation.status === "pending" ? <button type="button" className="saas-secondary-button" disabled={saving} onClick={() => revokeInvitation(invitation)}>Revoke</button> : "—"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table></div>
+              ) : <BlankState title="No invitations yet" detail="Create the first invitation above. Each link is one-time and expires after 72 hours." />}
+
+              {role === "branch_admin" ? (
+                <div className="saas-security-panel"><MdShield aria-hidden="true" /><div><strong>Branch-limited administration</strong><p>You can invite or revoke access only for branches assigned to your account. Organization-wide member and audit details are reserved for the owner and head office.</p></div></div>
+              ) : (
+                <>
+                  <SectionHeading title="Organization members" description="Current active and invited members of this organization." />
+                  {members.length ? <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Branches / classes</th><th>Status</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><strong>{member.user.name}</strong></td><td>{member.user.email}</td><td>{member.role.replaceAll("_", " ")}</td><td>{member.accessAllBranches ? "All branches" : member.branches.map((item) => item.name).join(", ") || "No branch assigned"}{member.role === "teacher" && member.classNames?.length ? <small>Classes: {member.classNames.join(", ")}</small> : null}</td><td><span className={"saas-pill " + member.status}>{member.status}</span></td></tr>)}</tbody></table></div> : <p className="saas-muted-note">No member list is available yet.</p>}
+                  <SectionHeading title="Recent activity" description="Recent organization actions are recorded here for accountability." />
+                  {auditEvents.length ? <div className="saas-audit-list">{auditEvents.map((event) => <article className="saas-audit-row" key={event._id}><span className="saas-audit-icon"><MdHistory /></span><div><strong>{event.summary || event.action}</strong><p>{event.action} · {event.resourceType}{event.branchId?.name ? " · " + event.branchId.name : ""}</p><small>{event.actorUserId?.username || "System"} · {formatDate(event.createdAt)}</small>{event.reason && <p>Reason: {event.reason}</p>}</div><span className={"saas-pill " + (event.outcome || "success")}>{event.outcome || "success"}</span></article>)}</div> : <BlankState title="No audit events yet" detail="Organization creation, invitations, branch creation and attendance/finance actions will appear here." />}
+                </>
+              )}
             </section>
           )}
         </div>

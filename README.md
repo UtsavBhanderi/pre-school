@@ -27,6 +27,34 @@ See [the SaaS rollout gates](docs/SAAS_ROLLOUT.md) for endpoints, tenant/branch 
 The organization-creation and branch-creation operations use MongoDB transactions. The production database must support transactions (for example, a correctly configured replica set). The next milestones are tenant-scoped core student/attendance/fee records, secure media delivery, a verified legacy-data migration, and cross-tenant negative integration tests.
 
 
+
+## Multi-tenant workspace, staff invitations and parent portal
+
+The SaaS branch includes an organization/branch workspace, class-assigned teacher accounts, scoped child and guardian links, attendance, fee invoices and an append-only payment/refund ledger. Organization users enter through the existing sign-in page; active organization membership routes them into the appropriate workspace. Parent accounts land in the separate **Family portal**.
+
+### Inviting staff and parents
+
+From **Team & activity → Invite someone**, an authorized organization owner, head-office administrator or branch administrator can create a one-time invitation. Invitations expire after 72 hours and store only a hash of the invitation token. If SMTP is configured, the link is emailed; otherwise the authorized inviter receives a copyable link to share through a verified channel. Revoke pending invitations from the same screen.
+
+Optional backend variables for SMTP are documented in \`backend/.env.example\`: \`SMTP_HOST\`, \`SMTP_PORT\`, \`SMTP_SECURE\`, \`EMAIL_FROM\`, \`EMAIL_USER\`, and \`EMAIL_PASS\`. Set \`FRONTEND_URL\` to the exact public frontend origin so invitation links point to the deployed site. Never put real credentials in the repository.
+
+Teacher invitations require one or more assigned classes and active branch access. Parent invitations require selecting existing guardian contacts whose saved email matches the invitation email. Parent access is derived only from those guardian links: the family portal reads linked children, authorized attendance history, and fee invoices where that guardian is explicitly marked as the billing contact. Parents cannot create invoices, mark attendance, or see another family's record through these endpoints.
+
+The parent portal does not currently process online payments or send notices by WhatsApp/SMS. SMTP invitation delivery is optional and does not imply other messaging integrations.
+
+**Production caveat:** this feature set still needs end-to-end integration tests against a replica-set MongoDB, private delivery for existing uploaded child media, migration of legacy school records into verified organization/branch scopes, backup/restore validation, and a real-school workflow review. Keep public organization registration disabled until every gate in [the SaaS rollout checklist](docs/SAAS_ROLLOUT.md) is signed off.
+
+
+
+### SaaS workspace capabilities in progress
+
+The new organization workspace now has tenant-scoped child/guardian registration, daily attendance, fee invoices and payment/refund ledger records, branch management, branch-specific class setup and default tuition, staff/parent invitations, and a read-only parent portal. Roles and branch access are checked on the server; teacher access is limited to assigned classes, and parent views are derived from exact guardian-child links.
+
+This is a staged rollout, not a claim that all legacy features are tenant-safe. Public self-service organization registration remains disabled. The older single-school routes, exports, notices, learning resources and public upload URLs still require organization-aware migration and private media delivery before multiple paying schools can use the platform safely. Review [the rollout gates](docs/SAAS_ROLLOUT.md) before any production onboarding.
+
+Invitation email is optional. To send invitations automatically, configure \`SMTP_HOST\`, \`SMTP_PORT\`, \`SMTP_SECURE\`, \`EMAIL_USER\`, \`EMAIL_PASS\`, \`EMAIL_FROM\` and \`FRONTEND_URL\`. If email delivery is not available, the authorized inviter is shown the single-use invitation URL to share through a verified channel. Invitation links expire after 72 hours.
+
+
 ## Requirements
 
 - Node.js 20 or newer

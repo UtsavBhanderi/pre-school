@@ -42,6 +42,17 @@ The second environment flag is an operational gate, not proof of safety. It must
 
 For organization context endpoints, send the authenticated token in \`x-auth-token\` and selected organization in \`x-organization-id\`. For branch-level endpoints, also send \`x-branch-id\`.
 
+## Added in the core operations milestone
+
+- Tenant-scoped class configuration is branch-specific. Class names and codes are stable identifiers; fee default, frequency, capacity, age range and description can be updated by organization/branch administrators.
+- Owner, head-office and permitted branch administrators can invite staff with explicit branch scope; teacher invitations must include classes configured in every selected branch.
+- Parent invitations require an existing guardian record whose email matches the invitation and carry the exact selected guardian IDs into the parent membership.
+- Invitation secrets are random one-time tokens; only token hashes are stored. Links expire after 72 hours, can be revoked, and accepted links are recorded in audit events.
+- Parent portal reads only children linked through the invitation's guardian IDs. Parent fee records are shown only for linked contacts designated as billing contacts. Teacher roster and attendance APIs are restricted to assigned classes and do not include family contact details.
+- Fee invoices and transaction ledger entries store amounts as integer paise. Payments and refunds are immutable entries; an invoice write lock serializes concurrent ledger updates before balance validation.
+
+These workflows have automated unit/syntax/build checks, but the parent invitation and attendance/finance workflows still need isolated MongoDB integration tests using organizations A and B. Parent/guardian identity verification and real-world acceptance testing remain release gates.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.

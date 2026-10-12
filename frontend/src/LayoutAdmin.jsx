@@ -95,7 +95,12 @@ export default function LayoutAdmin() {
     setCommandOpen(true);
   };
 
-  if (Array.isArray(user?.memberships) && user.memberships.length > 0) {
+  if (Array.isArray(user?.memberships) && user.memberships.length > 0 &&
+      user.memberships.every((membership) => membership.role === "parent")) {
+    return <Navigate to="/parent-portal" replace />;
+  }
+
+  if (Array.isArray(user?.memberships) && user.memberships.some((membership) => membership.role !== "parent")) {
     return <TenantWorkspace />;
   }
 

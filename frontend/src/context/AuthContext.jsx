@@ -65,13 +65,19 @@ const AuthProvider = ({ children }) => {
     return fetchUserData(data.token);
   };
 
+  const setSession = async (token) => {
+    if (!token) throw new Error("An authentication token is required.");
+    localStorage.setItem("token", token);
+    return fetchUserData(token);
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, register, login, logout, setSession, loading }}>
       {children}
     </AuthContext.Provider>
   );

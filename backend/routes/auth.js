@@ -126,6 +126,7 @@ router.get('/me', auth, async (req, res) => {
           },
           role: entry.role,
           status: entry.status,
+          classNames: entry.classNames || [],
           branchIds: (entry.branchIds || []).map((branch) => ({
             id: String(branch._id),
             name: branch.name,

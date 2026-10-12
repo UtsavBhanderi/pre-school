@@ -31,6 +31,8 @@ import AdminUsers from "./components/AdminUsers.jsx";
 import OperationsHome from "./components/OperationsHome.jsx";
 import HelpCenter from "./components/HelpCenter.jsx";
 import AnnouncementsPage from "./components/AnnouncementsPage.jsx";
+import AcceptInvitation from "./components/AcceptInvitation.jsx";
+import ParentPortal from "./components/ParentPortal.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -56,6 +58,7 @@ const App = () => (
         <Route path="/" element={<Layout />}>
           <Route index element={<Login />} />
           <Route path="login" element={<Login />} />
+          <Route path="accept-invitation" element={<AcceptInvitation />} />
           <Route
             path="teacher-dashboard"
             element={
@@ -65,6 +68,8 @@ const App = () => (
             }
           />
         </Route>
+
+        <Route path="/parent-portal" element={<PrivateRoute><ParentPortal /></PrivateRoute>} />
 
         <Route
           path="/dashboard"
