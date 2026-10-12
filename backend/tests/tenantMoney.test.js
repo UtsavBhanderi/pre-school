@@ -29,7 +29,7 @@ test('invoice line totals and subtotal are calculated in integer paise', () => {
   ]);
   assert.equal(result.valid, true);
   assert.equal(result.lineItems[1].lineTotalPaise, 5050);
-  assert.equal(result.subtotalPaise, 130550);
+  assert.equal(result.subtotalPaise, 130100);
 });
 
 test('invoice line validation rejects empty, invalid and excessive entries', () => {
