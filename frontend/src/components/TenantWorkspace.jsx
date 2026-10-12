@@ -403,16 +403,57 @@ export default function TenantWorkspace() {
   };
 
   const updateChildDraft = (event) => setChildDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
+
+  const beginChildEdit = (child) => {
+    const primary = child.guardians?.find((guardian) => guardian.primaryContact) || child.guardians?.[0] || null;
+    setEditingChildId(child.id);
+    setChildDraft({
+      firstName: child.firstName || "",
+      middleName: child.middleName || "",
+      lastName: child.lastName || "",
+      dateOfBirth: child.dateOfBirth || "",
+      gender: child.gender || "",
+      className: child.className || "",
+      academicYear: child.academicYear || academicYearNow(),
+      address: child.address || "",
+      guardianName: primary?.name || "",
+      guardianPhone: primary?.phone || "",
+      guardianEmail: primary?.email || "",
+      guardianRelationship: primary?.relationship || "guardian",
+      guardianPickup: Boolean(primary?.authorizedPickup),
+      guardianBilling: Boolean(primary?.billingContact),
+      guardianEmergency: Boolean(primary?.emergencyContact),
+      guardianUpdates: primary?.receivesSchoolUpdates !== false,
+      communicationConsent: primary?.consent?.schoolCommunication || "unknown",
+      photoConsent: primary?.consent?.photoUse || "unknown",
+    });
+    setShowChildForm(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const closeChildForm = () => {
+    setShowChildForm(false);
+    setEditingChildId("");
+    setChildDraft(createBlankChildDraft(classes[0]?.name || ""));
+    setErrorMessage("");
+  };
+
   const saveChild = async (event) => {
     event.preventDefault();
     if (!organizationId || !branchId) return;
+    if (!classes.some((classroom) => classroom.name === childDraft.className && classroom.status !== "inactive")) {
+      setErrorMessage("Choose an active class configured for this branch.");
+      return;
+    }
     setSaving(true);
     setErrorMessage("");
     setSuccessMessage("");
+
     const payload = {
-      firstName: childDraft.firstName,
-      middleName: childDraft.middleName,
-      lastName: childDraft.lastName,
+      firstName: childDraft.firstName.trim(),
+      middleName: childDraft.middleName.trim(),
+      lastName: childDraft.lastName.trim(),
       dateOfBirth: childDraft.dateOfBirth,
       gender: childDraft.gender,
       className: childDraft.className,
@@ -424,32 +465,59 @@ export default function TenantWorkspace() {
         email: childDraft.guardianEmail,
         relationship: childDraft.guardianRelationship,
         isPrimaryContact: true,
-        isBillingContact: true,
-        isEmergencyContact: true,
+        isBillingContact: childDraft.guardianBilling,
+        isEmergencyContact: childDraft.guardianEmergency,
         authorizedPickup: childDraft.guardianPickup,
-        receivesSchoolUpdates: true,
+        receivesSchoolUpdates: childDraft.guardianUpdates,
         preferredLanguage: "en",
         consent: {
-          schoolCommunication: childDraft.communicationConsent ? "granted" : "unknown",
-          photoUse: childDraft.photoConsent ? "granted" : "unknown",
+          schoolCommunication: childDraft.communicationConsent,
+          photoUse: childDraft.photoConsent,
         },
       }],
     };
+
     try {
-      const result = await saasRequest("/api/saas/operations/children", {
-        method: "POST", data: payload, organizationId, branchId,
-      });
-      setChildDraft({
-        firstName: "", middleName: "", lastName: "", dateOfBirth: "", gender: "",
-        className: classes[0]?.name || "", academicYear: academicYearNow(), address: "",
-        guardianName: "", guardianPhone: "", guardianEmail: "", guardianRelationship: "mother",
-        guardianPickup: true, communicationConsent: false, photoConsent: false,
-      });
-      setShowChildForm(false);
-      setSuccessMessage(result.message || "Child registered.");
+      const result = editingChildId
+        ? await saasRequest("/api/saas/operations/children/" + editingChildId, {
+            method: "PUT",
+            organizationId,
+            branchId,
+            data: {
+              firstName: payload.firstName,
+              middleName: payload.middleName,
+              lastName: payload.lastName,
+              dob: payload.dateOfBirth,
+              gender: payload.gender,
+              standard: payload.className,
+              batchYear: payload.academicYear,
+              address: payload.address,
+              primaryGuardian: {
+                fullName: childDraft.guardianName,
+                phone: childDraft.guardianPhone,
+                email: childDraft.guardianEmail,
+                relationship: childDraft.guardianRelationship,
+                authorizedPickup: childDraft.guardianPickup,
+                receivesSchoolUpdates: childDraft.guardianUpdates,
+                isBillingContact: childDraft.guardianBilling,
+                isEmergencyContact: childDraft.guardianEmergency,
+                consent: {
+                  schoolCommunication: childDraft.communicationConsent,
+                  photoUse: childDraft.photoConsent,
+                  notes: "",
+                },
+              },
+            },
+          })
+        : await saasRequest("/api/saas/operations/children", {
+            method: "POST", data: payload, organizationId, branchId,
+          });
+
+      closeChildForm();
+      setSuccessMessage(result.message || (editingChildId ? "Child and family details saved." : "Child registered."));
       setErrorMessage("");
       setRefreshVersion((version) => version + 1);
-      await loadChildren(appliedQuery);
+      await Promise.all([loadChildren(appliedQuery), loadClasses()]);
     } catch (error) {
       setErrorMessage(displayError(error));
     } finally {
