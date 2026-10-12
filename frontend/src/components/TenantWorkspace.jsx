@@ -167,6 +167,24 @@ export default function TenantWorkspace() {
 
   const activeBranch = branches.find((item) => item._id === branchId || item.id === branchId) || null;
   const currency = organization?.currency || "INR";
+  const availableGuardianContacts = useMemo(() => {
+    const unique = new Map();
+    for (const child of children) {
+      for (const guardian of child.guardians || []) {
+        if (!guardian.id) continue;
+        if (!unique.has(guardian.id)) unique.set(guardian.id, {
+          id: guardian.id,
+          name: guardian.name || "Parent / guardian",
+          email: String(guardian.email || "").toLowerCase(),
+          phone: guardian.phone || "",
+          relationship: guardian.relationship || "guardian",
+          childName: child.fullName || "Child",
+          primaryContact: Boolean(guardian.primaryContact),
+        });
+      }
+    }
+    return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [children]);
 
   const loadBranches = useCallback(async () => {
     if (!organizationId) return;
@@ -597,6 +615,119 @@ export default function TenantWorkspace() {
       setErrorMessage(displayError(error));
     } finally {
       setSaving(false);
+    }
+  };
+
+
+  const updateInvitationDraft = (field, value) => {
+    setInviteDraft((draft) => ({ ...draft, [field]: value }));
+  };
+
+  const changeInvitationRole = (nextRole) => {
+    setInviteDraft((draft) => ({ ...draft, role: nextRole, classNames: [], guardianIds: [] }));
+    setInvitationUrl("");
+  };
+
+  const toggleInviteBranch = (id, checked) => {
+    setInviteDraft((draft) => ({
+      ...draft,
+      branchIds: checked ? [...new Set([...draft.branchIds, id])] : draft.branchIds.filter((value) => value !== id),
+    }));
+  };
+
+  const toggleInviteClass = (name, checked) => {
+    setInviteDraft((draft) => ({
+      ...draft,
+      classNames: checked ? [...new Set([...draft.classNames, name])] : draft.classNames.filter((value) => value !== name),
+    }));
+  };
+
+  const toggleInviteGuardian = (guardian, checked) => {
+    setInviteDraft((draft) => {
+      const guardianIds = checked
+        ? [...new Set([...draft.guardianIds, guardian.id])]
+        : draft.guardianIds.filter((id) => id !== guardian.id);
+      return {
+        ...draft,
+        guardianIds,
+        fullName: checked && !draft.fullName.trim() ? guardian.name : draft.fullName,
+        email: checked && !draft.email.trim() ? guardian.email : draft.email,
+      };
+    });
+  };
+
+  const createInvitation = async (event) => {
+    event.preventDefault();
+    if (inviteDraft.role === "parent" && !inviteDraft.guardianIds.length) {
+      setErrorMessage("Choose at least one existing parent/guardian contact to link to this invitation.");
+      return;
+    }
+    if (inviteDraft.role === "teacher" && !inviteDraft.classNames.length) {
+      setErrorMessage("Assign at least one class to this teacher.");
+      return;
+    }
+    if (inviteDraft.role !== "parent" && !inviteDraft.branchIds.length) {
+      setErrorMessage("Select at least one branch for this team member.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setInvitationUrl("");
+    try {
+      const result = await saasRequest("/api/saas/invitations", {
+        method: "POST",
+        organizationId,
+        branchId: branchId || undefined,
+        data: {
+          fullName: inviteDraft.fullName,
+          email: inviteDraft.email,
+          role: inviteDraft.role,
+          branchIds: inviteDraft.role === "parent" ? [] : inviteDraft.branchIds,
+          guardianIds: inviteDraft.role === "parent" ? inviteDraft.guardianIds : [],
+          classNames: inviteDraft.role === "teacher" ? inviteDraft.classNames : [],
+        },
+      });
+      setSuccessMessage(result.message || "Invitation created.");
+      setErrorMessage("");
+      setInvitationUrl(result.invitationUrl || "");
+      setInviteDraft({ fullName: "", email: "", role: "teacher", branchIds: branchId ? [branchId] : [], guardianIds: [], classNames: [] });
+      await loadMembersAndAudit();
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revokeInvitation = async (invitation) => {
+    if (!window.confirm("Revoke the pending invitation for " + invitation.email + "? Its link will stop working.")) return;
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/invitations/" + invitation.id + "/revoke", {
+        method: "PATCH",
+        organizationId,
+        branchId: branchId || undefined,
+      });
+      setSuccessMessage(result.message || "Invitation revoked.");
+      await loadMembersAndAudit();
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyInvitationUrl = async () => {
+    if (!invitationUrl) return;
+    try {
+      await navigator.clipboard.writeText(invitationUrl);
+      setSuccessMessage("Invitation link copied. Share it only with the invited person.");
+    } catch {
+      setErrorMessage("Copy was blocked by the browser. Select the invitation link and copy it manually.");
     }
   };
 
