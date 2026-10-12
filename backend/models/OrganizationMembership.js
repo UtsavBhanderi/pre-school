@@ -23,6 +23,7 @@ const OrganizationMembershipSchema = new mongoose.Schema({
     default: [],
   },
   guardianIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Guardian' }], default: [] },
+  classNames: { type: [{ type: String, trim: true, maxlength: 80 }], default: [] },
   accessAllBranches: { type: Boolean, default: false },
   status: { type: String, enum: ['invited', 'active', 'suspended', 'removed'], default: 'active', index: true },
   invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
