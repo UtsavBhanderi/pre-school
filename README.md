@@ -13,6 +13,7 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 - Teacher daily-work reports and student report-document generation
 - Internal school notices with scheduled visibility, staff targeting, editing and archiving
 - Organization/branch-scoped school calendar with holidays, trips, meetings, staff/parent audiences, cancellation history and audit entries
+- Child arrival and authorized pickup register with transactional presence state, ID-check confirmation, refusal logging and family-safe history
 - Plain-language Start here dashboard, searchable task finder, and step-by-step in-app help
 - Printable copies of saved fee payments, with student details and current balance clearly identified
 
