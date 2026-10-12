@@ -16,6 +16,7 @@ const TABS = [
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fees & payments", Icon: MdCurrencyRupee },
+  { id: "classes", label: "Classes & fees", Icon: MdSchool },
   { id: "branches", label: "Branches", Icon: MdApartment },
   { id: "team", label: "Team & activity", Icon: MdManageAccounts },
 ];
@@ -116,6 +117,7 @@ export default function TenantWorkspace() {
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
     if (item.id === 'attendance') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
     if (item.id === 'fees') return ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
+    if (item.id === 'classes') return ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
     if (item.id === 'branches') return ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
     if (item.id === 'team') return canManagePeople;
     return false;
@@ -147,6 +149,8 @@ export default function TenantWorkspace() {
     guardianPickup: true, communicationConsent: false, photoConsent: false,
   });
   const [branchDraft, setBranchDraft] = useState({ name: "", code: "", phone: "", email: "", city: "", state: "", postalCode: "" });
+  const [classDraft, setClassDraft] = useState({ name: "", code: "", minAgeMonths: "", maxAgeMonths: "", defaultFee: "0", feeFrequency: "annual", capacity: "30", description: "", status: "active" });
+  const [editingClassId, setEditingClassId] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(todayLocal);
   const [attendanceClass, setAttendanceClass] = useState("");
   const [attendanceRows, setAttendanceRows] = useState([]);
@@ -297,6 +301,9 @@ export default function TenantWorkspace() {
         if (!organizationId) return;
         if (activeTab === "branches") {
           await loadBranches();
+        } else if (activeTab === "classes") {
+          if (!branchId) return;
+          await loadClasses();
         } else if (activeTab === "children") {
           if (!branchId) return;
           await Promise.all([loadClasses(), loadChildren(appliedQuery)]);
@@ -745,7 +752,7 @@ export default function TenantWorkspace() {
     );
   }
 
-  const needBranch = ["children", "attendance", "fees"].includes(activeTab) && !branchId;
+  const needBranch = ["children", "attendance", "fees", "classes"].includes(activeTab) && !branchId;
 
   return (
     <div className="saas-workspace">
