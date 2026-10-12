@@ -33,12 +33,12 @@ async function findLiveInvitation(token, session) {
 }
 
 router.get('/inspect', async (req, res) => {
-  const invitation = await findLiveInvitation(req.query.token);
-  if (!invitation || !isInvitationLive(invitation)) {
-    return res.status(410).json({ message: 'This invitation is invalid, already used, revoked, or expired. Ask your preschool administrator for a new invitation.' });
-  }
-
   try {
+    const invitation = await findLiveInvitation(req.query.token);
+    if (!invitation || !isInvitationLive(invitation)) {
+      return res.status(410).json({ message: 'This invitation is invalid, already used, revoked, or expired. Ask your preschool administrator for a new invitation.' });
+    }
+
     const organization = await Organization.findOne({
       _id: invitation.organizationId,
       status: 'active',
