@@ -20,6 +20,13 @@ const TenantWorkReportSchema = new mongoose.Schema({
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   reviewedAt: { type: Date, default: null },
   reviewNote: { type: String, trim: true, maxlength: 1000, default: '' },
+  reviewHistory: [{
+    _id: false,
+    status: { type: String, enum: ['reviewed', 'needs_follow_up'], required: true },
+    reviewNote: { type: String, trim: true, maxlength: 1000, default: '' },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    reviewedAt: { type: Date, required: true },
+  }],
   revision: { type: Number, min: 1, default: 1 },
 }, { timestamps: true, strict: 'throw' });
 
