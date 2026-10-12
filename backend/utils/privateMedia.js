@@ -13,7 +13,7 @@ const PRIVATE_PHOTO_FIELDS = {
 function safeFilename(value) {
   if (typeof value !== 'string' || value.length < 1 || value.length > 220) return false;
   if (value === '.' || value === '..' || pathHasSeparator(value)) return false;
-  return /^[A-Za-z0-9][A-Za-z0-9._-]*\\.(?:jpe?g|png|webp|gif|avif|bmp)$/i.test(value);
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:jpe?g|png|webp|gif|avif|bmp)$/i.test(value);
 }
 
 function pathHasSeparator(value) {
@@ -89,7 +89,10 @@ function signedPhotoValue(value, fieldName, origin, defaultFolder) {
   if (typeof value !== 'string') return value;
   let expectedFolder = PRIVATE_PHOTO_FIELDS[fieldName];
   if (fieldName === 'motherPhoto' || fieldName === 'fatherPhoto') {
-    expectedFolder = value.replace(/^\/+/, '').startsWith('uploads/teachers/') ? 'teachers' : 'students';
+    const normalizedPath = value.replace(/^\/+/, '');
+    if (normalizedPath.startsWith('uploads/teachers/')) expectedFolder = 'teachers';
+    else if (normalizedPath.startsWith('uploads/students/')) expectedFolder = 'students';
+    else expectedFolder = defaultFolder;
   }
 
   const parsed = parseStoredPhotoPath(value, expectedFolder, origin);
@@ -110,7 +113,7 @@ function transformPhotoValues(value, origin, defaultFolder) {
 
   const output = {};
   for (const [key, child] of Object.entries(value)) {
-    output[key] = PRIVATE_PHOTO_FIELDS.hasOwnProperty(key) || key === 'motherPhoto' || key === 'fatherPhoto'
+    output[key] = Object.prototype.hasOwnProperty.call(PRIVATE_PHOTO_FIELDS, key) || key === 'motherPhoto' || key === 'fatherPhoto'
       ? signedPhotoValue(child, key, origin, defaultFolder)
       : transformPhotoValues(child, origin, defaultFolder);
   }
