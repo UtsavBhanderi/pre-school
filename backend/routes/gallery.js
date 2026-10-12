@@ -18,8 +18,10 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
-      return cb(new Error('Gallery uploads must be image files.'));
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+    if (!file.mimetype || !file.mimetype.startsWith('image/') || !allowedExtensions.has(extension)) {
+      return cb(new Error('Gallery uploads must be JPG, PNG, WEBP or GIF images.'));
     }
     cb(null, true);
   },

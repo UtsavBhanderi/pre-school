@@ -2,6 +2,13 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../api.js";
 
+const resolveResourceUrl = (resource, baseUrl) => {
+  const candidate = resource?.url || resource?.filePath || "";
+  if (!candidate) return "";
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  return baseUrl + "/" + String(candidate).replace(/^\/+/, "");
+};
+
 const AdminVideo = () => {
   const linkone = API_BASE_URL;
 
@@ -333,7 +340,7 @@ const AdminVideo = () => {
               <td>{video.chapter}</td>
               <td>
                 <a
-                  href={video.url || `${linkone}/${String(video.filePath || "").replace(/^\/+/, "")}`}
+                  href={resolveResourceUrl(video, linkone) || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

@@ -3,18 +3,35 @@
 const jwt = require('jsonwebtoken');
 
 const MEDIA_TOKEN_ISSUER = 'preschool-private-media';
-const MEDIA_TOKEN_AUDIENCE = 'school-photo';
+const MEDIA_TOKEN_AUDIENCE = 'school-private-media';
 const MEDIA_TOKEN_TTL_SECONDS = 120;
 const SAFE_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,179}$/;
-const PRIVATE_DIRECTORIES = new Set(['students', 'teachers']);
-const SAFE_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-const PHOTO_FIELDS = new Set(['studentPhoto', 'motherPhoto', 'fatherPhoto', 'selfPhoto']);
+const PRIVATE_DIRECTORIES = new Set(['students', 'teachers', 'gallery', 'pdf', 'video']);
+const ALLOWED_EXTENSIONS = {
+  students: new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']),
+  teachers: new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']),
+  gallery: new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']),
+  pdf: new Set(['.pdf']),
+  video: new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv']),
+};
+const MEDIA_FIELDS = new Set(['studentPhoto', 'motherPhoto', 'fatherPhoto', 'selfPhoto', 'url', 'filePath']);
 
-function isSafeImageFilename(filename) {
-  if (typeof filename !== 'string' || !SAFE_FILENAME.test(filename)) return false;
+function isSafeMediaFilename(type, filename) {
+  if (!PRIVATE_DIRECTORIES.has(type) || typeof filename !== 'string' || !SAFE_FILENAME.test(filename)) return false;
   if (filename === '.' || filename === '..') return false;
   const extension = filename.toLowerCase().slice(filename.lastIndexOf('.'));
-  return SAFE_IMAGE_EXTENSIONS.has(extension);
+  return Boolean(ALLOWED_EXTENSIONS[type]?.has(extension));
+}
+
+function isSafeImageFilename(filename) {
+  return ['students', 'teachers', 'gallery'].some((type) => isSafeMediaFilename(type, filename));
+}
+
+
+function localMediaReferenceValues(type, filename) {
+  if (!isSafeMediaFilename(type, filename)) return [];
+  const reference = 'uploads/' + type + '/' + filename;
+  return [reference, '/' + reference];
 }
 
 function parsePrivateMediaReference(value) {
@@ -29,20 +46,20 @@ function parsePrivateMediaReference(value) {
   }
 
   const normalized = pathname.replace(/\\/g, '/').replace(/^\/+/, '');
-  const match = /^uploads\/(students|teachers)\/([^/]+)$/.exec(normalized);
+  const match = /^uploads\/(students|teachers|gallery|pdf|video)\/([^/]+)$/.exec(normalized);
   if (!match || !SAFE_FILENAME.test(match[2]) || match[2] === '.' || match[2] === '..') return null;
   if (!PRIVATE_DIRECTORIES.has(match[1])) return null;
 
   return {
     type: match[1],
     filename: match[2],
-    serveable: isSafeImageFilename(match[2]),
+    serveable: isSafeMediaFilename(match[1], match[2]),
   };
 }
 
 function signPrivateMediaToken({ userId, type, filename, secret }) {
-  if (!secret || !userId || !PRIVATE_DIRECTORIES.has(type) || !isSafeImageFilename(filename)) {
-    throw new TypeError('Valid user, photo path and signing secret are required.');
+  if (!secret || !userId || !isSafeMediaFilename(type, filename)) {
+    throw new TypeError('A valid user, resource path and signing secret are required.');
   }
   return jwt.sign(
     { sub: String(userId), type, filename },
@@ -65,7 +82,7 @@ function verifyPrivateMediaToken(token, secret) {
       algorithms: ['HS256'],
     });
     if (!decoded || typeof decoded.sub !== 'string' || !/^[a-f\d]{24}$/i.test(decoded.sub)) return null;
-    if (!PRIVATE_DIRECTORIES.has(decoded.type) || !isSafeImageFilename(decoded.filename)) return null;
+    if (!isSafeMediaFilename(decoded.type, decoded.filename)) return null;
     return { userId: decoded.sub, type: decoded.type, filename: decoded.filename };
   } catch {
     return null;
@@ -75,7 +92,15 @@ function verifyPrivateMediaToken(token, secret) {
 function mediaFieldToSignedUrl(value, userId, secret, publicBaseUrl) {
   const reference = parsePrivateMediaReference(value);
   if (!reference) return value;
-  // A valid but unsupported image extension must never fall back to a public URL.
+  // Never turn a URL from an unrelated host into a local file capability.
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      if (new URL(value).origin !== new URL(publicBaseUrl).origin) return value;
+    } catch {
+      return value;
+    }
+  }
+  // An unsupported local media extension must never fall back to a public static URL.
   if (!reference.serveable) return '';
   const token = signPrivateMediaToken({
     userId,
@@ -102,7 +127,7 @@ function rewritePrivateMediaFields(body, { userId, secret, publicBaseUrl }) {
     if (!value || typeof value !== 'object') return;
 
     for (const [key, child] of Object.entries(value)) {
-      if (PHOTO_FIELDS.has(key) && typeof child === 'string') {
+      if (MEDIA_FIELDS.has(key) && typeof child === 'string') {
         try {
           value[key] = mediaFieldToSignedUrl(child, userId, secret, publicBaseUrl);
         } catch {
@@ -135,8 +160,11 @@ module.exports = {
   MEDIA_TOKEN_ISSUER,
   MEDIA_TOKEN_AUDIENCE,
   MEDIA_TOKEN_TTL_SECONDS,
-  SAFE_IMAGE_EXTENSIONS,
+  ALLOWED_EXTENSIONS,
+  MEDIA_FIELDS,
+  isSafeMediaFilename,
   isSafeImageFilename,
+  localMediaReferenceValues,
   parsePrivateMediaReference,
   signPrivateMediaToken,
   verifyPrivateMediaToken,

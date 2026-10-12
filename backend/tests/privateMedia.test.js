@@ -10,12 +10,13 @@ const {
   signPrivateMediaToken,
   verifyPrivateMediaToken,
   rewritePrivateMediaFields,
+  localMediaReferenceValues,
 } = require('../utils/privateMedia');
 
 const secret = 'test-secret-that-is-not-used-outside-unit-tests';
 const userId = new mongoose.Types.ObjectId().toString();
 
-test('recognizes only local student and teacher image paths', () => {
+test('recognizes private image, PDF and video paths with safe extensions', () => {
   assert.deepEqual(parsePrivateMediaReference('uploads/students/child-1.jpg'), {
     type: 'students', filename: 'child-1.jpg', serveable: true,
   });
@@ -25,11 +26,34 @@ test('recognizes only local student and teacher image paths', () => {
   assert.deepEqual(parsePrivateMediaReference('https://api.example.test/uploads/students/portrait.png'), {
     type: 'students', filename: 'portrait.png', serveable: true,
   });
-  assert.equal(parsePrivateMediaReference('uploads/gallery/field-trip.jpg'), null);
+  assert.deepEqual(parsePrivateMediaReference('uploads/gallery/field-trip.jpg'), {
+    type: 'gallery', filename: 'field-trip.jpg', serveable: true,
+  });
+  assert.deepEqual(parsePrivateMediaReference('uploads/pdf/fee-schedule.pdf'), {
+    type: 'pdf', filename: 'fee-schedule.pdf', serveable: true,
+  });
+  assert.deepEqual(parsePrivateMediaReference('uploads/video/class-intro.mp4'), {
+    type: 'video', filename: 'class-intro.mp4', serveable: true,
+  });
+  assert.equal(parsePrivateMediaReference('uploads/video/danger.html').serveable, false);
   assert.equal(parsePrivateMediaReference('uploads/students/../../.env'), null);
   assert.equal(parsePrivateMediaReference('uploads/students/a b.jpg'), null);
   assert.equal(parsePrivateMediaReference('uploads/students/picture.svg').serveable, false);
   assert.equal(parsePrivateMediaReference(''), null);
+});
+
+test('resource authorization uses only exact canonical local record paths', () => {
+  assert.deepEqual(localMediaReferenceValues('gallery', 'photo-1.jpg'), [
+    'uploads/gallery/photo-1.jpg',
+    '/uploads/gallery/photo-1.jpg',
+  ]);
+  assert.deepEqual(localMediaReferenceValues('pdf', 'fees.pdf'), [
+    'uploads/pdf/fees.pdf',
+    '/uploads/pdf/fees.pdf',
+  ]);
+  assert.deepEqual(localMediaReferenceValues('video', '../fees.mp4'), []);
+  assert.deepEqual(localMediaReferenceValues('video', 'fees.html'), []);
+  assert.deepEqual(localMediaReferenceValues('unknown', 'fees.pdf'), []);
 });
 
 test('signed photo links are short lived and restricted to a specific user and file', () => {
@@ -59,14 +83,14 @@ test('expired tokens fail verification even when the signature is correct', () =
       exp: Math.floor(Date.now() / 1000) - 300,
     },
     secret,
-    { issuer: 'preschool-private-media', audience: 'school-photo', algorithm: 'HS256' },
+    { issuer: 'preschool-private-media', audience: 'school-private-media', algorithm: 'HS256' },
   );
   assert.equal(verifyPrivateMediaToken(expiredToken, secret), null);
 });
 
 test('token signing refuses paths and extensions outside the allowlist', () => {
   assert.throws(() => signPrivateMediaToken({
-    userId, type: 'gallery', filename: 'child.jpg', secret,
+    userId, type: 'unknown', filename: 'child.jpg', secret,
   }), TypeError);
   assert.throws(() => signPrivateMediaToken({
     userId, type: 'students', filename: '../secret.jpg', secret,
@@ -85,6 +109,12 @@ test('API payload rewriting signs nested photo fields without changing unrelated
       name: 'Sample Child',
     },
     data: [{ selfPhoto: 'uploads/teachers/teacher.png', note: 'hello' }],
+    resources: [
+      { filePath: 'uploads/pdf/fee-schedule.pdf' },
+      { url: 'uploads/video/class-intro.mp4' },
+      { url: 'https://external.example.test/uploads/gallery/event.jpg' },
+    ],
+    gallery: { url: '/uploads/gallery/photo.png' },
     galleryPhoto: 'uploads/gallery/event.jpg',
   };
   const rewritten = rewritePrivateMediaFields(payload, {
@@ -96,9 +126,18 @@ test('API payload rewriting signs nested photo fields without changing unrelated
   const studentClaims = verifyPrivateMediaToken(new URL(rewritten.student.studentPhoto).searchParams.get('token'), secret);
   const motherClaims = verifyPrivateMediaToken(new URL(rewritten.student.motherPhoto).searchParams.get('token'), secret);
   const teacherClaims = verifyPrivateMediaToken(new URL(rewritten.data[0].selfPhoto).searchParams.get('token'), secret);
+  const pdfClaims = verifyPrivateMediaToken(new URL(rewritten.resources[0].filePath).searchParams.get('token'), secret);
+  const videoClaims = verifyPrivateMediaToken(new URL(rewritten.resources[1].url).searchParams.get('token'), secret);
+  const galleryClaims = verifyPrivateMediaToken(new URL(rewritten.gallery.url).searchParams.get('token'), secret);
   assert.equal(studentClaims.filename, 'child-1.jpg');
   assert.equal(motherClaims.filename, 'mother.webp');
   assert.equal(teacherClaims.type, 'teachers');
+  assert.equal(pdfClaims.type, 'pdf');
+  assert.equal(pdfClaims.filename, 'fee-schedule.pdf');
+  assert.equal(videoClaims.type, 'video');
+  assert.equal(galleryClaims.type, 'gallery');
+  assert.equal(galleryClaims.filename, 'photo.png');
+  assert.equal(rewritten.resources[2].url, 'https://external.example.test/uploads/gallery/event.jpg');
   assert.equal(rewritten.student.fatherPhoto, '');
   assert.equal(rewritten.student.name, 'Sample Child');
   assert.equal(rewritten.data[0].note, 'hello');
