@@ -8,6 +8,7 @@ const OrganizationMembership = require('../models/OrganizationMembership');
 const AuditEvent = require('../models/AuditEvent');
 const { tenantContext } = require('../middleware/tenantContext');
 const { hasTenantRole, canManageOrganization, canAccessBranch } = require('../utils/tenantAuthorization');
+const { evaluateMembershipEditPermission, evaluateMembershipRoleTransition } = require('../utils/tenantMembershipPolicy');
 
 const router = express.Router();
 
@@ -261,6 +262,16 @@ router.patch('/members/:id', async (req, res) => {
         notFound.code = 'MEMBER_NOT_FOUND';
         throw notFound;
       }
+      const editPolicy = evaluateMembershipEditPermission({
+        manager,
+        target: membership,
+        actorUserId: req.user._id,
+      });
+      if (!editPolicy.allowed) {
+        const denied = new Error(editPolicy.message);
+        denied.code = editPolicy.code;
+        throw denied;
+      }
       if (String(membership._id) === String(manager._id)) {
         const selfEdit = new Error('You cannot change or suspend your own access here. Ask another organization administrator to do that.');
         selfEdit.code = 'SELF_ACCESS_CHANGE';
@@ -279,6 +290,17 @@ router.patch('/members/:id', async (req, res) => {
       const requestedStatus = Object.prototype.hasOwnProperty.call(body, 'status')
         ? clean(body.status, 20)
         : membership.status;
+
+      const rolePolicy = evaluateMembershipRoleTransition({
+        managerRole: manager.role,
+        currentRole: membership.role,
+        nextRole: requestedRole,
+      });
+      if (!rolePolicy.allowed) {
+        const denied = new Error(rolePolicy.message);
+        denied.code = rolePolicy.code;
+        throw denied;
+      }
 
       if (!['active', 'suspended'].includes(requestedStatus)) {
         const badStatus = new Error('Choose Active or Suspended.');
