@@ -23,6 +23,7 @@ function canManageCalendar(membership) {
 }
 
 function audienceForRole(role) {
+  if (CALENDAR_MANAGER_ROLES.includes(role)) return ['all', 'staff', 'parents'];
   if (role === 'parent') return ['all', 'parents'];
   if (CALENDAR_READ_ROLES.includes(role)) return ['all', 'staff'];
   return [];
