@@ -15,6 +15,12 @@ Status: Phase 0 foundation in progress. This is not production-ready multi-tenan
 - A guard on the existing single-school APIs: a user with an organization membership cannot access an unscoped legacy API.
 - Role and validation unit tests.
 
+## Child and staff photo delivery
+
+Student and teacher photo directories are no longer public static folders on this branch. Legacy API responses rewrite the known photo fields to short-lived, HMAC-signed URLs; the file endpoint accepts only allowed raster-image names and an unexpired signature. Invalid or expired links fail closed. Set PRIVATE_MEDIA_SECRET to a long, randomly generated value distinct from JWT_SECRET before deployment. When it is absent the code falls back to JWT_SECRET for local compatibility, but a dedicated secret is recommended.
+
+These signed links are temporary bearer URLs and should not be copied into messages, logs or long-lived exports. The legacy photo values are still stored in the old schema, and gallery/PDF/video uploads have not yet been migrated to private storage. Validate every image-bearing screen and export in a staging environment before production deployment.
+
 ## Do not enable public registration yet
 
 **Keep both registration environment flags unset or false.** The legacy student, fee, teacher, attendance, reports, notices, calendars, gallery and learning-resource APIs still contain data access that must be migrated to organization/branch-aware queries. The legacy upload folders also include public static media routes. It is not safe to onboard real organizations until those routes and files are covered by access-control checks and negative isolation tests.
