@@ -6,9 +6,11 @@ import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
 import "../parent-portal.css";
 import "../tenant-notices.css";
+import "../tenant-calendar.css";
 
 const PARENT_TABS = [
   { id: "overview", label: "Family overview", Icon: MdDashboard },
+  { id: "calendar", label: "School calendar", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
   { id: "children", label: "My children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
@@ -53,6 +55,17 @@ export default function ParentPortal() {
   const [attendance, setAttendance] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarFrom, setCalendarFrom] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  });
+  const [calendarTo, setCalendarTo] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 90);
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [refreshed, setRefreshed] = useState(0);
@@ -98,13 +111,16 @@ export default function ParentPortal() {
       } else if (tab === "notices") {
         const noticeResult = await parentRequest("/api/saas/notices", organizationId, branchId);
         setNotices(Array.isArray(noticeResult) ? noticeResult : []);
+      } else if (tab === "calendar") {
+        const calendarResult = await parentRequest("/api/saas/calendar", organizationId, branchId, { from: calendarFrom, to: calendarTo });
+        setCalendarEvents(Array.isArray(calendarResult?.events) ? calendarResult.events : []);
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Your family information could not be loaded. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [organizationId, branchId, tab, attendanceFrom, attendanceTo]);
+  }, [organizationId, branchId, tab, attendanceFrom, attendanceTo, calendarFrom, calendarTo]);
 
   useEffect(() => { loadAll(); }, [loadAll, refreshed]);
 
@@ -119,7 +135,7 @@ export default function ParentPortal() {
       <header className="parent-portal-header">
         <div className="parent-portal-brand"><span><MdSchool aria-hidden="true" /></span><div><strong>Family portal</strong><small>{organization?.name || "Your preschool"}</small></div></div>
         <div className="parent-portal-header-actions">
-          {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); setNotices([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
+          {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); setNotices([]); setCalendarEvents([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
           {branches.length > 1 && <label><span>Branch</span><select value={branchId} onChange={(event) => setBranchId(event.target.value)} aria-label="Choose branch"><option value="">All my linked branches</option>{branches.map((branch) => <option key={branch.id || branch._id} value={branch.id || branch._id}>{branch.name}</option>)}</select></label>}
           <button type="button" className="saas-icon-button" onClick={() => setRefreshed((value) => value + 1)} aria-label="Refresh family information"><MdRefresh /></button>
           <button type="button" className="parent-signout-button" onClick={logout}><MdLogout /> Sign out</button>
@@ -197,6 +213,54 @@ export default function ParentPortal() {
               <div className="saas-empty-state"><strong>No current school notices</strong><p>When your preschool posts an update for parents, it will appear here. You do not need to check other branches or contact lists.</p></div>
             ) : <div className="saas-loading" role="status">Loading school notices…</div>}
             <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Branch-aware updates</strong><p>These notices are limited to branches connected to the family records linked to your account.</p></div></div>
+          </section>
+        )}
+
+        {tab === "calendar" && (
+          <section className="parent-portal-section parent-calendar-section">
+            <div className="parent-portal-section-heading">
+              <div><h2>School calendar</h2><p>Upcoming holidays and events for your linked branch or branches.</p></div>
+              <button type="button" className="saas-secondary-button" onClick={() => setRefreshed((value) => value + 1)} disabled={loading}><MdRefresh aria-hidden="true" /> Refresh</button>
+            </div>
+            <div className="parent-calendar-filters">
+              <label>From<input type="date" value={calendarFrom} max={calendarTo || undefined} onChange={(event) => setCalendarFrom(event.target.value)} /></label>
+              <label>To<input type="date" value={calendarTo} min={calendarFrom || undefined} onChange={(event) => setCalendarTo(event.target.value)} /></label>
+              <button type="button" className="saas-secondary-button" onClick={() => setRefreshed((value) => value + 1)} disabled={loading}>Apply dates</button>
+            </div>
+            {calendarEvents.length ? (
+              <div className="parent-calendar-list">
+                {calendarEvents.map((event) => {
+                  const timezone = activeBranch?.timezone || organization?.timezone || "Asia/Kolkata";
+                  const start = new Date(event.startsAt);
+                  const end = new Date(event.endsAt);
+                  const day = new Intl.DateTimeFormat("en-IN", { day: "2-digit", timeZone: timezone }).format(start);
+                  const month = new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: timezone }).format(start);
+                  const dateTime = event.allDay
+                    ? "All day"
+                    : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(start) +
+                      " – " + new Intl.DateTimeFormat("en-IN", { timeStyle: "short", timeZone: timezone }).format(end);
+                  return (
+                    <article className="parent-calendar-card" key={event.id}>
+                      <div className="parent-calendar-date"><span>{month}</span><strong>{day}</strong></div>
+                      <div>
+                        <div className="tenant-calendar-event-meta">
+                          <span className={"saas-pill " + event.type}>{String(event.type || "school_event").replaceAll("_", " ")}</span>
+                          {event.audience !== "all" && <span className="saas-pill parents">Parents</span>}
+                        </div>
+                        <h3>{event.title}</h3>
+                        <p>{dateTime}</p>
+                        {event.location && <small>Location: {event.location}</small>}
+                        {event.description && <p>{event.description}</p>}
+                        {event.branch?.name && !branchId && <small>Branch: {event.branch.name}</small>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : !loading ? (
+              <div className="saas-empty-state"><strong>No school events in this range</strong><p>When your preschool publishes a holiday, trip or event for parents, it will appear here.</p></div>
+            ) : <div className="saas-loading" role="status">Loading school calendar…</div>}
+            <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Family-specific access</strong><p>Events are limited to branches connected to children linked to your parent account. Staff-only events stay private.</p></div></div>
           </section>
         )}
 
