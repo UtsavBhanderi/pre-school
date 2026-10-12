@@ -46,6 +46,14 @@ const formatDate = (value) => {
 };
 
 const displayError = (error) => error?.response?.data?.message || "Something went wrong. Please try again.";
+const createBlankChildDraft = (className = "") => ({
+  firstName: "", middleName: "", lastName: "", dateOfBirth: "", gender: "",
+  className, academicYear: academicYearNow(), address: "",
+  guardianName: "", guardianPhone: "", guardianEmail: "", guardianRelationship: "mother",
+  guardianPickup: true, guardianBilling: true, guardianEmergency: true, guardianUpdates: true,
+  communicationConsent: "unknown", photoConsent: "unknown",
+});
+
 const tokenHeaders = (organizationId, branchId) => {
   const token = localStorage.getItem("token");
   return {
@@ -143,12 +151,8 @@ export default function TenantWorkspace() {
   const [successMessage, setSuccessMessage] = useState("");
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [showChildForm, setShowChildForm] = useState(false);
-  const [childDraft, setChildDraft] = useState({
-    firstName: "", middleName: "", lastName: "", dateOfBirth: "", gender: "",
-    className: "", academicYear: academicYearNow(), address: "",
-    guardianName: "", guardianPhone: "", guardianEmail: "", guardianRelationship: "mother",
-    guardianPickup: true, communicationConsent: false, photoConsent: false,
-  });
+  const [editingChildId, setEditingChildId] = useState("");
+  const [childDraft, setChildDraft] = useState(() => createBlankChildDraft());
   const [branchDraft, setBranchDraft] = useState({ name: "", code: "", phone: "", email: "", city: "", state: "", postalCode: "" });
   const [classDraft, setClassDraft] = useState({ name: "", code: "", minAgeMonths: "", maxAgeMonths: "", defaultFee: "0", feeFrequency: "annual", capacity: "30", description: "", status: "active" });
   const [editingClassId, setEditingClassId] = useState("");
