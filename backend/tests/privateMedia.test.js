@@ -99,6 +99,7 @@ test('API payload rewriting signs nested photo fields without changing unrelated
       { url: 'uploads/video/class-intro.mp4' },
       { url: 'https://external.example.test/uploads/gallery/event.jpg' },
     ],
+    gallery: { url: '/uploads/gallery/photo.png' },
     galleryPhoto: 'uploads/gallery/event.jpg',
   };
   const rewritten = rewritePrivateMediaFields(payload, {
@@ -112,12 +113,15 @@ test('API payload rewriting signs nested photo fields without changing unrelated
   const teacherClaims = verifyPrivateMediaToken(new URL(rewritten.data[0].selfPhoto).searchParams.get('token'), secret);
   const pdfClaims = verifyPrivateMediaToken(new URL(rewritten.resources[0].filePath).searchParams.get('token'), secret);
   const videoClaims = verifyPrivateMediaToken(new URL(rewritten.resources[1].url).searchParams.get('token'), secret);
+  const galleryClaims = verifyPrivateMediaToken(new URL(rewritten.gallery.url).searchParams.get('token'), secret);
   assert.equal(studentClaims.filename, 'child-1.jpg');
   assert.equal(motherClaims.filename, 'mother.webp');
   assert.equal(teacherClaims.type, 'teachers');
   assert.equal(pdfClaims.type, 'pdf');
   assert.equal(pdfClaims.filename, 'fee-schedule.pdf');
   assert.equal(videoClaims.type, 'video');
+  assert.equal(galleryClaims.type, 'gallery');
+  assert.equal(galleryClaims.filename, 'photo.png');
   assert.equal(rewritten.resources[2].url, 'https://external.example.test/uploads/gallery/event.jpg');
   assert.equal(rewritten.student.fatherPhoto, '');
   assert.equal(rewritten.student.name, 'Sample Child');
