@@ -627,6 +627,92 @@ export default function TenantWorkspace() {
   };
 
 
+  const updateClassDraft = (event) => {
+    const { name, value } = event.target;
+    setClassDraft((draft) => ({ ...draft, [name]: value }));
+  };
+
+  const beginClassEdit = (classroom) => {
+    setEditingClassId(classroom.id);
+    setClassDraft({
+      name: classroom.name,
+      code: classroom.code,
+      minAgeMonths: classroom.minAgeMonths ?? "",
+      maxAgeMonths: classroom.maxAgeMonths ?? "",
+      defaultFee: String(classroom.defaultFee ?? 0),
+      feeFrequency: classroom.feeFrequency || "annual",
+      capacity: String(classroom.capacity || 30),
+      description: classroom.description || "",
+      status: classroom.status || "active",
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const cancelClassEdit = () => {
+    setEditingClassId("");
+    setClassDraft({ name: "", code: "", minAgeMonths: "", maxAgeMonths: "", defaultFee: "0", feeFrequency: "annual", capacity: "30", description: "", status: "active" });
+  };
+
+  const saveClass = async (event) => {
+    event.preventDefault();
+    if (!branchId) {
+      setErrorMessage("Choose a branch before configuring classes.");
+      return;
+    }
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const payload = {
+        minAgeMonths: classDraft.minAgeMonths,
+        maxAgeMonths: classDraft.maxAgeMonths,
+        defaultFee: classDraft.defaultFee,
+        feeFrequency: classDraft.feeFrequency,
+        capacity: classDraft.capacity,
+        description: classDraft.description,
+      };
+      const result = editingClassId
+        ? await saasRequest("/api/saas/operations/classes/" + editingClassId, {
+            method: "PUT", organizationId, branchId, data: payload,
+          })
+        : await saasRequest("/api/saas/operations/classes", {
+            method: "POST",
+            organizationId,
+            branchId,
+            data: { ...payload, name: classDraft.name, code: classDraft.code },
+          });
+      setSuccessMessage(result.message || (editingClassId ? "Class settings saved." : "Class created."));
+      setErrorMessage("");
+      cancelClassEdit();
+      await loadClasses();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const archiveClass = async (classroom) => {
+    if (!window.confirm("Archive " + classroom.name + "? It will no longer be available for new admissions or attendance. Classes with enrolled children cannot be archived.")) return;
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/operations/classes/" + classroom.id, {
+        method: "PUT", organizationId, branchId, data: { status: "inactive" },
+      });
+      setSuccessMessage(result.message || "Class archived.");
+      await loadClasses();
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setErrorMessage(displayError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const updateInvitationDraft = (field, value) => {
     setInviteDraft((draft) => ({ ...draft, [field]: value }));
   };
