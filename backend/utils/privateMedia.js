@@ -3,7 +3,7 @@
 const jwt = require('jsonwebtoken');
 
 const MEDIA_TOKEN_ISSUER = 'preschool-private-media';
-const MEDIA_TOKEN_AUDIENCE = 'school-photo';
+const MEDIA_TOKEN_AUDIENCE = 'school-private-media';
 const MEDIA_TOKEN_TTL_SECONDS = 120;
 const SAFE_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,179}$/;
 const PRIVATE_DIRECTORIES = new Set(['students', 'teachers', 'gallery', 'pdf', 'video']);
@@ -52,7 +52,7 @@ function parsePrivateMediaReference(value) {
 
 function signPrivateMediaToken({ userId, type, filename, secret }) {
   if (!secret || !userId || !isSafeMediaFilename(type, filename)) {
-    throw new TypeError('Valid user, photo path and signing secret are required.');
+    throw new TypeError('A valid user, resource path and signing secret are required.');
   }
   return jwt.sign(
     { sub: String(userId), type, filename },
@@ -93,8 +93,7 @@ function mediaFieldToSignedUrl(value, userId, secret, publicBaseUrl) {
       return value;
     }
   }
-  // A valid local path with an unsupported media extension must never fall back
-  // to a public static URL.
+  // An unsupported local media extension must never fall back to a public static URL.
   if (!reference.serveable) return '';
   const token = signPrivateMediaToken({
     userId,
