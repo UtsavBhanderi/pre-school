@@ -182,6 +182,7 @@ export default function TenantWorkspace() {
   }, [memberships, organizationId]);
 
   const activeBranch = branches.find((item) => item._id === branchId || item.id === branchId) || null;
+  const memberEditBranchKey = (memberEditDraft?.branchIds || []).join("|");
   const currency = organization?.currency || "INR";
   const availableGuardianContacts = useMemo(() => {
     const unique = new Map();
@@ -379,6 +380,37 @@ export default function TenantWorkspace() {
     if (!paymentTarget) return;
     setPaymentDraft({ amount: "", method: "cash", reference: "", type: "payment", relatedTransactionId: "", reason: "" });
   }, [paymentTarget]);
+
+  useEffect(() => {
+    if (!editingMemberId || memberEditDraft?.role !== "teacher" || memberEditDraft?.accessAllBranches) {
+      setMemberEditClassOptions([]);
+      return undefined;
+    }
+    const branchIds = memberEditBranchKey ? memberEditBranchKey.split("|").filter(Boolean) : [];
+    if (!branchIds.length) {
+      setMemberEditClassOptions([]);
+      return undefined;
+    }
+
+    let active = true;
+    Promise.all(branchIds.map((selectedBranchId) =>
+      saasRequest("/api/saas/operations/classes", { organizationId, branchId: selectedBranchId })
+    )).then((classLists) => {
+      if (!active) return;
+      const first = Array.isArray(classLists[0]) ? classLists[0] : [];
+      const available = first
+        .filter((classItem) => classLists.every((list) => Array.isArray(list) && list.some((item) => item.name === classItem.name)))
+        .map((classItem) => classItem.name);
+      setMemberEditClassOptions(available);
+      setMemberEditDraft((draft) => draft
+        ? { ...draft, classNames: (draft.classNames || []).filter((name) => available.includes(name)) }
+        : draft);
+    }).catch((error) => {
+      if (active) setErrorMessage(displayError(error));
+    });
+
+    return () => { active = false; };
+  }, [editingMemberId, memberEditDraft?.role, memberEditDraft?.accessAllBranches, memberEditBranchKey, organizationId]);
 
   const changeOrganization = (nextId) => {
     setOrganizationId(nextId);
