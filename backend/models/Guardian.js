@@ -18,6 +18,9 @@ const GuardianSchema = new mongoose.Schema({
 
 GuardianSchema.index({ organizationId: 1, phone: 1 });
 GuardianSchema.index({ organizationId: 1, email: 1 });
-GuardianSchema.index({ organizationId: 1, portalUserId: 1 });
+GuardianSchema.index(
+  { organizationId: 1, portalUserId: 1 },
+  { unique: true, partialFilterExpression: { portalUserId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Guardian', GuardianSchema);
