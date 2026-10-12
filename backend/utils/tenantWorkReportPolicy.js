@@ -103,8 +103,8 @@ function canTeacherAccessClass(membership, className) {
 }
 
 function reviewTransition(status, reviewStatus, reviewNote) {
-  if (!['submitted', 'reviewed', 'needs_follow_up'].includes(status)) {
-    return { valid: false, message: 'This report is not in a reviewable state.' };
+  if (status !== 'submitted') {
+    return { valid: false, message: 'This report has already been reviewed and is locked.' };
   }
   if (!['reviewed', 'needs_follow_up'].includes(reviewStatus)) {
     return { valid: false, message: 'Choose Reviewed or Needs follow-up.' };
