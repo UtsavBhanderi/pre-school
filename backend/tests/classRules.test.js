@@ -15,7 +15,7 @@ test('age rules enforce minimum and maximum boundaries inclusively', () => {
   const classConfig = { minAgeMonths: 24, maxAgeMonths: 47 };
   assert.equal(validateClassAge('2024-10-12', '2026-10-12', classConfig).valid, true);
   assert.equal(validateClassAge('2024-10-13', '2026-10-12', classConfig).code, 'BELOW_MINIMUM_AGE');
-  assert.equal(validateClassAge('2022-11-12', '2026-10-12', classConfig).code, 'ABOVE_MAXIMUM_AGE');
+  assert.equal(validateClassAge('2022-09-12', '2026-10-12', classConfig).code, 'ABOVE_MAXIMUM_AGE');
 });
 
 test('missing and future dates are rejected when appropriate', () => {
