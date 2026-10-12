@@ -15,6 +15,18 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 - Plain-language Start here dashboard, searchable task finder, and step-by-step in-app help
 - Printable copies of saved fee payments, with student details and current balance clearly identified
 
+
+## Multi-tenant SaaS foundation (in progress)
+
+The codebase now includes the first foundation models for organizations, branches, organization memberships and audit events, plus fail-closed tenant-context helpers and organization/branch management API routes.
+
+**This is an implementation milestone, not a production-ready SaaS release.** The existing preschool modules still contain single-school data queries and public static upload URLs. To avoid exposing those records to a tenant account, the legacy API guard denies organization-member accounts access to modules that have not yet been migrated. Self-service organization registration is disabled by default and must remain disabled until the tenant-scoping and private-media rollout checklist passes.
+
+See [the SaaS rollout gates](docs/SAAS_ROLLOUT.md) for endpoints, tenant/branch header rules, migration steps and launch blockers. Do not set the SaaS registration flags to \`true\` just to enable sign-up: both the core data routes and student media need tenant-aware authorization first.
+
+The organization-creation and branch-creation operations use MongoDB transactions. The production database must support transactions (for example, a correctly configured replica set). The next milestones are tenant-scoped core student/attendance/fee records, secure media delivery, a verified legacy-data migration, and cross-tenant negative integration tests.
+
+
 ## Requirements
 
 - Node.js 20 or newer
