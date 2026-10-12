@@ -86,6 +86,12 @@ function serialize(report) {
       name: report.reviewedBy.username || '',
     } : null,
     reviewNote: report.reviewNote || '',
+    reviewHistory: (report.reviewHistory || []).map((item) => ({
+      status: item.status,
+      reviewNote: item.reviewNote || '',
+      reviewedAt: item.reviewedAt,
+      reviewedBy: item.reviewedBy ? { id: String(item.reviewedBy._id || item.reviewedBy), name: item.reviewedBy.username || '' } : null,
+    })),
     revision: report.revision,
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
@@ -96,6 +102,7 @@ async function fetchSerializedReport(filter) {
   return TenantWorkReport.findOne(filter)
     .populate({ path: 'submittedBy', select: 'username email' })
     .populate({ path: 'reviewedBy', select: 'username' })
+    .populate({ path: 'reviewHistory.reviewedBy', select: 'username' })
     .lean();
 }
 
@@ -254,8 +261,8 @@ router.put('/:id', requireBranchContext, async (req, res) => {
         missing.code = 'REPORT_NOT_FOUND';
         throw missing;
       }
-      if (report.status !== 'submitted') {
-        const locked = new Error('This report has already been reviewed and can no longer be edited.');
+      if (!['submitted', 'needs_follow_up'].includes(report.status)) {
+        const locked = new Error('This report has been marked reviewed and can no longer be edited.');
         locked.code = 'REPORT_LOCKED';
         throw locked;
       }
@@ -269,7 +276,10 @@ router.put('/:id', requireBranchContext, async (req, res) => {
         impossibleCount.code = 'STUDENT_COUNT_EXCEEDS_ENROLLMENT';
         throw impossibleCount;
       }
+      const resubmittingForFollowUp = report.status === 'needs_follow_up';
       Object.assign(report, {
+        status: 'submitted',
+        ...(resubmittingForFollowUp ? { reviewedBy: null, reviewedAt: null, reviewNote: '' } : {}),
         subject: validation.value.subject,
         startTime: validation.value.startTime,
         endTime: validation.value.endTime,
@@ -280,7 +290,7 @@ router.put('/:id', requireBranchContext, async (req, res) => {
       });
       await report.save({ session });
       await writeAudit(req, session, report, 'work_report.updated',
-        ['subject', 'startTime', 'endTime', 'workSummary', 'studentsPresent', 'revision'],
+        ['subject', 'startTime', 'endTime', 'workSummary', 'studentsPresent', 'revision', ...(resubmittingForFollowUp ? ['status', 'reviewNote', 'reviewedBy', 'reviewedAt'] : [])],
         clean(req.body.reason, 500));
       return report;
     });
@@ -331,6 +341,7 @@ router.patch('/:id/review', requireBranchContext, async (req, res) => {
       report.reviewNote = transition.reviewNote;
       report.reviewedBy = req.user._id;
       report.reviewedAt = new Date();
+      report.reviewHistory.push({ status: transition.status, reviewNote: transition.reviewNote, reviewedBy: req.user._id, reviewedAt: report.reviewedAt });
       await report.save({ session });
       await writeAudit(req, session, report, 'work_report.reviewed',
         ['status', 'reviewNote', 'reviewedBy', 'reviewedAt'], reviewNote);
