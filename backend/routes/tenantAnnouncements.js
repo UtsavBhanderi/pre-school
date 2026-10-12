@@ -7,47 +7,34 @@ const Branch = require('../models/Branch');
 const ChildGuardian = require('../models/ChildGuardian');
 const AuditEvent = require('../models/AuditEvent');
 const { tenantContext } = require('../middleware/tenantContext');
-const { hasTenantRole } = require('../utils/tenantAuthorization');
+const {
+  canManageTenantNotices,
+  canReadTenantNotices,
+  audienceFilterForRole,
+  validateTenantNoticeContent,
+  validateTenantNoticeDates,
+} = require('../utils/tenantNoticePolicy');
 
 const router = express.Router();
 router.use(tenantContext);
-
-const ADMIN_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin'];
-const STAFF_ROLES = [
-  'organization_owner', 'head_office_admin', 'branch_admin',
-  'admissions', 'teacher', 'accountant', 'hr_manager', 'transport_staff',
-];
-const AUDIENCES = ['all', 'staff', 'parents'];
-const PRIORITIES = ['normal', 'important', 'urgent'];
 
 function clean(value, maxLength) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
 function parseNoticeDates(body, existing = {}) {
-  const now = new Date();
   const rawStart = body.startsAt === undefined ? existing.startsAt : body.startsAt;
   const rawEnd = body.expiresAt === undefined ? existing.expiresAt : body.expiresAt;
-  const startsAt = rawStart ? new Date(rawStart) : now;
-  const expiresAt = rawEnd ? new Date(rawEnd) : null;
-  if (Number.isNaN(startsAt.getTime()) ||
-      (expiresAt && Number.isNaN(expiresAt.getTime())) ||
-      (expiresAt && expiresAt <= startsAt)) {
-    return { valid: false, message: 'Check the notice start and end dates. The end must be after the start.' };
-  }
-  return { valid: true, startsAt, expiresAt };
+  return validateTenantNoticeDates(rawStart, rawEnd);
 }
 
 function validateContent(body, existing = {}) {
-  const title = clean(body.title === undefined ? existing.title : body.title, 120);
-  const message = clean(body.message === undefined ? existing.message : body.message, 3000);
-  const audience = clean(body.audience === undefined ? (existing.audience || 'all') : body.audience, 20);
-  const priority = clean(body.priority === undefined ? (existing.priority || 'normal') : body.priority, 20);
-  if (title.length < 3) return { valid: false, message: 'Notice title must contain at least 3 characters.' };
-  if (!message) return { valid: false, message: 'Enter a notice message.' };
-  if (!AUDIENCES.includes(audience)) return { valid: false, message: 'Choose Staff, Parents, or Everyone as the audience.' };
-  if (!PRIORITIES.includes(priority)) return { valid: false, message: 'Choose a valid notice priority.' };
-  return { valid: true, title, message, audience, priority };
+  return validateTenantNoticeContent({
+    title: body.title === undefined ? existing.title : body.title,
+    message: body.message === undefined ? existing.message : body.message,
+    audience: body.audience === undefined ? (existing.audience || 'all') : body.audience,
+    priority: body.priority === undefined ? (existing.priority || 'normal') : body.priority,
+  });
 }
 
 async function visibleBranchIds(req) {
@@ -78,9 +65,7 @@ async function readableBranchIds(req) {
 }
 
 function audienceFilter(req) {
-  return req.tenant.membership.role === 'parent'
-    ? { $in: ['all', 'parents'] }
-    : { $in: ['all', 'staff'] };
+  return { $in: audienceFilterForRole(req.tenant.membership.role) };
 }
 
 function serialize(notice) {
@@ -145,7 +130,7 @@ async function withTransaction(work) {
 
 // Current notices: every result is restricted to the selected organization and branches the caller can see.
 router.get('/', async (req, res) => {
-  if (!STAFF_ROLES.includes(req.tenant.membership.role) && req.tenant.membership.role !== 'parent') {
+  if (!canReadTenantNotices(req.tenant.membership)) {
     return res.status(403).json({ message: 'You do not have access to school notices.' });
   }
   if (req.tenant.membership.role === 'parent' &&
@@ -177,7 +162,7 @@ router.get('/', async (req, res) => {
 
 // Admin view includes future, expired and archived notices for every branch within the caller's scope.
 router.get('/manage', async (req, res) => {
-  if (!hasTenantRole(req.tenant.membership, ADMIN_ROLES)) {
+  if (!canManageTenantNotices(req.tenant.membership)) {
     return res.status(403).json({ message: 'Only an authorized school administrator can manage notices.' });
   }
   try {
@@ -200,7 +185,7 @@ router.get('/manage', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  if (!hasTenantRole(req.tenant.membership, ADMIN_ROLES)) {
+  if (!canManageTenantNotices(req.tenant.membership)) {
     return res.status(403).json({ message: 'Only an authorized school administrator can publish notices.' });
   }
   if (!req.tenant.branch) return res.status(400).json({ message: 'Choose the branch this notice belongs to.' });
@@ -231,7 +216,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  if (!hasTenantRole(req.tenant.membership, ADMIN_ROLES)) {
+  if (!canManageTenantNotices(req.tenant.membership)) {
     return res.status(403).json({ message: 'Only an authorized school administrator can edit notices.' });
   }
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid notice.' });
@@ -266,7 +251,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.patch('/:id/status', async (req, res) => {
-  if (!hasTenantRole(req.tenant.membership, ADMIN_ROLES)) {
+  if (!canManageTenantNotices(req.tenant.membership)) {
     return res.status(403).json({ message: 'Only an authorized school administrator can archive notices.' });
   }
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid notice.' });
