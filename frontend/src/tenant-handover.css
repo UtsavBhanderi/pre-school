@@ -1,0 +1,89 @@
+/* Child safety: arrival / pickup roster and immutable handover history */
+.tenant-handover-section { gap: 1rem; }
+.tenant-handover-safety-note {
+  display: flex; align-items: flex-start; gap: .75rem; padding: .9rem 1rem;
+  border: 1px solid #e8d6b7; border-radius: 9px; background: #fffbf3; color: #6c5a3b;
+  font-size: .8rem; line-height: 1.55;
+}
+.tenant-handover-safety-note > svg { flex: 0 0 auto; margin-top: .1rem; font-size: 1.35rem; color: #997136; }
+.tenant-handover-safety-note strong { display: block; margin-bottom: .16rem; color: #6c4d20; }
+.tenant-handover-safety-note p { margin: 0; }
+.tenant-handover-toolbar { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.tenant-handover-toolbar > span { color: #758399; font-size: .74rem; white-space: nowrap; }
+.tenant-handover-form { border-color: #d7e1f3; box-shadow: 0 8px 22px rgba(30, 52, 91, .045); }
+.tenant-handover-form .saas-form-heading h3 { font-size: 1rem; }
+.tenant-handover-child-state { display: flex; align-items: center; justify-content: space-between; gap: .7rem; padding: .75rem .85rem; border: 1px solid #cfe7d8; border-radius: 8px; background: #f3fbf6; }
+.tenant-handover-child-state span { color: #5b7467; font-size: .75rem; }
+.tenant-handover-child-state strong { color: #28704b; font-size: .83rem; }
+.tenant-handover-id-check { display: flex; align-items: flex-start; gap: .55rem; min-height: 42px; padding: .65rem .7rem; border: 1px solid #e4d9be; border-radius: 8px; color: #6d5b39; background: #fffbf3; font-size: .78rem; font-weight: 750; line-height: 1.45; }
+.tenant-handover-id-check input { flex: 0 0 auto; width: 17px; height: 17px; min-height: 17px; margin-top: .1rem; accent-color: #3655ce; }
+.tenant-handover-help { margin: -.15rem 0 .2rem; color: #77859a; font-size: .75rem; line-height: 1.55; }
+.tenant-handover-note { display: grid; gap: .35rem; color: #52627a; font-size: .78rem; font-weight: 750; }
+.tenant-handover-note textarea { width: 100%; min-height: 76px; padding: .6rem .7rem; border: 1px solid #d4deeb; border-radius: 8px; font-size: .81rem; resize: vertical; }
+.tenant-handover-roster { display: grid; gap: .75rem; }
+.tenant-handover-child-card { display: grid; grid-template-columns: minmax(145px, 1fr) minmax(220px, 1.4fr) auto; align-items: start; gap: .85rem; padding: .95rem; border: 1px solid #e0e7f0; border-radius: 10px; background: #fff; }
+.tenant-handover-child-main { min-width: 0; }
+.tenant-handover-child-main h3 { margin: .42rem 0 .18rem; color: #2b3d56; font-family: 'DM Sans', sans-serif; font-size: .92rem; font-weight: 850; overflow-wrap: anywhere; }
+.tenant-handover-child-main p { margin: 0 0 .2rem; color: #65758c; font-size: .73rem; }
+.tenant-handover-child-main small { display: block; margin-top: .4rem; color: #8491a4; font-size: .68rem; line-height: 1.5; }
+.tenant-handover-status { display: inline-flex; padding: .24rem .5rem; border-radius: 99px; font-size: .66rem; font-weight: 850; }
+.tenant-handover-status.on_premises { color: #236443; background: #e8f6ee; }
+.tenant-handover-status.outside { color: #526278; background: #edf1f6; }
+.tenant-handover-contacts { display: grid; gap: .45rem; min-width: 0; }
+.tenant-handover-contacts > strong { color: #65758b; font-size: .7rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }
+.tenant-handover-contacts > div { display: flex; justify-content: space-between; gap: .55rem; padding-bottom: .45rem; border-bottom: 1px solid #eff2f6; }
+.tenant-handover-contacts > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.tenant-handover-contacts > div > span:first-child { min-width: 0; color: #30445e; font-size: .76rem; font-weight: 750; overflow-wrap: anywhere; }
+.tenant-handover-contacts small { display: block; margin-top: .16rem; color: #8491a4; font-size: .68rem; font-weight: 500; text-transform: capitalize; }
+.tenant-handover-authorized, .tenant-handover-not-authorized { flex: 0 0 auto; align-self: start; padding: .18rem .36rem; border-radius: 5px; font-size: .62rem; line-height: 1.4; font-weight: 850; text-align: right; }
+.tenant-handover-authorized { color: #256847; background: #e8f6ee; }
+.tenant-handover-not-authorized { color: #8d5a37; background: #fff3e8; }
+.tenant-handover-card-actions { display: grid; align-content: start; }
+.tenant-handover-card-actions .saas-primary-button { min-height: 37px; padding: .5rem .65rem; font-size: .73rem; }
+.tenant-handover-history-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: .5rem 0 .1rem; }
+.tenant-handover-history-heading h3 { margin: 0 0 .25rem; color: #293d56; font-family: 'DM Sans', sans-serif; font-size: .98rem; font-weight: 850; }
+.tenant-handover-history-heading p { margin: 0; color: #77859a; font-size: .75rem; }
+.tenant-handover-date-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .45rem; }
+.tenant-handover-date-filters label { display: grid; gap: .22rem; color: #65758a; font-size: .66rem; font-weight: 800; }
+.tenant-handover-date-filters input { width: 135px; min-height: 35px; padding: .35rem .45rem; border: 1px solid #d4deeb; border-radius: 7px; color: #30445e; background: #fff; font-size: .72rem; }
+.tenant-handover-date-filters .saas-secondary-button { min-height: 35px; font-size: .7rem; }
+.tenant-handover-history { display: grid; border: 1px solid #e0e7f0; border-radius: 10px; background: #fff; overflow: hidden; }
+.tenant-handover-history-row { display: flex; align-items: flex-start; gap: .7rem; padding: .85rem .9rem; border-bottom: 1px solid #edf1f6; }
+.tenant-handover-history-row:last-child { border-bottom: 0; }
+.tenant-handover-history-row.refused { background: #fffafa; }
+.tenant-handover-history-icon { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 8px; color: #2a7650; background: #e9f7ef; font-size: 1.15rem; }
+.tenant-handover-history-icon.check_out { color: #3657ba; background: #edf2ff; }
+.tenant-handover-history-row.refused .tenant-handover-history-icon { color: #9d4149; background: #ffedef; }
+.tenant-handover-history-main { flex: 1; min-width: 0; display: grid; gap: .18rem; }
+.tenant-handover-history-main > strong { color: #30445e; font-size: .8rem; font-weight: 850; }
+.tenant-handover-history-main > p { margin: .05rem 0; color: #65758a; font-size: .72rem; line-height: 1.5; }
+.tenant-handover-history-main > small { color: #7b899c; font-size: .68rem; line-height: 1.5; overflow-wrap: anywhere; }
+.tenant-handover-history-main > small.tenant-handover-refusal { color: #99454c; font-weight: 750; text-transform: capitalize; }
+.tenant-handover-history-row > .saas-pill { margin-left: auto; }
+.tenant-handover-history-row .saas-pill.denied { color: #9d4149; background: #ffedef; }
+.parent-handover-section { display: grid; gap: .85rem; }
+.parent-handover-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .6rem; padding: .85rem; border: 1px solid #e0e7f0; border-radius: 9px; background: #fff; }
+.parent-handover-filters label { display: grid; gap: .25rem; color: #5c6d83; font-size: .72rem; font-weight: 800; }
+.parent-handover-filters input { min-height: 38px; padding: .4rem .55rem; border: 1px solid #d4deeb; border-radius: 7px; color: #30445e; background: #fff; font-size: .78rem; }
+.parent-handover-list { display: grid; gap: .6rem; }
+.parent-handover-card { display: grid; grid-template-columns: 36px minmax(0,1fr); gap: .7rem; padding: .85rem; border: 1px solid #e0e7f0; border-radius: 9px; background: #fff; }
+.parent-handover-card.refused { border-color: #f1d4d8; background: #fffafa; }
+.parent-handover-card .tenant-handover-history-icon { width: 34px; height: 34px; }
+.parent-handover-card h3 { margin: 0 0 .18rem; color: #2b3d56; font-size: .86rem; font-weight: 850; }
+.parent-handover-card p { margin: .18rem 0; color: #65758c; font-size: .73rem; line-height: 1.55; }
+.parent-handover-card small { color: #7d8a9c; font-size: .68rem; }
+@media (max-width: 900px) {
+  .tenant-handover-child-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .tenant-handover-card-actions { grid-column: 1 / -1; }
+  .tenant-handover-card-actions .saas-primary-button { width: 100%; }
+}
+@media (max-width: 650px) {
+  .tenant-handover-child-card { grid-template-columns: 1fr; gap: .75rem; }
+  .tenant-handover-history-heading { align-items: flex-start; flex-direction: column; }
+  .tenant-handover-date-filters { width: 100%; }
+  .tenant-handover-date-filters label { flex: 1 1 120px; }
+  .tenant-handover-date-filters input { width: 100%; }
+  .tenant-handover-history-row { padding: .7rem; gap: .5rem; }
+  .tenant-handover-history-row > .saas-pill { align-self: flex-start; }
+  .tenant-handover-safety-note { padding: .75rem; }
+}
