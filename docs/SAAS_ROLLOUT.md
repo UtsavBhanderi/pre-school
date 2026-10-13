@@ -103,6 +103,20 @@ Teacher access is limited to assigned classes, the authenticated teacher's own r
 9. Test backup restoration, audit-event completeness, financial reconciliation and representative user workflows.
 10. Enable registration only after review sign-off for every gate above.
 
+## Automated tenant-isolation coverage
+
+The CI workflow now runs a separate HTTP integration suite against a disposable MongoDB replica set. It verifies that:
+
+- Organization A cannot enumerate or open organization B's children or invoices through the tenant operations API.
+- A branch-limited staff membership cannot select an unassigned branch.
+- A parent sees only children connected through the membership's guardian IDs and only invoices where the linked guardian is a billing contact.
+- Tenant memberships are denied access to legacy single-school APIs that have not been migrated.
+- Two concurrent payments cannot both consume the same invoice balance beyond the invoice total.
+
+These checks are an important baseline, not proof that every API or media path is isolated. Additional integration cases are still required for invitation lifecycle, staff-permission changes, CSV exports, notices, calendar, handover, work reports, private file delivery, data migration, and backup restoration before enabling public registration.
+
+To run the suite locally, use a **disposable replica set** and set `MONGO_INTEGRATION_URI`, then run `npm run test:integration` from `backend/`. Never target production or a database containing real school information.
+
 ## Release blockers
 
 - Any cross-tenant or cross-branch data access.
