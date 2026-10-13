@@ -161,10 +161,27 @@ router.post('/accept', async (req, res) => {
             activatedAt: new Date(),
           }], { session });
 
-          invitation.status = 'accepted';
-          invitation.acceptedBy = user._id;
-          invitation.acceptedAt = new Date();
-          await invitation.save({ session });
+          // Consume the one-time token with a conditional update inside the same
+          // transaction. Saving the loaded Mongoose document can re-include its
+          // immutable branch/class/guardian fields and fail strict validation.
+          const acceptedAt = new Date();
+          const consumedInvitation = await OrganizationInvitation.updateOne({
+            _id: invitation._id,
+            organizationId: organization._id,
+            status: 'pending',
+            expiresAt: { $gt: acceptedAt },
+          }, {
+            $set: {
+              status: 'accepted',
+              acceptedBy: user._id,
+              acceptedAt,
+            },
+          }, { session });
+          if (consumedInvitation.modifiedCount !== 1) {
+            const alreadyConsumed = new Error('This invitation was already used, revoked, or expired.');
+            alreadyConsumed.code = 'INVITATION_INVALID';
+            throw alreadyConsumed;
+          }
 
           await AuditEvent.create([{
             organizationId: organization._id,
