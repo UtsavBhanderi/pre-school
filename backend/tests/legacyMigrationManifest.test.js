@@ -14,7 +14,7 @@ const validManifest = () => ({
   branchId: '665000000000000000000020',
   collections: Object.fromEntries(MIGRATION_COLLECTIONS.map((name) => [
     name,
-    ['students', 'attendance', 'fees'].includes(name) ? 'all' : 'skip',
+    ['students', 'attendance', 'fees'].includes(name) ? 'legacy_unscoped' : 'skip',
   ])),
   confirmations: {
     sourceOwnershipVerified: true,
@@ -28,7 +28,7 @@ test('explicit mapping manifest validates only when every collection has a mode'
   assert.equal(result.valid, true);
   assert.equal(result.value.organizationId, '665000000000000000000010');
   assert.equal(result.value.branchId, '665000000000000000000020');
-  assert.equal(result.value.collections.students, 'all');
+  assert.equal(result.value.collections.students, 'legacy_unscoped');
   assert.equal(result.value.collections.teachers, 'skip');
 });
 
