@@ -53,11 +53,21 @@ function canReadMedia({ membership, asset, parentHasPhotoConsent = false }) {
     if (['organization_owner', 'head_office_admin', 'branch_admin', 'hr_manager'].includes(membership.role)) return true;
     return Boolean(asset.staffUserId && String(asset.staffUserId) === String(membership.userId));
   }
-  if (asset.category === 'child_photo' && membership.role === 'teacher') {
-    const assignedClasses = Array.isArray(membership.classNames) ? membership.classNames : [];
-    return Boolean(asset.className && assignedClasses.includes(asset.className));
+  if (asset.category === 'child_photo') {
+    if (!['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(membership.role)) return false;
+    if (membership.role === 'teacher') {
+      const assignedClasses = Array.isArray(membership.classNames) ? membership.classNames : [];
+      return Boolean(asset.className && assignedClasses.includes(asset.className));
+    }
+    return true;
   }
-  return true;
+  if (asset.category === 'gallery_image') {
+    return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(membership.role);
+  }
+  if (asset.category === 'learning_pdf' || asset.category === 'learning_video') {
+    return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher', 'transport_staff'].includes(membership.role);
+  }
+  return false;
 }
 
 module.exports = {
