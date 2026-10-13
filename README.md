@@ -149,7 +149,19 @@ npm run migration:preflight -- --json
 npm run migration:preflight -- --strict
 ```
 
-Configure `MONGO_URI` in `backend/.env` or the shell environment. The default report is human-readable; `--json` produces a machine-readable report; `--strict` returns exit code `2` when data-quality findings exist. The report intentionally omits names, email addresses and phone numbers; issue examples use short internal record references. **This is a diagnostic only, not a migration script, and it always reports automatic migration as disabled.** Take and verify a backup before any later migration tooling is run.
+Configure `MONGO_URI` in `backend/.env` or the shell environment. The default report is human-readable; `--json` produces a machine-readable report; `--strict` returns exit code `2` when findings block the review.
+
+An optional explicit mapping manifest can be supplied to validate the target organization/branch and produce a no-write review plan:
+
+```bash
+cp docs/legacy-migration-manifest.example.json legacy-migration-manifest.json
+# Edit the copied file locally: replace IDs/label and affirm each confirmation only after verification.
+npm run migration:preflight -- --manifest ./legacy-migration-manifest.json --json
+```
+
+The manifest maps only records whose `organizationId` and `branchId` are both missing. It refuses partially scoped records, requires attendance and fee rows to resolve to selected child records, checks active target classes, and requires the target branch to belong to the selected organization. Teachers, user accounts, guardian links, reports, calendar events and media must stay `skip` until their separate identity/consent/media workflows are approved. Keep a real mapping manifest local; never commit real school IDs or student details.
+
+The report intentionally omits names, email addresses and phone numbers; issue examples use short internal record references. **This is a diagnostic/review plan only, never a migration script, and it always reports automatic migration as disabled.** Take and verify a backup before any later migration tooling is run.
 
 From `frontend/`:
 
