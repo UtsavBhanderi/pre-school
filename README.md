@@ -154,7 +154,7 @@ Configure `MONGO_URI` in `backend/.env` or the shell environment. The default re
 An optional explicit mapping manifest can be supplied to validate the target organization/branch and produce a no-write review plan:
 
 ```bash
-cp docs/legacy-migration-manifest.example.json legacy-migration-manifest.json
+cp ../docs/legacy-migration-manifest.example.json ./legacy-migration-manifest.json
 # Edit the copied file locally: replace IDs/label and affirm each confirmation only after verification.
 npm run migration:preflight -- --manifest ./legacy-migration-manifest.json --json
 ```
