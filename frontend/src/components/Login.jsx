@@ -9,7 +9,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { login } = useContext(AuthContext);
+  const { login, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
@@ -20,6 +20,12 @@ const Login = () => {
 
     try {
       const loggedInUser = await login({ email: email.trim(), password });
+      if ((!Array.isArray(loggedInUser?.memberships) || loggedInUser.memberships.length === 0) &&
+          loggedInUser?.hasInactiveWorkspaceMemberships) {
+        logout();
+        setErrorMessage("Your school workspace access is inactive. Contact your preschool administrator to restore access.");
+        return;
+      }
       if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
           loggedInUser.memberships.every((membership) => membership.role === "parent")) {
         navigate("/parent-portal", { replace: true });
