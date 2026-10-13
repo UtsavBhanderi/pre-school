@@ -12,6 +12,13 @@ const PDF = require('../models/Pdf');
 const Video = require('../models/Video');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const Organization = require('../models/Organization');
+const Branch = require('../models/Branch');
+const ChildGuardian = require('../models/ChildGuardian');
+const TenantStaffProfile = require('../models/TenantStaffProfile');
+const TenantMediaAsset = require('../models/TenantMediaAsset');
+const { canAccessBranch } = require('../utils/tenantAuthorization');
+const { activeMemberOfBranch, canReadMedia } = require('../utils/tenantMediaPolicy');
+const { verifyTenantMediaToken } = require('../utils/tenantPrivateMedia');
 const { verifyPrivateMediaToken, localMediaReferenceValues } = require('../utils/privateMedia');
 
 const router = express.Router();
@@ -43,6 +50,122 @@ async function recordStillReferencesFile(type, filename) {
   return Boolean(record);
 }
 
+
+const tenantMediaRoot = path.resolve(uploadRoot, 'tenant-media');
+const tenantStorageNamePattern = /^[a-f\d-]{36}\.(jpg|png|webp|gif|pdf|mp4|webm|mov)$/i;
+
+async function serveTenantMedia(req, res, claims) {
+  if (!claims || !tenantStorageNamePattern.test('placeholder.jpg') || !claims.assetId) {
+    return res.status(403).json({ message: 'This private resource link is invalid or has expired.' });
+  }
+
+  try {
+    const [user, organization, branch, membership, asset] = await Promise.all([
+      User.findById(claims.userId).select('_id role').lean(),
+      Organization.findOne({ _id: claims.organizationId, status: 'active' }).select('_id').lean(),
+      Branch.findOne({
+        _id: claims.branchId,
+        organizationId: claims.organizationId,
+        status: 'active',
+      }).select('_id').lean(),
+      OrganizationMembership.findOne({
+        organizationId: claims.organizationId,
+        userId: claims.userId,
+        status: 'active',
+      }).lean(),
+      TenantMediaAsset.findOne({
+        _id: claims.assetId,
+        organizationId: claims.organizationId,
+        branchId: claims.branchId,
+        status: 'active',
+      }).select('+storageName').lean(),
+    ]);
+
+    if (!user || !organization || !branch || !membership) {
+      return res.status(403).json({ message: 'Your active school access is required to view this private resource.' });
+    }
+    if (!activeMemberOfBranch(membership, claims.organizationId, claims.branchId) ||
+        !canAccessBranch(membership, claims.branchId)) {
+      return res.status(403).json({ message: 'This resource is outside your active branch access.' });
+    }
+    if (!asset || !tenantStorageNamePattern.test(String(asset.storageName || ''))) {
+      return res.status(404).json({ message: 'This private media item is no longer available.' });
+    }
+
+    if (asset.childId) {
+      const child = await Student.findOne({
+        _id: asset.childId,
+        organizationId: claims.organizationId,
+        branchId: claims.branchId,
+      }).select('_id').lean();
+      if (!child) return res.status(404).json({ message: 'The linked child record is no longer available.' });
+    }
+
+    if (asset.category === 'staff_photo') {
+      const profile = await TenantStaffProfile.findOne({
+        organizationId: claims.organizationId,
+        branchId: claims.branchId,
+        userId: asset.staffUserId,
+        status: 'active',
+      }).select('_id').lean();
+      if (!profile) return res.status(404).json({ message: 'The linked staff profile is no longer available.' });
+    }
+
+    let parentHasPhotoConsent = false;
+    if (membership.role === 'parent' && asset.childId && membership.guardianIds?.length) {
+      const link = await ChildGuardian.findOne({
+        organizationId: claims.organizationId,
+        branchId: claims.branchId,
+        childId: asset.childId,
+        guardianId: { $in: membership.guardianIds },
+        'consent.photoUse': 'granted',
+      }).select('_id').lean();
+      parentHasPhotoConsent = Boolean(link);
+    }
+
+    if (!canReadMedia({ membership, asset, parentHasPhotoConsent })) {
+      return res.status(403).json({ message: 'You are not allowed to view this private media item.' });
+    }
+
+    const mediaRoot = path.resolve(tenantMediaRoot, String(claims.organizationId), String(claims.branchId));
+    const absolutePath = path.resolve(mediaRoot, asset.storageName);
+    if (!absolutePath.startsWith(mediaRoot + path.sep)) {
+      return res.status(400).json({ message: 'Invalid private media path.' });
+    }
+
+    const [realRoot, realFile] = await Promise.all([
+      fs.promises.realpath(mediaRoot),
+      fs.promises.realpath(absolutePath),
+    ]);
+    if (!realFile.startsWith(realRoot + path.sep)) {
+      return res.status(400).json({ message: 'Invalid private media path.' });
+    }
+    const stat = await fs.promises.stat(realFile);
+    if (!stat.isFile() || stat.size !== asset.sizeBytes) {
+      return res.status(404).json({ message: 'The stored private media file is missing or changed.' });
+    }
+
+    res.set({
+      'Cache-Control': 'private, no-store, max-age=0',
+      Pragma: 'no-cache',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Type': asset.mimeType,
+      'Content-Disposition': 'inline; filename="' + String(asset.originalFileName || 'school-resource').replace(/["\\\r\n]/g, '') + '"',
+    });
+    return res.sendFile(realFile, (error) => {
+      if (error && !res.headersSent) {
+        console.error('Tenant private media delivery failed:', error.code || error.name || 'send_file_error');
+        res.status(error.statusCode || 404).json({ message: 'The private resource could not be delivered.' });
+      }
+    });
+  } catch (error) {
+    if (error.code === 'ENOENT') return res.status(404).json({ message: 'File not found.' });
+    console.error('Tenant private media authorization failed:', error.message);
+    return res.status(503).json({ message: 'Private resource access could not be verified.' });
+  }
+}
+
 router.get('/file', async (req, res) => {
   res.set({
     'Cache-Control': 'private, no-store, max-age=0',
@@ -50,6 +173,9 @@ router.get('/file', async (req, res) => {
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
   });
+
+  const tenantClaims = verifyTenantMediaToken(req.query.token, process.env.PRIVATE_MEDIA_SECRET);
+  if (tenantClaims) return serveTenantMedia(req, res, tenantClaims);
 
   const claims = verifyPrivateMediaToken(req.query.token, process.env.JWT_SECRET);
   if (!claims) return res.status(403).json({ message: 'This private resource link is invalid or has expired. Reload the school resource and try again.' });
