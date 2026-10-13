@@ -129,13 +129,21 @@ From `backend/`:
 npm test
 ```
 
+The project also has HTTP-level tenant-isolation tests that require a **disposable MongoDB replica set** (transactions are part of the behaviour being tested). Set `MONGO_INTEGRATION_URI` to that test database and run:
+
+```bash
+npm run test:integration
+```
+
+Do not point integration tests at production or a database containing real school data. The integration suite creates and removes its own tagged test records.
+
 From `frontend/`:
 
 ```bash
 npm run build
 ```
 
-GitHub Actions also runs backend JavaScript syntax checks, backend unit tests, and a frontend production build on pushes to the maintenance branch and pull requests to `main`.
+GitHub Actions runs backend syntax checks and unit tests, the multi-tenant HTTP integration suite against a disposable MongoDB replica set, and the frontend production build for feature branches and pull requests to `main`.
 
 ## Important deployment notes
 
