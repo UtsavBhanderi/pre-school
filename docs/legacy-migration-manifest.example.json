@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "sourceSchoolLabel": "REPLACE WITH VERIFIED LEGACY SCHOOL LABEL",
+  "organizationId": "REPLACE_WITH_24_HEX_ORGANIZATION_ID",
+  "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID",
+  "collections": {
+    "students": "legacy_unscoped",
+    "attendance": "legacy_unscoped",
+    "fees": "legacy_unscoped",
+    "teachers": "skip",
+    "users": "skip",
+    "guardians": "skip",
+    "childGuardianLinks": "skip",
+    "reportCards": "skip",
+    "calendarEvents": "skip",
+    "pdfResources": "skip",
+    "galleryPhotos": "skip",
+    "videos": "skip"
+  },
+  "confirmations": {
+    "sourceOwnershipVerified": false,
+    "backupRestoredInStaging": false,
+    "feeLedgerReviewed": false
+  }
+}

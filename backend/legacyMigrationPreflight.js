@@ -2,6 +2,7 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs/promises');
 const mongoose = require('mongoose');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -11,21 +12,31 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 mongoose.set('autoIndex', false);
 mongoose.set('autoCreate', false);
 
-const {
-  buildLegacyMigrationAudit,
-} = require('./utils/legacyMigrationAudit');
+const { buildLegacyMigrationAudit } = require('./utils/legacyMigrationAudit');
+const { validateMigrationManifest, evaluateMigrationManifest } = require('./utils/legacyMigrationManifest');
 
 const USAGE = `Usage:
   npm run migration:preflight
   npm run migration:preflight -- --json
   npm run migration:preflight -- --strict
+  npm run migration:preflight -- --manifest ./legacy-migration-manifest.json --json
 
+Mapping manifest mode is still read-only; it validates targets and drafts a plan only.
 Reads MONGO_URI (or backend/.env). The command never inserts, updates, deletes,
 creates collections, or creates indexes. Use a read-only database account and
 a backup/staging copy. Do not use a production connection for first-pass audits.`;
 
 function hasFlag(flag) {
   return process.argv.slice(2).includes(flag);
+}
+
+function optionValue(option) {
+  const args = process.argv.slice(2);
+  const equalForm = args.find((argument) => argument.startsWith(option + '='));
+  if (equalForm) return equalForm.slice(option.length + 1);
+  const index = args.indexOf(option);
+  if (index >= 0 && args[index + 1] && !args[index + 1].startsWith('--')) return args[index + 1];
+  return null;
 }
 
 async function readCollection(Model, projection) {
@@ -80,6 +91,36 @@ function printHumanReport(report) {
   }
 
   console.log('');
+  console.log('EXPLICIT MAPPING PLAN (still read-only)');
+  if (report.mappingManifest?.status === 'NO_MAPPING_MANIFEST') {
+    console.log(report.mappingManifest.message);
+  } else if (report.mappingManifest) {
+    console.log('Plan status: ' + report.mappingManifest.status);
+    console.log('Automatic migration permitted: NO');
+    console.log('Verified source label: ' + report.mappingManifest.sourceSchoolLabel);
+    console.log('Target organization ID: ' + report.mappingManifest.target.organizationId);
+    console.log('Target branch ID: ' + report.mappingManifest.target.branchId);
+    console.log('Selected data-quality findings: ' + formatCount(report.mappingManifest.totalSelectedDataQualityIssues));
+    console.log('Planned legacy-unscoped rows by collection:');
+    for (const [name, item] of Object.entries(report.mappingManifest.collectionPlan)) {
+      console.log('- ' + name + ': ' + formatCount(item.selectedLegacyUnscopedRecords) + ' selected; ' +
+        formatCount(item.partiallyScopedRecords) + ' partially scoped; ' + item.mode);
+    }
+    if (report.mappingManifest.errors.length) {
+      console.log('Mapping blockers:');
+      for (const item of report.mappingManifest.errors) {
+        console.log('- ' + item.code + ': ' + formatCount(item.count));
+      }
+    }
+    if (report.mappingManifest.warnings.length) {
+      console.log('Mapping notes:');
+      for (const item of report.mappingManifest.warnings) {
+        console.log('- ' + item.code + ': ' + formatCount(item.count || 0));
+      }
+    }
+  }
+
+  console.log('');
   console.log('NEXT STEPS');
   for (const [index, nextStep] of report.decision.requiredNextSteps.entries()) {
     console.log((index + 1) + '. ' + nextStep);
@@ -92,6 +133,37 @@ async function run() {
   if (hasFlag('--help') || hasFlag('-h')) {
     console.log(USAGE);
     return;
+  }
+
+  const mappingPath = optionValue('--manifest');
+  let manifestValue = null;
+  if (mappingPath) {
+    try {
+      const manifestText = await fs.readFile(path.resolve(process.cwd(), mappingPath), 'utf8');
+      const manifestInput = JSON.parse(manifestText);
+      const validation = validateMigrationManifest(manifestInput);
+      if (!validation.valid) {
+        const failure = {
+          readOnly: true,
+          mappingManifest: { valid: false, errors: validation.errors },
+          message: 'The mapping manifest is invalid; no database connection or migration was attempted.',
+        };
+        if (hasFlag('--json')) console.log(JSON.stringify(failure, null, 2));
+        else {
+          console.error(failure.message);
+          for (const [field, message] of Object.entries(validation.errors)) console.error('- ' + field + ': ' + message);
+        }
+        process.exitCode = 2;
+        return;
+      }
+      manifestValue = validation.value;
+    } catch (error) {
+      const message = 'Could not read the mapping manifest: ' + (error.message || 'invalid JSON');
+      if (hasFlag('--json')) console.log(JSON.stringify({ readOnly: true, mappingManifest: { valid: false, error: message } }, null, 2));
+      else console.error(message);
+      process.exitCode = 2;
+      return;
+    }
   }
 
   if (!process.env.MONGO_URI) {
@@ -141,7 +213,7 @@ async function run() {
       readCollection(Fee, '_id stuNo standard batchYear totalStandardFees totalFeesPaid totalFeesRemaining discount paymentDetails.amount paymentDetails.date organizationId branchId'),
       readCollection(Teacher, '_id GR_No organizationId branchId'),
       readCollection(User, '_id role'),
-      readCollection(TenantClass, '_id organizationId branchId'),
+      readCollection(TenantClass, '_id organizationId branchId name status'),
       readCollection(Organization, '_id status'),
       readCollection(Branch, '_id organizationId status'),
       readCollection(FeeInvoice, '_id organizationId branchId childId totalAmountPaise status'),
@@ -182,11 +254,44 @@ async function run() {
       branchesActive: branches.filter((record) => record.status === 'active').length,
     };
 
+    if (manifestValue) {
+      report.mappingManifest = evaluateMigrationManifest({
+        manifest: manifestValue,
+        students,
+        attendance,
+        fees,
+        teachers,
+        users,
+        guardians,
+        childGuardianLinks,
+        reportCards,
+        calendarEvents,
+        pdfResources,
+        galleryPhotos,
+        videos,
+        tenantClasses,
+        organizations,
+        branches,
+        issuesByCode: report.issuesByCode,
+      });
+    } else {
+      report.mappingManifest = {
+        provided: false,
+        status: 'NO_MAPPING_MANIFEST',
+        automaticMigrationAllowed: false,
+        message: 'No target organization/branch mapping was supplied. No migration plan was evaluated.',
+      };
+    }
+
     if (hasFlag('--json')) console.log(JSON.stringify(report, null, 2));
     else printHumanReport(report);
 
-    if (hasFlag('--strict') && report.summary.blockerIssueCount > 0) {
-      process.exitCode = 2;
+    if (hasFlag('--strict')) {
+      if (manifestValue) {
+        if (report.mappingManifest.status !== 'READY_FOR_MANUAL_REVIEW_ONLY') process.exitCode = 2;
+      } else if (report.summary.blockerIssueCount > 0) {
+        process.exitCode = 2;
+      }
     }
   } catch (error) {
     console.error('Migration preflight failed: ' + (error.message || 'unknown error'));
