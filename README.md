@@ -176,6 +176,6 @@ GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation H
 - Keep `.env` files, JWT secrets, mail credentials, and real student data out of Git.
 - Restrict MongoDB network access and create regular database/file-upload backups.
 - Set `FRONTEND_ORIGIN` to the deployed frontend origin. Set `VITE_API_BASE_URL` to the API origin when frontend and API are hosted separately; if both are served from the same origin, the frontend can leave it unset. In local development, copy `frontend/.env.example` to `frontend/.env.local` to use `http://localhost:5000`.
-- Local photos, gallery images, PDFs and videos are not served from public static upload folders. Legacy school-admin flows use short-lived signed links as a transition, but those links are not yet bound to organization/branch membership. Do not enable SaaS registration until private tenant-aware media authorization is complete.
+- Local photos, gallery images, PDFs and videos are not served from public static upload folders. Legacy signed-media links and all unscoped legacy API routes are now disabled whenever any SaaS organization exists in the database. Tenant-aware private media delivery is still a launch requirement; do not enable public SaaS registration until it is implemented and tested.
 - Review the configured class fee schedule against the school's current approved fee policy before relying on fee balances.
 - Review the notice board, printable fee receipt, date-corrected attendance and staff permissions in the actual hosting environment before production rollout.
