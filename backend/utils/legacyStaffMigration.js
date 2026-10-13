@@ -320,7 +320,7 @@ function buildLegacyStaffMigrationPlan({
         errors.push({ code: 'teacher_profile_email_differs_from_verified_user', recordRef: item.legacyTeacherId.slice(0, 10) });
       }
       const fields = profileFields(teacher, user, now);
-      if (!fields.displayName) errors.push({ code: 'legacy_teacher_profile_name_missing', recordRef: item.legacyTeacherId.slice(0, 10) });
+      if (!fields.firstName || !fields.displayName) errors.push({ code: 'legacy_teacher_profile_name_missing', recordRef: item.legacyTeacherId.slice(0, 10) });
 
       for (const targetBranch of validAssignedBranches) {
         const key = item.legacyTeacherId + '|' + idOf(targetBranch).toLowerCase();
