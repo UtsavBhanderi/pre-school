@@ -172,3 +172,10 @@ npm run migration:tenant -- --manifest ../docs/legacy-migration-manifest.example
 \`\`\`
 
 The explicit apply flags and environment variables are documented in the README. The migration has not been executed against any real school database in this work session. A passing CI suite proves code checks, not a successful migration of your data.
+
+
+## Explicit legacy staff identity migration
+
+\`npm run migration:staff\` adds a separate dry-run-first migration for existing administrator/teacher login identities. It requires an exact User-ID + email + legacy-role match, explicit target role/branch assignment, configured teacher classes, and (for a copied teacher profile) a matching legacy Teacher ID. Parent portal identities are deliberately excluded from this migration because they must come from the verified guardian invitation/link flow. Organization-owner rights cannot be assigned by a legacy staff import.
+
+Apply is disabled outside an explicitly gated staging environment and requires an active owner/head-office approver with access to every target branch. It creates only tenant memberships and the new \`TenantStaffProfile\` copies; it never modifies passwords or source User/Teacher rows. The membership/profile rows, a unique migration-run ledger entry and audit event are committed in one transaction. The new command and example manifest are documented in the README. This importer has not been run against a real school database and does not unblock public signup.
