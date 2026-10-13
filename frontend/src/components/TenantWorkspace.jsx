@@ -160,6 +160,7 @@ export default function TenantWorkspace() {
   const canSeeAllBranches = Boolean(activeMembership?.accessAllBranches);
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
+  const canUploadChildPhotos = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
   const canManageNotices = canManagePeople;
   const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -226,6 +227,9 @@ export default function TenantWorkspace() {
   const [showChildForm, setShowChildForm] = useState(false);
   const [editingChildId, setEditingChildId] = useState("");
   const [childDraft, setChildDraft] = useState(() => createBlankChildDraft());
+  const [childPhotoFile, setChildPhotoFile] = useState(null);
+  const [childPhotoParentVisible, setChildPhotoParentVisible] = useState(false);
+  const [childPhotoUrls, setChildPhotoUrls] = useState({});
   const [branchDraft, setBranchDraft] = useState({ name: "", code: "", phone: "", email: "", city: "", state: "", postalCode: "" });
   const [classDraft, setClassDraft] = useState({ name: "", code: "", minAgeMonths: "", maxAgeMonths: "", defaultFee: "0", feeFrequency: "annual", capacity: "30", description: "", status: "active" });
   const [editingClassId, setEditingClassId] = useState("");
@@ -329,6 +333,24 @@ export default function TenantWorkspace() {
     setChildren(result);
     return result;
   }, [organizationId, branchId]);
+
+  const loadChildPhotos = useCallback(async () => {
+    if (!organizationId || !branchId || !canUploadChildPhotos) {
+      setChildPhotoUrls({});
+      return {};
+    }
+    const data = await saasRequest("/api/saas/media", {
+      organizationId,
+      branchId,
+      params: { category: "child_photo" },
+    });
+    const next = {};
+    for (const asset of data.assets || []) {
+      if (asset.childId && asset.url && !next[asset.childId]) next[asset.childId] = asset.url;
+    }
+    setChildPhotoUrls(next);
+    return next;
+  }, [organizationId, branchId, canUploadChildPhotos]);
 
   const loadInvoices = useCallback(async () => {
     if (!organizationId || !branchId) {
@@ -457,7 +479,7 @@ export default function TenantWorkspace() {
           await loadClasses();
         } else if (activeTab === "children") {
           if (!branchId) return;
-          await Promise.all([loadClasses(), loadChildren(appliedQuery)]);
+          await Promise.all([loadClasses(), loadChildren(appliedQuery), loadChildPhotos()]);
         } else if (activeTab === "attendance") {
           if (!branchId) return;
           const classOptions = await loadClasses();
@@ -521,7 +543,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover, loadWorkReports,
+    refreshVersion, loadBranches, loadClasses, loadChildren, loadChildPhotos, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover, loadWorkReports,
   ]);
 
   useEffect(() => {
@@ -600,11 +622,17 @@ export default function TenantWorkspace() {
     setRefreshVersion((version) => version + 1);
   };
 
-  const updateChildDraft = (event) => setChildDraft((current) => ({ ...current, [event.target.name]: event.target.value }));
+  const updateChildDraft = (event) => {
+    const { name, value } = event.target;
+    setChildDraft((current) => ({ ...current, [name]: value }));
+    if (name === "photoConsent" && value !== "granted") setChildPhotoParentVisible(false);
+  };
 
   const beginChildEdit = (child) => {
     const primary = child.guardians?.find((guardian) => guardian.primaryContact) || child.guardians?.[0] || null;
     setEditingChildId(child.id);
+    setChildPhotoFile(null);
+    setChildPhotoParentVisible(false);
     setChildDraft({
       firstName: child.firstName || "",
       middleName: child.middleName || "",
@@ -634,6 +662,8 @@ export default function TenantWorkspace() {
     setShowChildForm(false);
     setEditingChildId("");
     setChildDraft(createBlankChildDraft(classes[0]?.name || ""));
+    setChildPhotoFile(null);
+    setChildPhotoParentVisible(false);
     setErrorMessage("");
   };
 
@@ -644,10 +674,15 @@ export default function TenantWorkspace() {
       setErrorMessage("Choose an active class configured for this branch.");
       return;
     }
+    if (childPhotoParentVisible && childDraft.photoConsent !== "granted") {
+      setErrorMessage("Record photo-use consent before making a child photo visible to the parent portal.");
+      return;
+    }
     setSaving(true);
     setErrorMessage("");
     setSuccessMessage("");
 
+    const wasEditing = Boolean(editingChildId);
     const payload = {
       firstName: childDraft.firstName.trim(),
       middleName: childDraft.middleName.trim(),
@@ -676,7 +711,7 @@ export default function TenantWorkspace() {
     };
 
     try {
-      const result = editingChildId
+      const result = wasEditing
         ? await saasRequest("/api/saas/operations/children/" + editingChildId, {
             method: "PUT",
             organizationId,
@@ -711,11 +746,41 @@ export default function TenantWorkspace() {
             method: "POST", data: payload, organizationId, branchId,
           });
 
+      const savedChildId = String(editingChildId || result.child?.id || result.child?._id || "");
+      let photoUploadError = "";
+      let photoUploaded = false;
+      if (childPhotoFile) {
+        if (!canUploadChildPhotos) {
+          photoUploadError = "Your role cannot upload child photos.";
+        } else if (!savedChildId) {
+          photoUploadError = "The child record was saved, but its ID could not be confirmed for the photo upload.";
+        } else {
+          try {
+            const formData = new FormData();
+            formData.append("file", childPhotoFile);
+            await axios.post(
+              API_API_BASE_URL_DO_NOT_USE,
+              formData,
+              { headers: tokenHeaders(organizationId, branchId) },
+            );
+            photoUploaded = true;
+          } catch (error) {
+            photoUploadError = displayError(error);
+          }
+        }
+      }
+
       closeChildForm();
-      setSuccessMessage(result.message || (editingChildId ? "Child and family details saved." : "Child registered."));
-      setErrorMessage("");
       setRefreshVersion((version) => version + 1);
-      await Promise.all([loadChildren(appliedQuery), loadClasses()]);
+      await Promise.all([loadChildren(appliedQuery), loadClasses(), loadChildPhotos()]);
+      if (photoUploadError) {
+        setErrorMessage("Child record saved, but the photo was not uploaded: " + photoUploadError + " You can edit this child and retry.");
+        setSuccessMessage("");
+      } else {
+        const baseMessage = result.message || (wasEditing ? "Child and family details saved." : "Child registered.");
+        setSuccessMessage(photoUploaded ? baseMessage + " Child photo uploaded privately." : baseMessage);
+        setErrorMessage("");
+      }
     } catch (error) {
       setErrorMessage(displayError(error));
     } finally {
@@ -1878,7 +1943,7 @@ export default function TenantWorkspace() {
           {activeTab === "children" && (
             <section className="saas-section">
               <SectionHeading title="Children and families" description="Find a child, register a new admission, or review family contact details."
-                action={<button type="button" className="saas-primary-button" onClick={() => { if (showChildForm) closeChildForm(); else { setEditingChildId(""); setChildDraft(createBlankChildDraft(classes[0]?.name || "")); setShowChildForm(true); } }}><MdAdd /> {showChildForm ? "Close form" : "Register a child"}</button>}
+                action={<button type="button" className="saas-primary-button" onClick={() => { if (showChildForm) closeChildForm(); else { setEditingChildId(""); setChildDraft(createBlankChildDraft(classes[0]?.name || "")); setChildPhotoFile(null); setChildPhotoParentVisible(false); setShowChildForm(true); } }}><MdAdd /> {showChildForm ? "Close form" : "Register a child"}</button>}
               />
               {needBranch ? <BlankState title="Choose a branch first" detail="Select a branch from the top of the page to open its child records." /> : (
                 <>
