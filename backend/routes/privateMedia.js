@@ -55,7 +55,7 @@ const tenantMediaRoot = path.resolve(uploadRoot, 'tenant-media');
 const tenantStorageNamePattern = /^[a-f\d-]{36}\.(jpg|png|webp|gif|pdf|mp4|webm|mov)$/i;
 
 async function serveTenantMedia(req, res, claims) {
-  if (!claims || !tenantStorageNamePattern.test('placeholder.jpg') || !claims.assetId) {
+  if (!claims || !claims.assetId) {
     return res.status(403).json({ message: 'This private resource link is invalid or has expired.' });
   }
 
