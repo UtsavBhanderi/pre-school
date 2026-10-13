@@ -451,11 +451,30 @@ router.patch('/:id/archive', requireBranchContext, async (req, res) => {
         missing.code = 'MEDIA_NOT_FOUND';
         throw missing;
       }
-      asset.status = 'archived';
-      asset.archivedAt = new Date();
-      asset.archivedBy = req.user._id;
-      asset.archiveReason = reason;
-      await asset.save({ session });
+      const archivedAt = new Date();
+      const archivedAsset = await TenantMediaAsset.findOneAndUpdate(
+        {
+          _id: asset._id,
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          status: 'active',
+        },
+        {
+          $set: {
+            status: 'archived',
+            archivedAt,
+            archivedBy: req.user._id,
+            archiveReason: reason,
+          },
+        },
+        { new: true, runValidators: true, session },
+      ).select('_id');
+
+      if (!archivedAsset) {
+        const concurrentArchive = new Error('This media item was already archived.');
+        concurrentArchive.code = 'MEDIA_NOT_FOUND';
+        throw concurrentArchive;
+      }
       await writeMediaAudit({
         organizationId: req.tenant.organization._id,
         branchId: req.tenant.branch._id,
