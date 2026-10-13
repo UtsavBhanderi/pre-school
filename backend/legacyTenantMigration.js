@@ -124,30 +124,43 @@ async function loadSnapshot(session) {
   const AuditEvent = require('./models/AuditEvent');
   const LegacyMigrationRun = require('./models/LegacyMigrationRun');
 
+  const loaders = [
+    () => readCollection(Student, '_id stuNo standard batchYear organizationId branchId', session),
+    () => readCollection(Attendance, '_id organizationId branchId standard date studentDetails.studentId studentDetails.status', session),
+    () => readCollection(Fee, '_id stuNo standard batchYear totalStandardFees totalFeesPaid totalFeesRemaining discount paymentDetails.amount paymentDetails.date paymentDetails.time organizationId branchId', session),
+    () => readCollection(Teacher, '_id GR_No organizationId branchId', session),
+    () => readCollection(User, '_id role', session),
+    () => readCollection(TenantClass, '_id organizationId branchId name status', session),
+    () => readCollection(Organization, '_id status timezone createdBy', session),
+    () => readCollection(Branch, '_id organizationId status timezone code', session),
+    () => readCollection(FeeInvoice, '_id organizationId branchId childId academicYear totalAmountPaise status legacySourceFeeId', session),
+    () => readCollection(FeeTransaction, '_id organizationId branchId invoiceId childId amountPaise type legacySourceFeeId', session),
+    () => readCollection(Guardian, '_id organizationId', session),
+    () => readCollection(ChildGuardian, '_id organizationId branchId childId guardianId', session),
+    () => readCollection(ReportCard, '_id', session),
+    () => readCollection(Calendar, '_id', session),
+    () => readCollection(Pdf, '_id', session),
+    () => readCollection(Photo, '_id', session),
+    () => readCollection(Video, '_id', session),
+  ];
+
+  // The Node MongoDB driver does not support parallel operations on one session
+  // inside a transaction. Use sequential reads there, but retain concurrent
+  // reads for a read-only dry run.
+  const collectionRows = session
+    ? await (async () => {
+      const values = [];
+      for (const load of loaders) values.push(await load());
+      return values;
+    })()
+    : await Promise.all(loaders.map((load) => load()));
+
   const [
     students, attendance, fees, teachers, users, tenantClasses,
     organizations, branches, tenantInvoices, tenantTransactions,
     guardians, childGuardianLinks, reportCards, calendarEvents,
     pdfResources, galleryPhotos, videos,
-  ] = await Promise.all([
-    readCollection(Student, '_id stuNo standard batchYear organizationId branchId', session),
-    readCollection(Attendance, '_id organizationId branchId standard date studentDetails.studentId studentDetails.status', session),
-    readCollection(Fee, '_id stuNo standard batchYear totalStandardFees totalFeesPaid totalFeesRemaining discount paymentDetails.amount paymentDetails.date paymentDetails.time organizationId branchId', session),
-    readCollection(Teacher, '_id GR_No organizationId branchId', session),
-    readCollection(User, '_id role', session),
-    readCollection(TenantClass, '_id organizationId branchId name status', session),
-    readCollection(Organization, '_id status timezone createdBy', session),
-    readCollection(Branch, '_id organizationId status timezone code', session),
-    readCollection(FeeInvoice, '_id organizationId branchId childId academicYear totalAmountPaise status legacySourceFeeId', session),
-    readCollection(FeeTransaction, '_id organizationId branchId invoiceId childId amountPaise type legacySourceFeeId', session),
-    readCollection(Guardian, '_id organizationId', session),
-    readCollection(ChildGuardian, '_id organizationId branchId childId guardianId', session),
-    readCollection(ReportCard, '_id', session),
-    readCollection(Calendar, '_id', session),
-    readCollection(Pdf, '_id', session),
-    readCollection(Photo, '_id', session),
-    readCollection(Video, '_id', session),
-  ]);
+  ] = collectionRows;
 
   const audit = buildLegacyMigrationAudit({
     students, attendance, fees, teachers, users, tenantClasses,
