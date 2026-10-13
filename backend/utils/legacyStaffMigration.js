@@ -102,6 +102,7 @@ function validateLegacyStaffManifest(input = {}) {
       errors[prefix + '.classNames'] = 'Class-level assignment is supported only for teacher mappings in this importer.';
     }
 
+    if (role === 'teacher' && !legacyTeacherId) errors[prefix + '.legacyTeacherId'] = 'Map an existing teacher profile so the staff record is preserved.';
     if (legacyTeacherId && !validObjectId(legacyTeacherId)) {
       errors[prefix + '.legacyTeacherId'] = 'Provide a valid existing legacy Teacher profile ID.';
     }
@@ -145,7 +146,7 @@ function validateLegacyStaffManifest(input = {}) {
 }
 
 function profileFields(teacher, user, now) {
-  const firstName = cleanText(teacher.firstName, 80) || cleanText(user.username, 80);
+  const firstName = cleanText(teacher.firstName, 80);
   const middleName = cleanText(teacher.middleName, 80);
   const lastName = cleanText(teacher.lastName, 80);
   const displayName = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
