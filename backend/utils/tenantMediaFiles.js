@@ -29,7 +29,7 @@ function storageNameFor(category, mimeType) {
 
 function safeDisplayName(value) {
   if (typeof value !== 'string') return '';
-  return path.basename(value)
+  return path.basename(value.replace(/\\/g, '/'))
     .replace(/[\u0000-\u001f\u007f]/g, '')
     .replace(/[<>:"/\\|?*]/g, '_')
     .trim()
