@@ -214,11 +214,10 @@ function buildLegacyMigrationAudit(input = {}) {
   let feeRecordIssueCount = 0;
   for (const fee of fees) {
     const feeIssues = auditLegacyFeeRecord(fee, studentIndex);
-    if (feeIssues.length) feeRecordIssueCount += 1;
+    const needsOwnershipMapping = !hasId(fee?.organizationId) || !hasId(fee?.branchId);
+    if (feeIssues.length || needsOwnershipMapping) feeRecordIssueCount += 1;
     for (const issue of feeIssues) addIssue(issue, fee);
-    if (!hasId(fee?.organizationId) || !hasId(fee?.branchId)) {
-      addIssue('fee_requires_explicit_organization_branch_mapping', fee);
-    }
+    if (needsOwnershipMapping) addIssue('fee_requires_explicit_organization_branch_mapping', fee);
   }
 
   for (const teacher of teachers) {
