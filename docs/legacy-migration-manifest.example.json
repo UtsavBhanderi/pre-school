@@ -1,8 +1,8 @@
 {
   "version": 1,
   "sourceSchoolLabel": "REPLACE WITH VERIFIED LEGACY SCHOOL LABEL",
-  "organizationId": "665000000000000000000010",
-  "branchId": "665000000000000000000020",
+  "organizationId": "REPLACE_WITH_24_HEX_ORGANIZATION_ID",
+  "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID",
   "collections": {
     "students": "legacy_unscoped",
     "attendance": "legacy_unscoped",
