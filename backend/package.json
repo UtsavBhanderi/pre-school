@@ -8,7 +8,8 @@
     "start": "node server.js",
     "test:integration": "node --test integration-tests/*.integration.test.js",
     "migration:preflight": "node legacyMigrationPreflight.js",
-    "migration:tenant": "node legacyTenantMigration.js"
+    "migration:tenant": "node legacyTenantMigration.js",
+    "migration:staff": "node legacyStaffMigration.js"
   },
   "keywords": [],
   "author": "",
