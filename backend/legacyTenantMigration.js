@@ -90,8 +90,7 @@ function output(report) {
         (error.recordRef ? ' [record ' + error.recordRef + ']' : ''));
     }
   }
-  if (report.message) console.log('
-' + report.message);
+  if (report.message) console.log('\n' + report.message);
 }
 
 async function readCollection(Model, projection, session) {
