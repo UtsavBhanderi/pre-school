@@ -91,6 +91,36 @@ function printHumanReport(report) {
   }
 
   console.log('');
+  console.log('EXPLICIT MAPPING PLAN (still read-only)');
+  if (report.mappingManifest?.status === 'NO_MAPPING_MANIFEST') {
+    console.log(report.mappingManifest.message);
+  } else if (report.mappingManifest) {
+    console.log('Plan status: ' + report.mappingManifest.status);
+    console.log('Automatic migration permitted: NO');
+    console.log('Verified source label: ' + report.mappingManifest.sourceSchoolLabel);
+    console.log('Target organization ID: ' + report.mappingManifest.target.organizationId);
+    console.log('Target branch ID: ' + report.mappingManifest.target.branchId);
+    console.log('Selected data-quality findings: ' + formatCount(report.mappingManifest.totalSelectedDataQualityIssues));
+    console.log('Planned legacy-unscoped rows by collection:');
+    for (const [name, item] of Object.entries(report.mappingManifest.collectionPlan)) {
+      console.log('- ' + name + ': ' + formatCount(item.selectedLegacyUnscopedRecords) + ' selected; ' +
+        formatCount(item.partiallyScopedRecords) + ' partially scoped; ' + item.mode);
+    }
+    if (report.mappingManifest.errors.length) {
+      console.log('Mapping blockers:');
+      for (const item of report.mappingManifest.errors) {
+        console.log('- ' + item.code + ': ' + formatCount(item.count));
+      }
+    }
+    if (report.mappingManifest.warnings.length) {
+      console.log('Mapping notes:');
+      for (const item of report.mappingManifest.warnings) {
+        console.log('- ' + item.code + ': ' + formatCount(item.count || 0));
+      }
+    }
+  }
+
+  console.log('');
   console.log('NEXT STEPS');
   for (const [index, nextStep] of report.decision.requiredNextSteps.entries()) {
     console.log((index + 1) + '. ' + nextStep);
