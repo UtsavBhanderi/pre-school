@@ -183,7 +183,7 @@ async function run() {
       readCollection(Fee, '_id stuNo standard batchYear totalStandardFees totalFeesPaid totalFeesRemaining discount paymentDetails.amount paymentDetails.date organizationId branchId'),
       readCollection(Teacher, '_id GR_No organizationId branchId'),
       readCollection(User, '_id role'),
-      readCollection(TenantClass, '_id organizationId branchId'),
+      readCollection(TenantClass, '_id organizationId branchId name status'),
       readCollection(Organization, '_id status'),
       readCollection(Branch, '_id organizationId status'),
       readCollection(FeeInvoice, '_id organizationId branchId childId totalAmountPaise status'),
@@ -224,11 +224,44 @@ async function run() {
       branchesActive: branches.filter((record) => record.status === 'active').length,
     };
 
+    if (manifestValue) {
+      report.mappingManifest = evaluateMigrationManifest({
+        manifest: manifestValue,
+        students,
+        attendance,
+        fees,
+        teachers,
+        users,
+        guardians,
+        childGuardianLinks,
+        reportCards,
+        calendarEvents,
+        pdfResources,
+        galleryPhotos,
+        videos,
+        tenantClasses,
+        organizations,
+        branches,
+        issuesByCode: report.issuesByCode,
+      });
+    } else {
+      report.mappingManifest = {
+        provided: false,
+        status: 'NO_MAPPING_MANIFEST',
+        automaticMigrationAllowed: false,
+        message: 'No target organization/branch mapping was supplied. No migration plan was evaluated.',
+      };
+    }
+
     if (hasFlag('--json')) console.log(JSON.stringify(report, null, 2));
     else printHumanReport(report);
 
-    if (hasFlag('--strict') && report.summary.blockerIssueCount > 0) {
-      process.exitCode = 2;
+    if (hasFlag('--strict')) {
+      if (manifestValue) {
+        if (report.mappingManifest.status !== 'READY_FOR_MANUAL_REVIEW_ONLY') process.exitCode = 2;
+      } else if (report.summary.blockerIssueCount > 0) {
+        process.exitCode = 2;
+      }
     }
   } catch (error) {
     console.error('Migration preflight failed: ' + (error.message || 'unknown error'));
