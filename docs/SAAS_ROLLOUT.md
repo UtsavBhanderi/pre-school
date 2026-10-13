@@ -105,7 +105,19 @@ Set `MONGO_URI` in `backend/.env` or the shell environment. The command disables
 
 The report includes counts for organization/branch scope, duplicate student identifiers, invalid/missing child references in attendance, attendance/class mismatches, fee-to-child matching, fee/payment-history reconciliation, invalid payment dates/amounts, discounts and remaining balances, and legacy records that need an explicit ownership decision. Issue examples contain truncated internal record references, not student names, emails, phone numbers or other family contact details.
 
-Use `--json` for a machine-readable report. `--strict` returns exit code `2` if data-quality findings exist. A clean result still does **not** authorize migration: existing global records must be assigned to a verified organization and branch using an explicit mapping, family and staff identities must be verified, financial totals reconciled, private media migrated, and a backup/restore test signed off. The preflight is not a migration plan by itself and does not change either self-service registration gate.
+Use `--json` for a machine-readable report. `--strict` returns exit code `2` if findings block review. An optional explicit mapping manifest can validate a target and produce a read-only plan:
+
+```bash
+cp docs/legacy-migration-manifest.example.json legacy-migration-manifest.json
+# Edit the copied manifest locally and verify all IDs and confirmations.
+npm run migration:preflight -- --manifest ./legacy-migration-manifest.json --json
+```
+
+A manifest must specify one active organization and one active branch belonging to that organization. Collection decisions are explicit: `legacy_unscoped` selects only rows where both tenant IDs are absent; `skip` leaves that collection unchanged. Partially scoped rows block the plan and must be reconciled separately. Attendance references and fee admission numbers must resolve within the selected legacy child cohort. The destination branch must already have active class records matching each migrated class.
+
+This first pass permits only students, attendance and fees to be planned. Staff profiles and user accounts require verified identity mapping; guardian relationships require in-person/known-contact verification and consent review; reports, calendars and media need their own ownership/authorization plan, so the example keeps them at `skip`. A manifest's confirmation fields are operator attestations, not independently verified facts.
+
+A clean review plan still does **not** authorize migration: financial totals must be reconciled, private media migrated, and backup/restore plus post-migration isolation tests signed off. This remains a no-write diagnostic and does not change either self-service registration gate.
 
 Never run this command with a write-capable production database account for the first audit. Do not point automated tests at a live school database.
 
