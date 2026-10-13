@@ -59,7 +59,7 @@ test('manifest requires students before mapping attendance or fees', () => {
 test('staff identities, guardian links and media cannot be enabled by this first-pass manifest', () => {
   for (const collection of ['teachers', 'users', 'guardians', 'childGuardianLinks', 'pdfResources', 'galleryPhotos', 'videos', 'reportCards', 'calendarEvents']) {
     const manifest = validManifest();
-    manifest.collections[collection] = 'all';
+    manifest.collections[collection] = 'legacy_unscoped';
     const result = validateMigrationManifest(manifest);
     assert.equal(result.valid, false, 'must fail for ' + collection);
     assert.ok(result.errors['collections.' + collection]);
