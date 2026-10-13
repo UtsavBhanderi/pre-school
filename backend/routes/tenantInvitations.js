@@ -7,6 +7,7 @@ const OrganizationInvitation = require('../models/OrganizationInvitation');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const Branch = require('../models/Branch');
 const Guardian = require('../models/Guardian');
+const User = require('../models/User');
 const AuditEvent = require('../models/AuditEvent');
 const { tenantContext } = require('../middleware/tenantContext');
 const { hasTenantRole } = require('../utils/tenantAuthorization');
@@ -95,7 +96,7 @@ router.post('/', async (req, res) => {
 
   if (Object.keys(errors).length) return res.status(400).json({ message: 'Please correct the invitation details.', errors });
 
-  if (role === 'head_office_admin' && !getTransport() && process.env.NODE_ENV === 'production') {
+  if (!getTransport() && process.env.NODE_ENV === 'production') {
     return res.status(503).json({ message: 'Email delivery is not configured. Invitation email is required in production.' });
   }
 
@@ -132,12 +133,16 @@ router.post('/', async (req, res) => {
       if (!link) return res.status(400).json({ message: 'The guardian must be linked to a child in one of the assigned branches before portal access is invited.' });
     }
 
-    const activeMember = await OrganizationMembership.findOne({
-      organizationId,
-      status: 'active',
-    }).populate({ path: 'userId', match: { email } }).lean();
-    if (activeMember?.userId) {
-      return res.status(409).json({ message: 'This email already has active membership in the organization.' });
+    const existingUser = await User.findOne({ email }).select('_id').lean();
+    if (existingUser) {
+      const activeMember = await OrganizationMembership.findOne({
+        organizationId,
+        userId: existingUser._id,
+        status: 'active',
+      }).select('_id').lean();
+      if (activeMember) {
+        return res.status(409).json({ message: 'This email already has active membership in the organization.' });
+      }
     }
     const pending = await OrganizationInvitation.findOne({
       organizationId,
