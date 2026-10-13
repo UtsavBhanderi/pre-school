@@ -52,17 +52,17 @@ function validateMigrationManifest(manifest = {}) {
     : {};
   for (const collection of MIGRATION_COLLECTIONS) {
     const mode = sourceModes[collection];
-    if (!['all', 'skip'].includes(mode)) {
-      errors['collections.' + collection] = 'Set ' + collection + ' to "all" or "skip" explicitly.';
+    if (!['legacy_unscoped', 'skip'].includes(mode)) {
+      errors['collections.' + collection] = 'Set ' + collection + ' to "legacy_unscoped" or "skip" explicitly.';
     } else if (SKIP_ONLY_COLLECTIONS.has(collection) && mode !== 'skip') {
       errors['collections.' + collection] = collection + ' must remain "skip" until identity, media, or reference mapping has its own approved process.';
     }
   }
 
-  if (sourceModes.attendance === 'all' && sourceModes.students !== 'all') {
+  if (sourceModes.attendance === 'legacy_unscoped' && sourceModes.students !== 'legacy_unscoped') {
     errors['collections.attendance'] = 'Attendance can be mapped only when its student records are explicitly mapped too.';
   }
-  if (sourceModes.fees === 'all' && sourceModes.students !== 'all') {
+  if (sourceModes.fees === 'legacy_unscoped' && sourceModes.students !== 'legacy_unscoped') {
     errors['collections.fees'] = 'Fee records can be mapped only when their student records are explicitly mapped too.';
   }
 
@@ -75,7 +75,7 @@ function validateMigrationManifest(manifest = {}) {
   if (confirmations.backupRestoredInStaging !== true) {
     errors['confirmations.backupRestoredInStaging'] = 'Confirm that a backup was restored and validated in staging.';
   }
-  if (sourceModes.fees === 'all' && confirmations.feeLedgerReviewed !== true) {
+  if (sourceModes.fees === 'legacy_unscoped' && confirmations.feeLedgerReviewed !== true) {
     errors['confirmations.feeLedgerReviewed'] = 'Confirm that the legacy fee ledger was reviewed before planning fee migration.';
   }
 
