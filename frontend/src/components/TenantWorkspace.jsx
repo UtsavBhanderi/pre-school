@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment,
+  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment, MdFolderOpen,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -16,6 +16,7 @@ import "../tenant-reports.css";
 import "../tenant-calendar.css";
 import "../tenant-handover.css";
 import "../tenant-work-reports.css";
+import TenantMediaLibrary from "./TenantMediaLibrary.jsx";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -23,6 +24,7 @@ const TABS = [
   { id: "workreports", label: "Teacher work reports", Icon: MdAssignment },
   { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
+  { id: "resources", label: "Media library", Icon: MdFolderOpen },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "handover", label: "Arrival & pickup", Icon: MdShield },
@@ -168,6 +170,7 @@ export default function TenantWorkspace() {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'resources') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher', 'transport_staff'].includes(role);
     if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
     if (item.id === 'workreports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'teacher'].includes(role);
     if (item.id === 'children') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
@@ -2608,6 +2611,10 @@ export default function TenantWorkspace() {
                 </div>
               ) : !loading && <BlankState title="No events in this date range" detail="Try a wider range or create a holiday, meeting, trip or school event. Cancelled events appear in this list for administrators." />}
             </section>
+          )}
+
+          {activeTab === "resources" && (
+            <TenantMediaLibrary organizationId={organizationId} branchId={branchId} role={role} />
           )}
 
           {activeTab === "notices" && (

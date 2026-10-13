@@ -225,6 +225,22 @@ test('tenant media uploads and short-lived links enforce branch access and live 
   assert.equal(Object.prototype.hasOwnProperty.call(upload.data.asset, 'storageName'), false);
   assetId = upload.data.asset.id;
 
+  const galleryUpload = await uploadPng(
+    '/api/saas/media/upload/gallery_image',
+    { token: ownerToken, organizationId: organization._id, branchId: branch._id },
+  );
+  assert.equal(galleryUpload.status, 201, JSON.stringify(galleryUpload.data));
+  assert.equal(galleryUpload.data.asset.category, 'gallery_image');
+  assert.equal(galleryUpload.data.asset.audience, 'staff_only');
+  const ownerGallery = await api('/api/saas/media?category=gallery_image', {
+    token: ownerToken,
+    organizationId: organization._id,
+    branchId: branch._id,
+  });
+  assert.equal(ownerGallery.status, 200, JSON.stringify(ownerGallery.data));
+  assert.equal(ownerGallery.data.total, 1);
+  assert.equal(ownerGallery.data.assets[0].id, galleryUpload.data.asset.id);
+
   const ownerAccess = await fetch(upload.data.asset.url);
   assert.equal(ownerAccess.status, 200);
   assert.match(ownerAccess.headers.get('content-type') || '', /image\/png/);
@@ -239,6 +255,8 @@ test('tenant media uploads and short-lived links enforce branch access and live 
   assert.equal(parentAssets.status, 200, JSON.stringify(parentAssets.data));
   assert.equal(parentAssets.data.total, 1);
   assert.equal(parentAssets.data.assets[0].id, assetId);
+  assert.ok(parentAssets.data.assets.every((asset) => asset.category === 'child_photo'));
+  assert.ok(!parentAssets.data.assets.some((asset) => asset.id === galleryUpload.data.asset.id));
 
   const parentMediaLink = parentAssets.data.assets[0].url;
   const parentFile = await fetch(parentMediaLink);
