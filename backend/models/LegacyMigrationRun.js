@@ -17,6 +17,8 @@ const LegacyMigrationRunSchema = new mongoose.Schema({
     feeInvoicesCreated: { type: Number, min: 0, default: 0 },
     paymentTransactionsCreated: { type: Number, min: 0, default: 0 },
     databaseOperations: { type: Number, min: 0, default: 0 },
+    staffMembershipsCreated: { type: Number, min: 0, default: 0 },
+    staffProfilesCreated: { type: Number, min: 0, default: 0 },
   },
   startedAt: { type: Date, required: true, default: Date.now, immutable: true },
   completedAt: { type: Date, default: null },
