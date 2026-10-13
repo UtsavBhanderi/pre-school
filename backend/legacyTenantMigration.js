@@ -58,7 +58,7 @@ function optionValue(option) {
 }
 
 function validObjectId(value) {
-  return /^[a-fd]{24}$/i.test(String(value || ''));
+  return /^[0-9a-f]{24}$/i.test(String(value || ''));
 }
 
 function output(report) {
