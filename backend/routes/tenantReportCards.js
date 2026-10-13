@@ -59,7 +59,7 @@ async function reportById(req, id, includeArchived = false, session = null) {
 }
 
 async function readableStudentIds(req, studentIds) {
-  const ids = [...new Set((studentIds || []).map((value) => String(value?._id || value)).filter(validReportId)];
+  const ids = [...new Set((studentIds || []).map((value) => String(value?._id || value)).filter(validReportId))];
   if (req.tenant.membership.role !== 'parent') return ids;
   const guardianIds = req.tenant.membership.guardianIds || [];
   if (!guardianIds.length || !ids.length) return [];
@@ -205,7 +205,12 @@ router.get('/', requireBranchContext, async (req, res) => {
       const childIds = new Set(linkedChildren.map((link) => String(link.childId)));
       reports = reports.filter((report) => (report.students || []).some((studentId) => childIds.has(String(studentId))));
     }
-    return res.json({ total: reports.length, reports: reports.map(serializeReport) });
+    const serializedReports = reports.map((report) => {
+      const result = serializeReport(report);
+      if (req.tenant.membership.role === 'parent') delete result.studentCount;
+      return result;
+    });
+    return res.json({ total: reports.length, reports: serializedReports });
   } catch (error) {
     console.error('Unable to list report cards:', error.message);
     return res.status(503).json({ message: 'Report cards could not be loaded.' });
@@ -299,7 +304,7 @@ router.get('/:id/students', requireBranchContext, async (req, res) => {
       };
     });
     return res.json({
-      report: serializeReport(report),
+      report: req.tenant.membership.role === 'parent' ? (() => { const result = serializeReport(report); delete result.studentCount; return result; })() : serializeReport(report),
       children: students,
       markedCount: students.filter((student) => student.hasMarks).length,
       totalChildren: students.length,
