@@ -114,7 +114,11 @@ async function loadSnapshot(manifest, models, session = null) {
   const teacherIds = [...new Set(manifest.staff.map((item) => item.legacyTeacherId).filter(Boolean))];
 
   const loaders = [
-    () => models.Organization.findOne({ _id: manifest.organizationId }).select('_id name status timezone').lean().exec(),
+    () => {
+      let query = models.Organization.findOne({ _id: manifest.organizationId }).select('_id name status timezone').lean();
+      if (session) query = query.session(session);
+      return query.exec();
+    },
     () => list(models.Branch, { _id: { $in: branchIds } }, '_id organizationId name code status timezone', session),
     () => list(models.User, { _id: { $in: userIds } }, '_id username email role', session),
     () => list(models.OrganizationMembership, {
