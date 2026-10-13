@@ -288,7 +288,7 @@ function buildLegacyStaffMigrationPlan({
         organizationId: organization._id,
         userId: user._id,
         role: item.role,
-        branchIds: item.branchIds.map((id) => branchById.get(id)._id),
+        branchIds: validAssignedBranches.map((targetBranch) => targetBranch._id),
         guardianIds: [],
         classNames: item.classNames,
         accessAllBranches: false,
