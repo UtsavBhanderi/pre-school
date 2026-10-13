@@ -12,12 +12,12 @@ Status: Phase 0 foundation in progress. This is not production-ready multi-tenan
 - An explicit default-off registration gate that requires both environment flags:
   - `ENABLE_SAAS_REGISTRATION=true`
   - `SAAS_TENANT_DATA_READY=true`
-- A guard on the existing single-school APIs: a user with an organization membership cannot access an unscoped legacy API.
+- A fail-closed guard on the existing single-school APIs: tenant members cannot use unscoped legacy APIs, and accounts without a membership are also blocked once any SaaS organization exists.
 - Role and validation unit tests.
 
 ## Do not enable public registration yet
 
-**Keep both registration environment flags unset or false.** The legacy student, fee, teacher, attendance, reports, notices, calendars, gallery and learning-resource APIs still contain data access that must be migrated to organization/branch-aware queries. The direct static mounts for local student/teacher photos, gallery images, PDFs and videos have been removed; the existing legacy admin APIs now issue short-lived signed links for those local files. Those transitional links still use the legacy single-school administrator boundary, not organization/branch permissions. Externally hosted resource URLs remain external. It is not safe to onboard real organizations until all data routes and media paths are tenant-aware and negative isolation tests pass.
+**Keep both registration environment flags unset or false.** The legacy student, fee, teacher, attendance, reports, notices, calendars, gallery and learning-resource APIs still contain data access that must be migrated to organization/branch-aware queries. These APIs now fail closed for tenant members and also for non-member accounts whenever any SaaS organization exists, because a global legacy query cannot safely distinguish tenant-owned records. The direct static mounts for local student/teacher photos, gallery images, PDFs and videos have been removed. Existing legacy signed-media URLs are now also rejected once SaaS organizations exist, because those URL tokens do not carry tenant/branch/record authorization. This intentionally protects the tenant boundary at the cost of disabling legacy-only screens/media when SaaS data is present. Tenant-aware private media delivery remains incomplete. Externally hosted resource URLs remain external. It is not safe to onboard real organizations until tenant-aware media and all data routes are migrated and negative isolation tests pass.
 
 The second environment flag is an operational gate, not proof of safety. It must not be enabled merely to get signup working.
 

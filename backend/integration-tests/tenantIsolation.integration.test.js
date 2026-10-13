@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const { signPrivateMediaToken } = require('../utils/privateMedia');
 
 const integrationUri = String(process.env.MONGO_INTEGRATION_URI || '').trim();
 
@@ -146,6 +147,10 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
   const ownerB = await makeUser('admin', 'owner-b');
   const branchStaff = await makeUser('teacher', 'limited-staff');
   const parentUser = await makeUser('student', 'parent-a');
+  // Deliberately has no OrganizationMembership: an old admin account must not
+  // use unscoped endpoints to browse SaaS-owned rows merely because it lacks a
+  // tenant membership itself.
+  const legacyAdmin = await makeUser('admin', 'legacy-no-membership');
 
   const organizationA = await Organization.create({
     name: 'Integration School A ' + tag,
@@ -334,6 +339,24 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
     });
     assert.equal(response.status, 403);
     assert.equal(response.data.code, 'TENANT_MODULE_NOT_MIGRATED');
+  });
+
+  await t.test('legacy-only accounts cannot read tenant data or use old media links once SaaS organizations exist', async () => {
+    const legacyApi = await api('/api/students', {
+      token: tokenFor(legacyAdmin),
+    });
+    assert.equal(legacyApi.status, 403);
+    assert.equal(legacyApi.data.code, 'LEGACY_API_DISABLED_FOR_SAAS');
+
+    const mediaToken = signPrivateMediaToken({
+      userId: String(legacyAdmin._id),
+      type: 'students',
+      filename: 'legacy-photo.jpg',
+      secret: process.env.JWT_SECRET,
+    });
+    const legacyMedia = await api('/api/media/file?token=' + encodeURIComponent(mediaToken));
+    assert.equal(legacyMedia.status, 403);
+    assert.equal(legacyMedia.data.code, 'LEGACY_MEDIA_DISABLED_FOR_SAAS');
   });
 
   await t.test('parallel payments cannot collect more than the invoice total', async () => {

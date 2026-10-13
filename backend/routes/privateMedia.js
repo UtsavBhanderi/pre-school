@@ -11,6 +11,7 @@ const Photo = require('../models/Photo');
 const PDF = require('../models/Pdf');
 const Video = require('../models/Video');
 const OrganizationMembership = require('../models/OrganizationMembership');
+const Organization = require('../models/Organization');
 const { verifyPrivateMediaToken, localMediaReferenceValues } = require('../utils/privateMedia');
 
 const router = express.Router();
@@ -64,6 +65,18 @@ router.get('/file', async (req, res) => {
     // organization scoping. A user connected to any tenant cannot use old links.
     const membership = await OrganizationMembership.exists({ userId: user._id });
     if (membership) return res.status(403).json({ message: 'This resource must be accessed through your organization workspace.' });
+
+    // These links were issued for the legacy single-school application and
+    // contain no tenant/branch/record authorization claims. Stop accepting them
+    // as soon as SaaS organization data exists; otherwise an unlinked legacy
+    // administrator could resolve a filename referenced by a tenant-owned row.
+    const anyOrganizationExists = await Organization.exists({});
+    if (anyOrganizationExists) {
+      return res.status(403).json({
+        code: 'LEGACY_MEDIA_DISABLED_FOR_SAAS',
+        message: 'This older media link is not organization-scoped and cannot be used while SaaS school data exists. Reload the resource through an enabled workspace feature.',
+      });
+    }
 
     if (!(await recordStillReferencesFile(claims.type, claims.filename))) {
       return res.status(404).json({ message: 'This file is no longer attached to a school record.' });
