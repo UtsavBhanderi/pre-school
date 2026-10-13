@@ -291,11 +291,23 @@ router.patch('/:id/revoke', async (req, res) => {
       return res.status(403).json({ message: 'You cannot revoke an invitation outside your branch access.' });
     }
 
-    invitation.status = 'revoked';
-    invitation.revokedBy = req.user._id;
-    invitation.revokedAt = new Date();
-    await invitation.save();
-    await writeInvitationAudit(req, null, 'invitation.revoked', invitation, 'Invitation revoked for ' + invitation.email + '.');
+    const revokedAt = new Date();
+    // Update only the mutable lifecycle fields. Saving the full document can
+    // re-submit immutable branch/class/guardian scope fields in strict mode.
+    const revoked = await OrganizationInvitation.findOneAndUpdate({
+      _id: invitation._id,
+      organizationId: req.tenant.organization._id,
+      status: 'pending',
+    }, {
+      $set: {
+        status: 'revoked',
+        revokedBy: req.user._id,
+        revokedAt,
+      },
+    }, { new: true, runValidators: true });
+
+    if (!revoked) return res.status(409).json({ message: 'This invitation was already accepted, revoked, or expired.' });
+    await writeInvitationAudit(req, null, 'invitation.revoked', revoked, 'Invitation revoked for ' + revoked.email + '.');
     return res.json({ message: 'Invitation revoked.' });
   } catch (error) {
     console.error('Unable to revoke invitation:', error.message);
