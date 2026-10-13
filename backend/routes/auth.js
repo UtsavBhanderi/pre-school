@@ -6,6 +6,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const OrganizationMembership = require('../models/OrganizationMembership');
+const { resolveWorkspaceMembershipState } = require('../utils/workspaceMembershipState');
 
 const ALLOWED_ROLES = new Set(['teacher', 'admin', 'student']);
 
@@ -97,17 +98,19 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', auth, async (req, res) => {
   try {
-    const memberships = await OrganizationMembership.find({
+    const allMemberships = await OrganizationMembership.find({
       userId: req.user._id,
-      status: 'active',
     })
       .populate({ path: 'organizationId', select: 'name slug status timezone locale currency subscription.plan subscription.status' })
       .populate({ path: 'branchIds', select: 'name code status timezone' })
       .sort({ createdAt: 1 })
       .lean();
 
+    const { memberships, hasInactiveWorkspaceMemberships } = resolveWorkspaceMembershipState(allMemberships);
+
     return res.json({
       user: {
+        hasInactiveWorkspaceMemberships,
         id: String(req.user._id),
         username: req.user.username,
         email: req.user.email,
