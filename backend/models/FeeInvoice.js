@@ -25,6 +25,8 @@ const FeeInvoiceSchema = new mongoose.Schema({
   discountPaise: { type: Number, required: true, min: 0, max: 100000000000, default: 0, immutable: true },
   totalAmountPaise: { type: Number, required: true, min: 0, max: 100000000000, immutable: true },
   dueDate: { type: Date, default: null },
+  // Non-null only when imported from the legacy Fees collection.
+  legacySourceFeeId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
   status: { type: String, enum: ['open', 'void'], default: 'open', index: true },
   ledgerVersion: { type: Number, min: 0, default: 0 },
   notes: { type: String, trim: true, maxlength: 1000, default: '' },
@@ -37,5 +39,9 @@ const FeeInvoiceSchema = new mongoose.Schema({
 FeeInvoiceSchema.index({ organizationId: 1, branchId: 1, invoiceNumber: 1 }, { unique: true });
 FeeInvoiceSchema.index({ organizationId: 1, branchId: 1, childId: 1, academicYear: 1, createdAt: -1 });
 FeeInvoiceSchema.index({ organizationId: 1, branchId: 1, status: 1, dueDate: 1 });
+FeeInvoiceSchema.index(
+  { organizationId: 1, branchId: 1, legacySourceFeeId: 1 },
+  { unique: true, partialFilterExpression: { legacySourceFeeId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('FeeInvoice', FeeInvoiceSchema);
