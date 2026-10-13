@@ -108,7 +108,7 @@ The report includes counts for organization/branch scope, duplicate student iden
 Use `--json` for a machine-readable report. `--strict` returns exit code `2` if findings block review. An optional explicit mapping manifest can validate a target and produce a read-only plan:
 
 ```bash
-cp docs/legacy-migration-manifest.example.json legacy-migration-manifest.json
+cp ../docs/legacy-migration-manifest.example.json ./legacy-migration-manifest.json
 # Edit the copied manifest locally and verify all IDs and confirmations.
 npm run migration:preflight -- --manifest ./legacy-migration-manifest.json --json
 ```
