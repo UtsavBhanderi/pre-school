@@ -76,11 +76,14 @@ test('legacy migration is gated, transactional, reconciles fees and is safe to r
   }
 
   async function cleanup() {
+    const safeOrganizationFilter = organization
+      ? { organizationId: organization._id }
+      : { organizationId: { $in: ids.organizations } };
     await Promise.allSettled([
-      FeeTransaction.deleteMany({ organizationId: organization?._id }),
-      FeeInvoice.deleteMany({ organizationId: organization?._id }),
-      LegacyMigrationRun.deleteMany({ organizationId: organization?._id }),
-      AuditEvent.deleteMany({ organizationId: organization?._id }),
+      FeeTransaction.deleteMany(safeOrganizationFilter),
+      FeeInvoice.deleteMany(safeOrganizationFilter),
+      LegacyMigrationRun.deleteMany(safeOrganizationFilter),
+      AuditEvent.deleteMany(safeOrganizationFilter),
       Fee.deleteMany({ _id: { $in: ids.fees } }),
       Attendance.deleteMany({ _id: { $in: ids.attendance } }),
       Student.deleteMany({ _id: { $in: ids.students } }),
