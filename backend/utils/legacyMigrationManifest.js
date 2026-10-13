@@ -97,4 +97,195 @@ function validateMigrationManifest(manifest = {}) {
   };
 }
 
-module.exports = { MIGRATION_COLLECTIONS, SKIP_ONLY_COLLECTIONS, validateMigrationManifest };
+
+function isFullyUnscoped(record) {
+  return !record?.organizationId && !record?.branchId;
+}
+
+function recordId(record) {
+  return record?._id === undefined || record?._id === null ? '' : String(record._id);
+}
+
+function evaluateMigrationManifest({
+  manifest,
+  students = [],
+  attendance = [],
+  fees = [],
+  tenantClasses = [],
+  organizations = [],
+  branches = [],
+  issuesByCode = {},
+} = {}) {
+  const errors = [];
+  const warnings = [];
+  const organization = organizations.find((item) => String(item._id) === manifest.organizationId);
+  const branch = branches.find((item) => String(item._id) === manifest.branchId);
+
+  if (!organization || organization.status !== 'active') {
+    errors.push({ code: 'target_organization_unavailable', count: 1 });
+  }
+  if (!branch || branch.status !== 'active' || String(branch.organizationId) !== manifest.organizationId) {
+    errors.push({ code: 'target_branch_unavailable_or_wrong_organization', count: 1 });
+  }
+
+  const recordsByCollection = { students, attendance, fees };
+  const scopeByCollection = {
+    students: students,
+    attendance: attendance,
+    fees: fees,
+  };
+  const collectionPlan = {};
+  for (const collection of MIGRATION_COLLECTIONS) {
+    const mode = manifest.collections[collection];
+    const records = recordsByCollection[collection] || [];
+    const scopedRecords = scopeByCollection[collection] || [];
+    const fullyUnscoped = scopedRecords.filter(isFullyUnscoped).length;
+    const partiallyScoped = scopedRecords.filter((item) =>
+      Boolean(item?.organizationId) !== Boolean(item?.branchId)
+    ).length;
+    const fullyScoped = scopedRecords.length - fullyUnscoped - partiallyScoped;
+    collectionPlan[collection] = {
+      mode,
+      sourceRecords: records.length,
+      selectedLegacyUnscopedRecords: mode === 'legacy_unscoped' ? fullyUnscoped : 0,
+      leftUnchangedByPlan: records.length - (mode === 'legacy_unscoped' ? fullyUnscoped : 0),
+      fullyUnscopedRecords: fullyUnscoped,
+      fullyScopedRecords: fullyScoped,
+      partiallyScopedRecords: partiallyScoped,
+    };
+
+    if (mode === 'legacy_unscoped' && partiallyScoped > 0) {
+      errors.push({
+        code: collection + '_contains_partially_scoped_records',
+        count: partiallyScoped,
+      });
+    }
+  }
+
+  const selectedStudentIds = new Set(
+    students.filter(isFullyUnscoped).map(recordId)
+  );
+  const selectedStudentAdmissions = new Map();
+  for (const studentRecord of students.filter(isFullyUnscoped)) {
+    const admissionNumber = String(studentRecord.stuNo || '').trim();
+    if (!admissionNumber) continue;
+    const list = selectedStudentAdmissions.get(admissionNumber) || [];
+    list.push(studentRecord);
+    selectedStudentAdmissions.set(admissionNumber, list);
+  }
+
+  if (manifest.collections.attendance === 'legacy_unscoped') {
+    let incompatibleAttendanceRecords = 0;
+    for (const record of attendance.filter(isFullyUnscoped)) {
+      const entries = Array.isArray(record.studentDetails) ? record.studentDetails : [];
+      if (entries.some((entry) => {
+        const childId = recordId({ _id: entry?.studentId?._id || entry?.studentId });
+        return !childId || !selectedStudentIds.has(childId);
+      })) {
+        incompatibleAttendanceRecords += 1;
+      }
+    }
+    if (incompatibleAttendanceRecords) {
+      errors.push({
+        code: 'attendance_references_children_outside_selected_legacy_cohort',
+        count: incompatibleAttendanceRecords,
+      });
+    }
+  }
+
+  if (manifest.collections.fees === 'legacy_unscoped') {
+    let incompatibleFeeRecords = 0;
+    for (const fee of fees.filter(isFullyUnscoped)) {
+      const admissionNumber = String(fee.stuNo || '').trim();
+      const matches = admissionNumber ? (selectedStudentAdmissions.get(admissionNumber) || []) : [];
+      if (matches.length !== 1) incompatibleFeeRecords += 1;
+    }
+    if (incompatibleFeeRecords) {
+      errors.push({
+        code: 'fee_records_do_not_resolve_to_one_selected_legacy_student',
+        count: incompatibleFeeRecords,
+      });
+    }
+  }
+
+  if (manifest.collections.students === 'legacy_unscoped') {
+    const activeClasses = new Set(
+      tenantClasses
+        .filter((item) =>
+          String(item.organizationId) === manifest.organizationId &&
+          String(item.branchId) === manifest.branchId &&
+          item.status === 'active'
+        )
+        .map((item) => String(item.name || '').trim())
+    );
+    const missingClassNames = [...new Set(students
+      .filter(isFullyUnscoped)
+      .map((item) => String(item.standard || '').trim())
+      .filter((name) => name && !activeClasses.has(name)))];
+    if (missingClassNames.length) {
+      errors.push({
+        code: 'target_branch_missing_active_class_configuration',
+        count: missingClassNames.length,
+        classNames: missingClassNames.slice(0, 20),
+      });
+    }
+  }
+
+  function selectedDataIssueCount(prefix, scopeCode, mode) {
+    if (mode !== 'legacy_unscoped') return 0;
+    return Object.entries(issuesByCode).reduce((total, [code, count]) => {
+      if (!code.startsWith(prefix) || code === scopeCode) return total;
+      return total + Number(count || 0);
+    }, 0);
+  }
+
+  const dataQualityIssues = {
+    students: selectedDataIssueCount(
+      'student_', 'student_requires_explicit_organization_branch_mapping', manifest.collections.students
+    ),
+    attendance: selectedDataIssueCount(
+      'attendance_', 'attendance_requires_explicit_organization_branch_mapping', manifest.collections.attendance
+    ),
+    fees: selectedDataIssueCount(
+      'fee_', 'fee_requires_explicit_organization_branch_mapping', manifest.collections.fees
+    ),
+  };
+  const totalSelectedDataQualityIssues = Object.values(dataQualityIssues).reduce((sum, value) => sum + value, 0);
+  if (totalSelectedDataQualityIssues) {
+    warnings.push({
+      code: 'selected_collections_have_data_quality_findings',
+      count: totalSelectedDataQualityIssues,
+      byCollection: dataQualityIssues,
+    });
+  }
+
+  for (const collection of MIGRATION_COLLECTIONS) {
+    if (manifest.collections[collection] === 'skip') {
+      const count = collectionPlan[collection].sourceRecords;
+      if (count) warnings.push({ code: 'collection_left_unchanged', collection, count });
+    }
+  }
+
+  return {
+    status: errors.length === 0 && totalSelectedDataQualityIssues === 0
+      ? 'READY_FOR_MANUAL_REVIEW_ONLY'
+      : 'BLOCKED_FOR_REVIEW',
+    validTarget: organization?.status === 'active' &&
+      branch?.status === 'active' &&
+      String(branch?.organizationId) === manifest.organizationId,
+    automaticMigrationAllowed: false,
+    writesPerformed: false,
+    sourceSchoolLabel: manifest.sourceSchoolLabel,
+    target: {
+      organizationId: manifest.organizationId,
+      branchId: manifest.branchId,
+    },
+    collectionPlan,
+    selectedDataQualityIssues: dataQualityIssues,
+    totalSelectedDataQualityIssues,
+    errors,
+    warnings,
+  };
+}
+
+module.exports = { MIGRATION_COLLECTIONS, SKIP_ONLY_COLLECTIONS, validateMigrationManifest, evaluateMigrationManifest };
