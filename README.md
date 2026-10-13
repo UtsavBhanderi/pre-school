@@ -179,3 +179,31 @@ GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation H
 - Local photos, gallery images, PDFs and videos are not served from public static upload folders. Legacy signed-media links and all unscoped legacy API routes are now disabled whenever any SaaS organization exists in the database. Tenant-aware private media delivery is still a launch requirement; do not enable public SaaS registration until it is implemented and tested.
 - Review the configured class fee schedule against the school's current approved fee policy before relying on fee balances.
 - Review the notice board, printable fee receipt, date-corrected attendance and staff permissions in the actual hosting environment before production rollout.
+
+## Guarded legacy data migration (staging only)
+
+The new \`npm run migration:tenant\` command defaults to a **dry run**. It reads an explicit JSON manifest, audits the current source and target, and prints bounded counts/blocker codes. It never creates collections/indexes in dry-run mode. The first supported write migration is intentionally limited to the selected legacy-unscoped student, attendance and fee collections; staff identity, guardians, report cards, calendar events and uploaded media remain out of scope.
+
+The write path is deliberately unavailable in development/production. It requires all of the following in a **disposable, restored staging environment**:
+
+- \`NODE_ENV=staging\`
+- \`SAAS_MIGRATION_ENV=staging\`
+- \`ALLOW_LEGACY_TENANT_MIGRATION=true\`
+- explicit \`--apply\`, \`--manifest\`, \`--confirm-source-label\`, \`--confirm-organization\`, \`--confirm-branch\`, \`--approved-by\`, and \`--change-ticket\` CLI arguments
+- a valid manifest with ownership, staging backup/restore and fee-ledger review confirmations
+- an active organization owner or head-office approver, a transaction-capable MongoDB replica set, already-provisioned required collections/unique indexes, a clean data-quality review, no destination attendance/invoice collisions, and no more than 2,500 planned database operations by default
+
+Example dry run:
+
+\`\`\`bash
+cd backend
+npm run migration:tenant -- --manifest ../docs/legacy-migration-manifest.example.json --json
+\`\`\`
+
+The example manifest intentionally contains placeholder identifiers and false confirmations, so it should fail validation until an authorized school-specific manifest is reviewed. Do not copy a production database URI into command history or put credentials in the manifest.
+
+The planner preserves the original student, attendance and legacy fee source records, scopes selected source rows to one explicit organization/branch, creates a corresponding invoice and immutable history entries for positive legacy payments, and stores the source fee ID plus original payment date/time on imported ledger entries. The financial preflight must reconcile payment history, discount, paid and remaining amounts before this can pass. Attendance dates are normalized to a UTC day boundary; legacy payment dates use the branch time zone, while the original date/time text is stored separately because the legacy time zone was not recorded.
+
+A write attempt is one MongoDB transaction and is capped to keep the first migration bounded. It records a unique migration-run fingerprint plus an audit event. If validation, an index check, a concurrent-source check, a duplicate key or any write fails, the transaction is aborted. The tool will not silently create missing indexes or choose tenant ownership from names, email addresses or class labels.
+
+After an approved staging apply, rerun the read-only preflight and compare source versus destination counts, attendance rows and financial ledgers. Test the entire school workflow against organizations A and B before any production migration is approved. This staging-only runner is not permission to enable public registration and does not migrate private media; the SaaS registration flags must remain disabled until all remaining migration and privacy gates are reviewed.

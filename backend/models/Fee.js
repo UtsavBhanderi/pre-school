@@ -9,6 +9,10 @@ const PaymentDetailSchema = new mongoose.Schema({
 });
 
 const FeesSchema = new mongoose.Schema({
+  // Optional tenant ownership added for explicit legacy migration. Existing
+  // records remain unscoped until a signed-off migration assigns both fields.
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null, index: true },
   studentName: { type: String, default: '' },
   studentPhoneNumber: { type: String, default: '' },
   ParentsPhoneNumber: { type: String, default: '' },

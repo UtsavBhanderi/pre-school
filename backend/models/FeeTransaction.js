@@ -16,10 +16,26 @@ const FeeTransactionSchema = new mongoose.Schema({
   relatedTransactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeTransaction', default: null, immutable: true },
   reason: { type: String, trim: true, maxlength: 500, default: '', immutable: true },
   recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
+  // Provenance fields preserve the exact legacy payment date/time and make imports idempotent.
+  legacyImported: { type: Boolean, default: false, immutable: true },
+  legacySourceFeeId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
+  legacyPaymentIndex: { type: Number, min: 0, default: null, immutable: true },
+  legacyOriginalDate: { type: String, trim: true, maxlength: 40, default: '', immutable: true },
+  legacyOriginalTime: { type: String, trim: true, maxlength: 40, default: '', immutable: true },
 }, { timestamps: { createdAt: true, updatedAt: false }, strict: 'throw' });
 
 FeeTransactionSchema.index({ organizationId: 1, branchId: 1, receiptNumber: 1 }, { unique: true });
 FeeTransactionSchema.index({ organizationId: 1, branchId: 1, invoiceId: 1, transactionAt: -1 });
 FeeTransactionSchema.index({ organizationId: 1, branchId: 1, transactionAt: -1 });
+FeeTransactionSchema.index(
+  { organizationId: 1, branchId: 1, legacySourceFeeId: 1, legacyPaymentIndex: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      legacySourceFeeId: { $type: 'objectId' },
+      legacyPaymentIndex: { $type: 'number' },
+    },
+  }
+);
 
 module.exports = mongoose.model('FeeTransaction', FeeTransactionSchema);
