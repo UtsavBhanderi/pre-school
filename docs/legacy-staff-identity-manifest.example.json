@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "sourceSchoolLabel": "REPLACE WITH VERIFIED LEGACY SCHOOL LABEL",
+  "organizationId": "REPLACE_WITH_24_HEX_ORGANIZATION_ID",
+  "primaryBranchId": "REPLACE_WITH_24_HEX_PRIMARY_BRANCH_ID",
+  "confirmations": {
+    "sourceOwnershipVerified": false,
+    "staffIdentityVerified": false,
+    "backupRestoredInStaging": false,
+    "classAssignmentsReviewed": false
+  },
+  "staff": [
+    {
+      "legacyUserId": "REPLACE_WITH_24_HEX_LEGACY_USER_ID",
+      "expectedEmail": "REPLACE_WITH_EXACT_VERIFIED_EMAIL",
+      "expectedLegacyRole": "teacher",
+      "role": "teacher",
+      "branchIds": ["REPLACE_WITH_24_HEX_BRANCH_ID"],
+      "classNames": ["ENG JR."],
+      "legacyTeacherId": "REPLACE_WITH_24_HEX_LEGACY_TEACHER_PROFILE_ID",
+      "approvalNote": "REPLACE WITH REVIEW REFERENCE"
+    }
+  ]
+}
