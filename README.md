@@ -129,13 +129,27 @@ From `backend/`:
 npm test
 ```
 
-The project also has HTTP-level tenant-isolation tests that require a **disposable MongoDB replica set** (transactions are part of the behaviour being tested). Set `MONGO_INTEGRATION_URI` to that test database and run:
+For a local integration run, configure `MONGO_INTEGRATION_URI` to a **disposable MongoDB replica set** and run:
 
 ```bash
 npm run test:integration
 ```
 
-Do not point integration tests at production or a database containing real school data. The integration suite creates and removes its own tagged test records.
+Never point this suite at production or a database containing real school data. The suite creates and removes tagged test records.
+
+### Read-only legacy migration preflight
+
+The migration preflight reviews the legacy student, attendance, fee, teacher and related collections for scope gaps, broken references and financial inconsistencies. It does not modify records or assign them to an organization.
+
+Run it from `backend/` against a **staging copy or backup using a read-only MongoDB account**:
+
+```bash
+npm run migration:preflight
+npm run migration:preflight -- --json
+npm run migration:preflight -- --strict
+```
+
+Configure `MONGO_URI` in `backend/.env` or the shell environment. The default report is human-readable; `--json` produces a machine-readable report; `--strict` returns exit code `2` when data-quality findings exist. The report intentionally omits names, email addresses and phone numbers; issue examples use short internal record references. **This is a diagnostic only, not a migration script, and it always reports automatic migration as disabled.** Take and verify a backup before any later migration tooling is run.
 
 From `frontend/`:
 
@@ -143,14 +157,13 @@ From `frontend/`:
 npm run build
 ```
 
-GitHub Actions runs backend syntax checks and unit tests, the multi-tenant HTTP integration suite against a disposable MongoDB replica set, and the frontend production build for feature branches and pull requests to `main`.
+GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation HTTP integration suite against a disposable MongoDB replica set, and the frontend production build for feature branches and pull requests to `main`.
 
 ## Important deployment notes
 
 - Keep `.env` files, JWT secrets, mail credentials, and real student data out of Git.
 - Restrict MongoDB network access and create regular database/file-upload backups.
 - Set `FRONTEND_ORIGIN` to the deployed frontend origin. Set `VITE_API_BASE_URL` to the API origin when frontend and API are hosted separately; if both are served from the same origin, the frontend can leave it unset. In local development, copy `frontend/.env.example` to `frontend/.env.local` to use `http://localhost:5000`.
-- The backend protects administrative API groups by role. Uploaded media currently uses public static URLs so the frontend can render those files; review whether student/parent photos require authenticated media delivery for your school's privacy policy.
+- Local photos, gallery images, PDFs and videos are not served from public static upload folders. Legacy school-admin flows use short-lived signed links as a transition, but those links are not yet bound to organization/branch membership. Do not enable SaaS registration until private tenant-aware media authorization is complete.
 - Review the configured class fee schedule against the school's current approved fee policy before relying on fee balances.
 - Review the notice board, printable fee receipt, date-corrected attendance and staff permissions in the actual hosting environment before production rollout.
-- Uploaded student and teacher photos currently use public static URLs; assess authenticated media delivery against the school's student privacy policy before using real family records.
