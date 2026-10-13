@@ -17,7 +17,7 @@ Status: Phase 0 foundation in progress. This is not production-ready multi-tenan
 
 ## Do not enable public registration yet
 
-**Keep both registration environment flags unset or false.** The legacy student, fee, teacher, attendance, reports, notices, calendars, gallery and learning-resource APIs still contain data access that must be migrated to organization/branch-aware queries. These APIs now fail closed for tenant members and also for non-member accounts whenever any SaaS organization exists, because a global legacy query cannot safely distinguish tenant-owned records. The direct static mounts for local student/teacher photos, gallery images, PDFs and videos have been removed. Existing legacy signed-media URLs are now also rejected once SaaS organizations exist, because those URL tokens do not carry tenant/branch/record authorization. This intentionally protects the tenant boundary at the cost of disabling legacy-only screens/media when SaaS data is present. Tenant-aware private media delivery remains incomplete. Externally hosted resource URLs remain external. It is not safe to onboard real organizations until tenant-aware media and all data routes are migrated and negative isolation tests pass.
+**Keep both registration environment flags unset or false.** The legacy student, fee, teacher, attendance, reports, notices, calendars, gallery and learning-resource APIs still contain data access that must be migrated to organization/branch-aware queries. These APIs now fail closed for tenant members and also for non-member accounts whenever any SaaS organization exists, because a global legacy query cannot safely distinguish tenant-owned records. The direct static mounts for local student/teacher photos, gallery images, PDFs and videos have been removed. Existing legacy signed-media URLs are now also rejected once SaaS organizations exist, because those URL tokens do not carry tenant/branch/record authorization. This intentionally protects the tenant boundary at the cost of disabling legacy-only screens/media when SaaS data is present. A tenant-aware private media service now handles new organization-scoped uploads and short-lived signed downloads, with active-membership, branch, child/staff linkage and parent photo-consent rechecks on each download. The legacy static media paths remain disabled. Legacy photo/gallery/PDF/video data and existing child/staff screens still need a reviewed migration and end-to-end acceptance tests; external resource URLs remain external. It is not safe to onboard real organizations until all data routes and media types are migrated and their negative isolation tests pass.
 
 The second environment flag is an operational gate, not proof of safety. It must not be enabled merely to get signup working.
 
@@ -55,6 +55,23 @@ For organization context endpoints, send the authenticated token in `x-auth-toke
 - Tenant attendance and fee-transaction CSV exports require branch context, enforce role/class/date-range limits, revalidate child/invoice links in the same organization and branch, neutralize spreadsheet formula input, and write a `report.exported` audit event.
 
 These workflows have automated unit/syntax/build checks, but the parent invitation and attendance/finance workflows still need isolated MongoDB integration tests using organizations A and B. Parent/guardian identity verification and real-world acceptance testing remain release gates.
+
+## Tenant-aware private media foundation
+
+New SaaS uploads go to a private directory scoped by organization ID and branch ID. There are no static URLs for these files. The initial service supports child photos, staff photos, gallery images, learning PDFs and learning videos, generates server-side filenames, checks the declared file category and basic file signatures, and records an audit event for uploads and archives.
+
+- \`GET /api/saas/media?category=child_photo\` lists media the active member can read.
+- \`POST /api/saas/media/upload/child_photo?childId=...&parentVisible=false\` uploads a child photo using multipart field \`file\`. Authorized admins/admissions staff can upload.
+- \`GET /api/saas/media/:assetId/url\` returns a fresh link that lasts 120 seconds.
+- \`PATCH /api/saas/media/:assetId/archive\` archives an item and disables its links.
+
+Other category names are \`staff_photo\`, \`gallery_image\`, \`learning_pdf\`, and \`learning_video\`. Their uploads require a branch context and the corresponding role permission. Staff profiles must exist before their staff photo can be uploaded.
+
+Set \`PRIVATE_MEDIA_SECRET\` to a different strong random secret of at least 32 characters; do not reuse \`JWT_SECRET\`. Set \`API_PUBLIC_URL\` to the canonical API HTTPS origin used by browsers to retrieve signed links. A missing or weak media secret fails closed with a configuration error.
+
+A parent can see only a linked child's photo when the photo asset is marked \`parent_with_photo_consent\` and a current \`ChildGuardian\` relationship records \`photoUse=granted\`. The server rechecks membership, branch assignment, child linkage, active asset state and the consent record at every download, so an already-issued link stops working after suspension, consent withdrawal or archive. A consent control in the child admission form must reflect the actual consent process; checking a box is an operator record, not proof of a real-world consent event.
+
+This is a first tenant-private media slice, not completion of the migration. Existing legacy photo and resource records/files are not automatically copied into the new collection. The service does not perform antivirus scanning, image moderation or file content decoding; its signature check is a baseline validation only. Before enabling public signup, test every media category with a MongoDB replica-set integration suite, migrate existing files in a reviewed plan, verify backup/restore, and complete privacy acceptance checks.
 
 ## Tenant calendar
 
