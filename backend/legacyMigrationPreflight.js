@@ -2,6 +2,7 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs/promises');
 const mongoose = require('mongoose');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -11,21 +12,31 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 mongoose.set('autoIndex', false);
 mongoose.set('autoCreate', false);
 
-const {
-  buildLegacyMigrationAudit,
-} = require('./utils/legacyMigrationAudit');
+const { buildLegacyMigrationAudit } = require('./utils/legacyMigrationAudit');
+const { validateMigrationManifest, evaluateMigrationManifest } = require('./utils/legacyMigrationManifest');
 
 const USAGE = `Usage:
   npm run migration:preflight
   npm run migration:preflight -- --json
   npm run migration:preflight -- --strict
+  npm run migration:preflight -- --manifest ./legacy-migration-manifest.json --json
 
+Mapping manifest mode is still read-only; it validates targets and drafts a plan only.
 Reads MONGO_URI (or backend/.env). The command never inserts, updates, deletes,
 creates collections, or creates indexes. Use a read-only database account and
 a backup/staging copy. Do not use a production connection for first-pass audits.`;
 
 function hasFlag(flag) {
   return process.argv.slice(2).includes(flag);
+}
+
+function optionValue(option) {
+  const args = process.argv.slice(2);
+  const equalForm = args.find((argument) => argument.startsWith(option + '='));
+  if (equalForm) return equalForm.slice(option.length + 1);
+  const index = args.indexOf(option);
+  if (index >= 0 && args[index + 1] && !args[index + 1].startsWith('--')) return args[index + 1];
+  return null;
 }
 
 async function readCollection(Model, projection) {
