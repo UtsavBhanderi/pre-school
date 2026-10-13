@@ -214,10 +214,8 @@ function buildLegacyMigrationAudit(input = {}) {
   let feeRecordIssueCount = 0;
   for (const fee of fees) {
     const feeIssues = auditLegacyFeeRecord(fee, studentIndex);
-    for (const issue of feeIssues) {
-      addIssue(issue, fee);
-      feeRecordIssueCount += 1;
-    }
+    if (feeIssues.length) feeRecordIssueCount += 1;
+    for (const issue of feeIssues) addIssue(issue, fee);
     if (!hasId(fee?.organizationId) || !hasId(fee?.branchId)) {
       addIssue('fee_requires_explicit_organization_branch_mapping', fee);
     }
