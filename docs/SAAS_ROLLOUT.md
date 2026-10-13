@@ -67,6 +67,8 @@ New SaaS uploads go to a private directory scoped by organization ID and branch 
 
 Other category names are \`staff_photo\`, \`gallery_image\`, \`learning_pdf\`, and \`learning_video\`. Their uploads require a branch context and the corresponding role permission. Staff profiles must exist before their staff photo can be uploaded.
 
+The staff workspace now includes a **Media library** tab for private gallery photos, learning PDFs and learning videos. Authorized owners, head-office administrators, branch administrators and admissions staff can upload these resources. Authorized teachers and transport staff can view role-appropriate learning resources. Archiving requires a selected branch, a permitted administrative role and a reason; it is a soft archive with an audit event.
+
 Set \`PRIVATE_MEDIA_SECRET\` to a different strong random secret of at least 32 characters; do not reuse \`JWT_SECRET\`. Set \`API_PUBLIC_URL\` to the canonical API HTTPS origin used by browsers to retrieve signed links. A missing or weak media secret fails closed with a configuration error.
 
 A parent can see only a linked child's photo when the photo asset is marked \`parent_with_photo_consent\` and a current \`ChildGuardian\` relationship records \`photoUse=granted\`. The server rechecks membership, branch assignment, child linkage, active asset state and the consent record at every download, so an already-issued link stops working after suspension, consent withdrawal or archive. A consent control in the child admission form must reflect the actual consent process; checking a box is an operator record, not proof of a real-world consent event.
