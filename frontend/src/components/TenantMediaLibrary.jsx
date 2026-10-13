@@ -44,7 +44,7 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
   const fileInputRef = useRef(null);
   const activeCategory = CATEGORIES.find((item) => item.id === category) || CATEGORIES[0];
   const canUpload = UPLOAD_ROLES.includes(role);
-  const canArchive = ARCHIVE_ROLES.includes(role);
+  const canArchive = ARCHIVE_ROLES.includes(role) && Boolean(branchId);
   const bytesUsed = useMemo(() => assets.reduce((total, asset) => total + (Number(asset.sizeBytes) || 0), 0), [assets]);
 
   const loadAssets = useCallback(async () => {
