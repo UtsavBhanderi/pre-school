@@ -111,6 +111,15 @@ function evaluateMigrationManifest({
   students = [],
   attendance = [],
   fees = [],
+  teachers = [],
+  users = [],
+  guardians = [],
+  childGuardianLinks = [],
+  reportCards = [],
+  calendarEvents = [],
+  pdfResources = [],
+  galleryPhotos = [],
+  videos = [],
   tenantClasses = [],
   organizations = [],
   branches = [],
@@ -128,12 +137,11 @@ function evaluateMigrationManifest({
     errors.push({ code: 'target_branch_unavailable_or_wrong_organization', count: 1 });
   }
 
-  const recordsByCollection = { students, attendance, fees };
-  const scopeByCollection = {
-    students: students,
-    attendance: attendance,
-    fees: fees,
+  const recordsByCollection = {
+    students, attendance, fees, teachers, users, guardians, childGuardianLinks,
+    reportCards, calendarEvents, pdfResources, galleryPhotos, videos,
   };
+  const scopeByCollection = recordsByCollection;
   const collectionPlan = {};
   for (const collection of MIGRATION_COLLECTIONS) {
     const mode = manifest.collections[collection];
