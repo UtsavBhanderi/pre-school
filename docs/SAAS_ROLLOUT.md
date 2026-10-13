@@ -156,3 +156,19 @@ To run the suite locally, use a **disposable replica set** and set `MONGO_INTEGR
 - Missing audit trail for privileged account, membership, permission, fee adjustment, refund, export or branch lifecycle actions.
 - An untested data migration or an unverified backup restore.
 - A platform support path that can browse tenant content without a reason-coded, time-limited and audited process.
+
+
+## Guarded legacy tenant migration — staging prototype
+
+A second command, \`npm run migration:tenant\`, now drafts an explicit, bounded migration plan for legacy-unscoped students, attendance and legacy fee rows. It defaults to read-only dry-run behavior. The write path is **staging-only** and requires three environment gates plus explicit CLI confirmations and an active owner/head-office approver. It refuses missing collections/indexes, invalid/partially-scoped rows, class mapping gaps, duplicate admission IDs, attendance date/class collisions, fee/payment reconciliation problems, existing target invoices and plans above its operation cap.
+
+If a staging plan passes, the writer updates student/attendance/legacy fee ownership fields, creates a tenant invoice and immutable payment ledger entries for the legacy fee history, stores original payment date/time provenance, and records a unique migration run plus audit event in a single transaction. The source legacy fee record is retained for reconciliation. It does not migrate staff/user identity, guardians, report cards, calendar, or media, and it does not enable signup. A migrated school's photo/PDF/video resources still must have private tenant-aware media paths before onboarding.
+
+Use this only on a disposable restored staging database. A dry-run example uses the placeholder manifest and therefore should stop with validation errors until replaced by an approved school-specific manifest:
+
+\`\`\`bash
+cd backend
+npm run migration:tenant -- --manifest ../docs/legacy-migration-manifest.example.json --json
+\`\`\`
+
+The explicit apply flags and environment variables are documented in the README. The migration has not been executed against any real school database in this work session. A passing CI suite proves code checks, not a successful migration of your data.
