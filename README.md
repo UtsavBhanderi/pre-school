@@ -207,3 +207,23 @@ The planner preserves the original student, attendance and legacy fee source rec
 A write attempt is one MongoDB transaction and is capped to keep the first migration bounded. It records a unique migration-run fingerprint plus an audit event. If validation, an index check, a concurrent-source check, a duplicate key or any write fails, the transaction is aborted. The tool will not silently create missing indexes or choose tenant ownership from names, email addresses or class labels.
 
 After an approved staging apply, rerun the read-only preflight and compare source versus destination counts, attendance rows and financial ledgers. Test the entire school workflow against organizations A and B before any production migration is approved. This staging-only runner is not permission to enable public registration and does not migrate private media; the SaaS registration flags must remain disabled until all remaining migration and privacy gates are reviewed.
+
+
+## Verified legacy staff migration (staging only)
+
+Legacy account access must be mapped manually. The new \`npm run migration:staff\` command links existing account IDs to organization memberships and optionally copies an existing teacher profile into the new tenant-scoped \`TenantStaffProfile\` collection. It never creates or merges login accounts, changes passwords, promotes a legacy admin to organization owner, or turns a legacy student login into a parent portal account.
+
+Start with a school-owner reviewed manifest based on \`docs/legacy-staff-identity-manifest.example.json\`. It contains exact User IDs, the exact verified email and legacy role, the target tenant role, an explicit list of branch IDs, teacher class assignments, and an optional source Teacher-profile ID. The mapping must confirm that the school owns the source data, the backup has been restored in staging, each staff identity was verified, and class assignments were reviewed. The tool never prints the submitted email addresses.
+
+Dry run:
+
+\`\`\`bash
+cd backend
+npm run migration:staff -- --manifest ../docs/legacy-staff-identity-manifest.example.json --json
+\`\`\`
+
+For apply, use a disposable restored staging database only. Both \`NODE_ENV=staging\` and \`SAAS_MIGRATION_ENV=staging\` plus \`ALLOW_LEGACY_STAFF_MIGRATION=true\` are required, along with \`--apply\`, exact source-label/organization/primary-branch confirmations, an active organization owner or head-office approver with access to every target branch, and a change-ticket ID. The required collections and unique indexes must already exist. Each imported membership has \`accessAllBranches=false\`; branch and class scope comes only from the reviewed manifest.
+
+The write path is a single MongoDB transaction that creates the mapped memberships, tenant-scoped teacher profile copies (if explicitly mapped), a unique migration-run record and an audit event. Source User credentials and Teacher records are not modified. Repeated plans are treated as a no-op when the exact requested scope is already present. If any identity, role, email, branch, teacher-profile or class configuration does not match, the plan is blocked instead of guessing.
+
+Do not enable public registration merely because this command passes. Existing report cards, resources, private media, and any unmapped identities still need their own reviewed migration paths and tenant-isolation tests.
