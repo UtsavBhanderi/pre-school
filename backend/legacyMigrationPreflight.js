@@ -105,6 +105,37 @@ async function run() {
     return;
   }
 
+  const mappingPath = optionValue('--manifest');
+  let manifestValue = null;
+  if (mappingPath) {
+    try {
+      const manifestText = await fs.readFile(path.resolve(process.cwd(), mappingPath), 'utf8');
+      const manifestInput = JSON.parse(manifestText);
+      const validation = validateMigrationManifest(manifestInput);
+      if (!validation.valid) {
+        const failure = {
+          readOnly: true,
+          mappingManifest: { valid: false, errors: validation.errors },
+          message: 'The mapping manifest is invalid; no database connection or migration was attempted.',
+        };
+        if (hasFlag('--json')) console.log(JSON.stringify(failure, null, 2));
+        else {
+          console.error(failure.message);
+          for (const [field, message] of Object.entries(validation.errors)) console.error('- ' + field + ': ' + message);
+        }
+        process.exitCode = 2;
+        return;
+      }
+      manifestValue = validation.value;
+    } catch (error) {
+      const message = 'Could not read the mapping manifest: ' + (error.message || 'invalid JSON');
+      if (hasFlag('--json')) console.log(JSON.stringify({ readOnly: true, mappingManifest: { valid: false, error: message } }, null, 2));
+      else console.error(message);
+      process.exitCode = 2;
+      return;
+    }
+  }
+
   if (!process.env.MONGO_URI) {
     console.error('MONGO_URI is missing. Configure backend/.env or export MONGO_URI.');
     console.error(USAGE);
