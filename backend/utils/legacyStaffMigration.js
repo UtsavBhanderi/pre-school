@@ -90,9 +90,6 @@ function validateLegacyStaffManifest(input = {}) {
     if (!branchIds.length || branchIds.length > 25 || branchIds.some((id) => !validObjectId(id))) {
       errors[prefix + '.branchIds'] = 'Select 1 to 25 valid target branches explicitly.';
     }
-    if (branchIds.length && !branchIds.includes(primaryBranchId)) {
-      errors[prefix + '.branchIds'] = 'Every manifest must include the primary target branch in the assigned branch list.';
-    }
     if (role === 'teacher') {
       if (classNames.length < 1 || classNames.length > 40 ||
           classNames.some((name) => name.length < 2 || name.length > 80)) {
@@ -272,9 +269,6 @@ function buildLegacyStaffMigrationPlan({
           });
         }
       }
-    }
-    if (!validAssignedBranches.some((item) => idOf(item).toLowerCase() === primaryBranchId)) {
-      errors.push({ code: 'staff_primary_branch_missing_from_assigned_branches', recordRef: item.legacyUserId.slice(0, 10) });
     }
 
     const existingMembership = membershipByUser.get(item.legacyUserId);
