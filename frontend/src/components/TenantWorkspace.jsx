@@ -759,7 +759,7 @@ export default function TenantWorkspace() {
             const formData = new FormData();
             formData.append("file", childPhotoFile);
             await axios.post(
-              API_API_BASE_URL_DO_NOT_USE,
+              API_BASE_URL + "/api/saas/media/upload/child_photo?childId=" + encodeURIComponent(savedChildId) + "&parentVisible=" + (childPhotoParentVisible ? "true" : "false"),
               formData,
               { headers: tokenHeaders(organizationId, branchId) },
             );
@@ -1977,6 +1977,32 @@ export default function TenantWorkspace() {
                         <label>School communication consent<select name="communicationConsent" value={childDraft.communicationConsent} onChange={updateChildDraft}><option value="unknown">Not recorded</option><option value="granted">Granted</option><option value="withdrawn">Withdrawn</option></select></label>
                         <label>Photo-use consent<select name="photoConsent" value={childDraft.photoConsent} onChange={updateChildDraft}><option value="unknown">Not recorded</option><option value="granted">Granted</option><option value="withdrawn">Withdrawn</option></select></label>
                       </div>
+                      {canUploadChildPhotos && (
+                        <>
+                          <div className="saas-form-grid">
+                            <label className="saas-full-width">Child photo (JPG, PNG, WEBP or GIF; maximum 5 MB)
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                onChange={(event) => setChildPhotoFile(event.target.files?.[0] || null)}
+                              />
+                            </label>
+                          </div>
+                          {childPhotoFile && <p className="saas-muted-note">Selected photo: {childPhotoFile.name} · {(childPhotoFile.size / 1024 / 1024).toFixed(2)} MB. The file is stored privately.</p>}
+                          <div className="saas-consent-checks">
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={childPhotoParentVisible}
+                                disabled={childDraft.photoConsent !== "granted"}
+                                onChange={(event) => setChildPhotoParentVisible(event.target.checked)}
+                              />
+                              Show this photo to linked parents in the family portal (requires photo-use consent recorded as granted)
+                            </label>
+                          </div>
+                          {childDraft.photoConsent !== "granted" && <p className="saas-muted-note">Parent viewing stays off until photo-use consent is recorded as granted. Existing private staff photos are not shown in the parent portal.</p>}
+                        </>
+                      )}
                       <div className="saas-form-actions"><button type="button" className="saas-secondary-button" onClick={closeChildForm}>Cancel</button><button type="submit" className="saas-primary-button" disabled={saving}>{saving ? "Saving record…" : editingChildId ? "Save changes" : "Save child record"}</button></div>
                     </form>
                   )}
@@ -1991,7 +2017,7 @@ export default function TenantWorkspace() {
                   {children.length ? (
                     <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Child</th><th>Admission number</th><th>Class / year</th><th>Parent or guardian</th><th>Mobile</th><th>Record updated</th><th>Actions</th></tr></thead><tbody>
                       {children.map((child) => (
-                        <tr key={child.id}><td><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button></td></tr>
+                        <tr key={child.id}><td><div className="saas-child-identity">{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span aria-hidden="true"><MdPeople /></span>}<div><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></div></div></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button></td></tr>
                       ))}
                     </tbody></table></div>
                   ) : !loading && <BlankState title={appliedQuery ? "No matching child" : "No children registered yet"} detail={appliedQuery ? "Try another spelling, mobile number or admission number." : "Register the first child using the button above. You can search and update records from this list."} action={appliedQuery ? <button type="button" className="saas-secondary-button" onClick={() => { setQuery(""); setAppliedQuery(""); }}>Show all children</button> : <button type="button" className="saas-primary-button" onClick={() => setShowChildForm(true)}><MdAdd /> Register a child</button>} />}
