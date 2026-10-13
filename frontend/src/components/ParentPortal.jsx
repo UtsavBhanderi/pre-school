@@ -54,6 +54,7 @@ export default function ParentPortal() {
   const [tab, setTab] = useState("overview");
   const [summary, setSummary] = useState(null);
   const [children, setChildren] = useState([]);
+  const [childPhotoUrls, setChildPhotoUrls] = useState({});
   const [attendance, setAttendance] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [notices, setNotices] = useState([]);
@@ -112,6 +113,25 @@ export default function ParentPortal() {
       ]);
       setSummary(summaryResult);
       setChildren(childrenResult.children || []);
+
+      if (tab === "overview" || tab === "children") {
+        try {
+          const mediaResult = await parentRequest("/api/saas/media", organizationId, branchId, { category: "child_photo" });
+          const nextPhotoUrls = {};
+          for (const asset of mediaResult.assets || []) {
+            if (asset.childId && asset.url && !nextPhotoUrls[asset.childId]) {
+              nextPhotoUrls[asset.childId] = asset.url;
+            }
+          }
+          setChildPhotoUrls(nextPhotoUrls);
+        } catch {
+          // Photos are optional; a media configuration issue must not hide the
+          // family dashboard. The media API still fails closed on access checks.
+          setChildPhotoUrls({});
+        }
+      } else {
+        setChildPhotoUrls({});
+      }
 
       if (tab === "attendance") {
         const history = await parentRequest("/api/saas/parent/attendance", organizationId, branchId, { from: attendanceFrom, to: attendanceTo });
@@ -196,7 +216,7 @@ export default function ParentPortal() {
               <article><span>Fee balance</span><strong>{summary ? money(summary.fees?.outstanding, organization?.currency) : "—"}</strong><small>Invoices where you are a billing contact</small></article>
             </div>
             <div className="parent-portal-section-heading"><div><h2>My children</h2><p>Children whose family contact has been linked to this account.</p></div><button type="button" className="saas-secondary-button" onClick={() => setTab("children")}>View details <MdArrowForward /></button></div>
-            {children.length ? <div className="parent-child-grid">{children.map((child) => <article className="parent-child-card" key={child.id}><span className="parent-child-avatar"><MdSchool /></span><div><h3>{child.name}</h3><p>{child.className || "Class not set"} · {child.branch?.name || "Preschool"}</p><small>Admission no. {child.admissionNumber || "—"}</small></div><div className="parent-child-meta"><span>Date of birth</span><strong>{dateLabel(child.dateOfBirth)}</strong></div></article>)}</div> : !loading && <div className="saas-empty-state"><strong>No child linked yet</strong><p>Contact the preschool office and ask them to verify the parent invitation is connected to the correct family record.</p></div>}
+            {children.length ? <div className="parent-child-grid">{children.map((child) => <article className="parent-child-card" key={child.id}><span className={"parent-child-avatar" + (childPhotoUrls[child.id] ? " has-photo" : "")}>{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt={"Photo of " + child.name} loading="lazy" referrerPolicy="no-referrer" /> : <MdSchool />}</span><div><h3>{child.name}</h3><p>{child.className || "Class not set"} · {child.branch?.name || "Preschool"}</p><small>Admission no. {child.admissionNumber || "—"}</small></div><div className="parent-child-meta"><span>Date of birth</span><strong>{dateLabel(child.dateOfBirth)}</strong></div></article>)}</div> : !loading && <div className="saas-empty-state"><strong>No child linked yet</strong><p>Contact the preschool office and ask them to verify the parent invitation is connected to the correct family record.</p></div>}
             <div className="parent-privacy-card"><MdShield /><div><strong>Your family information is private.</strong><p>This portal does not provide school-wide student lists, other families’ contact details, or public photo URLs. Contact the office to correct a family link.</p></div></div>
           </section>
         )}
@@ -204,7 +224,7 @@ export default function ParentPortal() {
         {tab === "children" && (
           <section className="parent-portal-section">
             <div className="parent-portal-section-heading"><div><h2>My children</h2><p>Review your linked child records and contact relationship.</p></div></div>
-            {children.length ? <div className="parent-child-grid">{children.map((child) => <article className="parent-child-detail-card" key={child.id}><div className="parent-child-detail-header"><span className="parent-child-avatar"><MdSchool /></span><div><h3>{child.name}</h3><p>{child.className || "Class not set"} · {child.branch?.name || "Preschool"}</p></div></div><dl><div><dt>Admission number</dt><dd>{child.admissionNumber || "—"}</dd></div><div><dt>Date of birth</dt><dd>{dateLabel(child.dateOfBirth)}</dd></div><div><dt>Academic year</dt><dd>{child.academicYear || "—"}</dd></div><div><dt>Home address</dt><dd>{child.address || "Not provided"}</dd></div></dl><div className="parent-relationship-tags">{(child.relationships || []).map((relationship, index) => <span key={index}>{String(relationship.relationship).replaceAll("_", " ")}{relationship.isPrimaryContact ? " · Primary contact" : ""}{relationship.authorizedPickup ? " · Pickup authorized" : ""}</span>)}</div></article>)}</div> : <div className="saas-empty-state"><strong>No child linked yet</strong><p>Ask the preschool to connect your parent account to the correct child record.</p></div>}
+            {children.length ? <div className="parent-child-grid">{children.map((child) => <article className="parent-child-detail-card" key={child.id}><div className="parent-child-detail-header"><span className={"parent-child-avatar" + (childPhotoUrls[child.id] ? " has-photo" : "")}>{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt={"Photo of " + child.name} loading="lazy" referrerPolicy="no-referrer" /> : <MdSchool />}</span><div><h3>{child.name}</h3><p>{child.className || "Class not set"} · {child.branch?.name || "Preschool"}</p></div></div><dl><div><dt>Admission number</dt><dd>{child.admissionNumber || "—"}</dd></div><div><dt>Date of birth</dt><dd>{dateLabel(child.dateOfBirth)}</dd></div><div><dt>Academic year</dt><dd>{child.academicYear || "—"}</dd></div><div><dt>Home address</dt><dd>{child.address || "Not provided"}</dd></div></dl><div className="parent-relationship-tags">{(child.relationships || []).map((relationship, index) => <span key={index}>{String(relationship.relationship).replaceAll("_", " ")}{relationship.isPrimaryContact ? " · Primary contact" : ""}{relationship.authorizedPickup ? " · Pickup authorized" : ""}</span>)}</div></article>)}</div> : <div className="saas-empty-state"><strong>No child linked yet</strong><p>Ask the preschool to connect your parent account to the correct child record.</p></div>}
           </section>
         )}
 

@@ -23,7 +23,7 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 
 The codebase now includes the first foundation models for organizations, branches, organization memberships and audit events, plus fail-closed tenant-context helpers and organization/branch management API routes.
 
-**This is an implementation milestone, not a production-ready SaaS release.** The legacy preschool APIs still contain single-school data queries and are not yet organization/branch-safe. Local child/staff photos, gallery images, PDFs and videos are no longer served as public static folders; legacy admin flows use short-lived signed links as a transition, but those links are not yet bound to tenant/branch permissions. The legacy API guard denies organization-member accounts access to modules that have not yet been migrated. Self-service organization registration is disabled by default and must remain disabled until the tenant-scoping, legacy-data migration and private-media rollout checklist passes.
+**This is an implementation milestone, not a production-ready SaaS release.** The legacy preschool APIs still contain single-school data queries and are not yet organization/branch-safe. Local child/staff photos, gallery images, PDFs and videos are not served as public static folders. A new tenant-private media service supports organization/branch-scoped uploads, short-lived signed links, live membership checks and parent photo-consent checks; existing legacy media still needs a reviewed migration, and each media category needs integration/acceptance testing. The legacy API guard denies organization-member accounts access to modules that have not yet been migrated. Self-service organization registration is disabled by default and must remain disabled until the tenant-scoping, legacy-data migration and private-media rollout checklist passes.
 
 See [the SaaS rollout gates](docs/SAAS_ROLLOUT.md) for endpoints, tenant/branch header rules, migration steps and launch blockers. Do not set the SaaS registration flags to `true` just to enable sign-up: both the core data routes and student media need tenant-aware authorization first.
 
@@ -101,6 +101,8 @@ npm start
 ```
 
 The API health endpoint is available at `http://localhost:5000/api/health`.
+
+For tenant-private media links, configure `PRIVATE_MEDIA_SECRET` with a different strong random secret of at least 32 characters; do not reuse `JWT_SECRET`. Set `API_PUBLIC_URL` to the canonical API origin. Keep both SaaS onboarding flags disabled until the rollout checklist passes.
 
 ### 2. Start the frontend
 

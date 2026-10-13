@@ -40,6 +40,7 @@ const tenantCalendarRoutes = require('./routes/tenantCalendar');
 const tenantHandoverRoutes = require('./routes/tenantHandover');
 const tenantWorkReportsRoutes = require('./routes/tenantWorkReports');
 const privateMediaRoutes = require('./routes/privateMedia');
+const tenantMediaRoutes = require('./routes/tenantMedia');
 const privateMediaResponse = require('./middleware/privateMediaResponse');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
@@ -76,6 +77,7 @@ for (const directory of ['gallery', 'pdf', 'students', 'teachers', 'video']) {
 // Authentication endpoints must remain reachable before a session exists.
 app.use('/api/auth', authRoutes);
 app.use('/api/media', privateMediaRoutes);
+app.use('/api/saas/media', auth, tenantMediaRoutes);
 
 // Organization registration and membership discovery are separate from the
 // single-school APIs. Public registration has two explicit readiness gates.

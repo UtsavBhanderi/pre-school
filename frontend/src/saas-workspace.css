@@ -324,3 +324,25 @@
 .saas-member-reason { display: grid; gap: .35rem; color: #455771; font-size: .77rem; font-weight: 750; line-height: 1.4; }
 .saas-member-reason textarea { width: 100%; min-height: 76px; padding: .56rem .65rem; border: 1px solid #d4deeb; border-radius: 7px; color: #21344d; background: #fff; font-size: .83rem; font-weight: 500; resize: vertical; }
 .saas-member-edit-button { white-space: nowrap; }
+
+
+.saas-child-identity { display: flex; align-items: center; gap: .65rem; min-width: 200px; }
+.saas-child-identity > img,
+.saas-child-identity > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #e0e7f0;
+  border-radius: 10px;
+  color: #6478b8;
+  background: #f2f5fc;
+  object-fit: cover;
+}
+.saas-child-identity > span { font-size: 1.25rem; }
+.saas-child-identity > div { display: grid; min-width: 0; gap: .2rem; }
+.saas-child-identity > div strong { color: #2b3e58; font-size: .79rem; font-weight: 800; }
+.saas-child-identity > div small { color: #8591a3; font-size: .69rem; }
+.saas-form-grid input[type="file"] { min-height: 42px; padding: .35rem; color: #617089; font-size: .78rem; }
+.saas-consent-checks input:disabled { cursor: not-allowed; opacity: .55; }
