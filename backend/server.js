@@ -45,6 +45,7 @@ const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
 // Register the migration-run model at application boot so its unique idempotency index is provisioned with the SaaS schema.
 const LegacyMigrationRun = require('./models/LegacyMigrationRun');
+const TenantStaffProfile = require('./models/TenantStaffProfile');
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
