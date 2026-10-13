@@ -1,0 +1,67 @@
+/* Organization-scoped private media library */
+.tenant-media-library { gap: 1rem; }
+.tenant-media-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.tenant-media-heading h2 { margin: .3rem 0 .4rem; color: #23354e; font-family: 'DM Sans', sans-serif; font-size: 1.3rem; font-weight: 850; }
+.tenant-media-heading p { max-width: 780px; margin: 0; color: #69788d; font-size: .84rem; line-height: 1.6; }
+.tenant-media-category-tabs { display: flex; gap: .45rem; flex-wrap: wrap; border-bottom: 1px solid #dde5ef; padding-bottom: .55rem; }
+.tenant-media-category-tabs button {
+  display: inline-flex; align-items: center; gap: .45rem; min-height: 42px; padding: .6rem .8rem;
+  border: 1px solid transparent; border-radius: 8px; color: #64738a; background: transparent; font-size: .79rem; font-weight: 800;
+}
+.tenant-media-category-tabs button svg { font-size: 1.15rem; }
+.tenant-media-category-tabs button:hover { color: #334fae; background: #f5f7ff; }
+.tenant-media-category-tabs button.active { color: #2b49ae; border-color: #d5def6; background: #eef2ff; }
+.tenant-media-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: .9rem 1rem; border: 1px solid #e0e7f0; border-radius: 9px; background: #fff; }
+.tenant-media-summary > div:first-child { display: grid; flex: 1; min-width: 180px; gap: .18rem; }
+.tenant-media-summary > div:first-child strong { color: #2a3e58; font-size: .84rem; }
+.tenant-media-summary > div:first-child span { color: #718097; font-size: .75rem; line-height: 1.5; }
+.tenant-media-summary-count { display: grid; gap: .12rem; min-width: 75px; }
+.tenant-media-summary-count strong { color: #273c5a; font-size: 1rem; font-weight: 850; }
+.tenant-media-summary-count span { color: #7a879a; font-size: .67rem; }
+.tenant-media-upload-card { display: grid; gap: .9rem; padding: 1rem; border: 1px solid #dce5f4; border-radius: 11px; background: linear-gradient(145deg, #f9fbff, #fff 75%); }
+.tenant-media-upload-copy { display: flex; align-items: center; gap: .75rem; }
+.tenant-media-upload-icon { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px; border-radius: 10px; color: #3655bf; background: #edf2ff; font-size: 1.35rem; }
+.tenant-media-upload-copy h3 { margin: 0 0 .2rem; color: #293d58; font-family: 'DM Sans', sans-serif; font-size: .91rem; font-weight: 850; }
+.tenant-media-upload-copy p { margin: 0; color: #738197; font-size: .75rem; }
+.tenant-media-upload-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; }
+.tenant-media-file-input { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: .55rem .75rem; border: 1px solid #d5deea; border-radius: 8px; color: #3e526e; background: #fff; cursor: pointer; font-size: .77rem; font-weight: 800; }
+.tenant-media-file-input input { width: min(330px, 54vw); margin-left: .5rem; color: #6d7a90; font-size: .72rem; font-weight: 500; }
+.tenant-media-selected-file { display: grid; flex: 1; min-width: 140px; gap: .15rem; color: #6c7b91; font-size: .72rem; overflow-wrap: anywhere; }
+.tenant-media-selected-file strong { color: #344860; font-size: .75rem; font-weight: 750; }
+.tenant-media-privacy-note { display: flex; align-items: flex-start; gap: .45rem; margin: 0; color: #687991; font-size: .72rem; line-height: 1.55; }
+.tenant-media-privacy-note svg { flex: 0 0 auto; margin-top: .1rem; color: #526bb8; font-size: 1.05rem; }
+.tenant-media-inline-warning { margin: 0; padding: .55rem .7rem; border-radius: 7px; color: #7d4b0f; background: #fff5e6; font-size: .75rem; }
+.tenant-media-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
+.tenant-media-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid #dfe6ef; border-radius: 10px; background: #fff; }
+.tenant-media-preview { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; background: #f2f5fb; }
+.tenant-media-preview.gallery_image { aspect-ratio: 4 / 3; }
+.tenant-media-preview.learning_pdf { aspect-ratio: 4 / 2.7; }
+.tenant-media-preview.learning_video { aspect-ratio: 16 / 9; background: #182845; }
+.tenant-media-preview > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tenant-media-preview > video { display: block; width: 100%; height: 100%; object-fit: contain; background: #15233a; }
+.tenant-media-pdf-icon { display: grid; place-items: center; gap: .35rem; width: 72px; height: 88px; border: 1px solid #e0e6f0; border-radius: 9px; color: #b0444d; background: #fff; box-shadow: 0 5px 16px rgba(24,44,78,.07); }
+.tenant-media-pdf-icon svg { font-size: 2.2rem; }
+.tenant-media-pdf-icon small { color: #8f3a43; font-size: .68rem; font-weight: 850; letter-spacing: .08em; }
+.tenant-media-card-body { display: grid; flex: 1; gap: .55rem; padding: .8rem; }
+.tenant-media-card-body > strong { display: -webkit-box; overflow: hidden; color: #293d57; font-size: .79rem; font-weight: 850; line-height: 1.45; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.tenant-media-card-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem .5rem; color: #7c899c; font-size: .67rem; }
+.tenant-media-card-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding-top: .2rem; }
+.tenant-media-card-actions .saas-secondary-button { min-height: 34px; padding: .45rem .6rem; font-size: .72rem; }
+.tenant-media-archive-button { display: inline-flex; align-items: center; gap: .25rem; color: #9b414b; font-size: .71rem; }
+.tenant-media-archive-button:hover { color: #8a2634; }
+@media (max-width: 1050px) { .tenant-media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .tenant-media-heading { align-items: flex-start; flex-direction: column; }
+  .tenant-media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
+  .tenant-media-summary { gap: .8rem; }
+  .tenant-media-summary-count { min-width: 60px; }
+  .tenant-media-file-input { align-items: flex-start; flex-direction: column; gap: .35rem; width: 100%; }
+  .tenant-media-file-input input { width: 100%; margin-left: 0; }
+  .tenant-media-upload-controls > .saas-primary-button { width: 100%; }
+}
+@media (max-width: 410px) {
+  .tenant-media-grid { grid-template-columns: 1fr; }
+  .tenant-media-category-tabs button { flex: 1; justify-content: center; padding: .55rem .45rem; font-size: .71rem; }
+  .tenant-media-summary { align-items: flex-start; }
+  .tenant-media-selected-file { flex-basis: 100%; }
+}
