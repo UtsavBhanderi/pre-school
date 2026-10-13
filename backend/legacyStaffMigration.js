@@ -82,8 +82,7 @@ function report(result) {
       (blocker.count ? ' (' + blocker.count + ')' : '') +
       (blocker.recordRef ? ' [record ' + blocker.recordRef + ']' : ''));
   }
-  if (result.message) console.log('
-' + result.message);
+  if (result.message) console.log('\n' + result.message);
 }
 
 function modelSet() {
