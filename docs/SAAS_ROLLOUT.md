@@ -90,6 +90,25 @@ The tenant workspace includes a branch-scoped daily teaching report workflow:
 
 Teacher access is limited to assigned classes, the authenticated teacher's own reports and the selected organization/branch. Managers review reports inside their permitted branch scope. A reviewed report is locked; a report sent back for follow-up may be corrected and resubmitted, preserving the previous review history. Creation, revisions and reviews write audit events. Report times and student counts are validated server-side; report dates cannot be in the future and teacher backdating is limited to seven days.
 
+## Read-only legacy migration preflight
+
+Before designing a write-enabled migration, run the new diagnostic against a staging copy or backup using a **read-only MongoDB account**:
+
+```bash
+cd backend
+npm run migration:preflight
+npm run migration:preflight -- --json
+npm run migration:preflight -- --strict
+```
+
+Set `MONGO_URI` in `backend/.env` or the shell environment. The command disables Mongoose auto-index and auto-create behavior before loading models and only performs projected `find` queries. It does not insert, update, delete, create collections, create indexes, create organizations/branches, or change the source data. Its report says `PREFLIGHT_ONLY` and always leaves `automaticMigrationAllowed: false`.
+
+The report includes counts for organization/branch scope, duplicate student identifiers, invalid/missing child references in attendance, attendance/class mismatches, fee-to-child matching, fee/payment-history reconciliation, invalid payment dates/amounts, discounts and remaining balances, and legacy records that need an explicit ownership decision. Issue examples contain truncated internal record references, not student names, emails, phone numbers or other family contact details.
+
+Use `--json` for a machine-readable report. `--strict` returns exit code `2` if data-quality findings exist. A clean result still does **not** authorize migration: existing global records must be assigned to a verified organization and branch using an explicit mapping, family and staff identities must be verified, financial totals reconciled, private media migrated, and a backup/restore test signed off. The preflight is not a migration plan by itself and does not change either self-service registration gate.
+
+Never run this command with a write-capable production database account for the first audit. Do not point automated tests at a live school database.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
