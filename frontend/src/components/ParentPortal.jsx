@@ -142,7 +142,25 @@ export default function ParentPortal() {
   const activeBranch = branches.find((item) => String(item.id || item._id) === branchId);
 
   if (!memberships.length) {
-    return <main className="parent-entry-shell"><section className="parent-entry-card"><span className="parent-entry-logo"><MdSchool /></span><h1>Family portal</h1><p>This account does not have an active parent invitation. Contact the preschool office if you believe this is an error.</p><button type="button" className="saas-primary-button" onClick={logout}>Sign out</button></section></main>;
+    const inactiveWorkspace = Boolean(user?.hasInactiveWorkspaceMemberships);
+    const hasOtherActiveWorkspace = Array.isArray(user?.memberships) && user.memberships.length > 0;
+    return (
+      <main className="parent-entry-shell">
+        <section className="parent-entry-card">
+          <span className="parent-entry-logo"><MdSchool aria-hidden="true" /></span>
+          <span className="saas-eyebrow">FAMILY PORTAL ACCESS</span>
+          <h1>{inactiveWorkspace ? "Family portal access is inactive" : "Family portal"}</h1>
+          <p>
+            {inactiveWorkspace
+              ? "Your preschool access is inactive or the organization is unavailable. Your family records have not been deleted. Contact the preschool administrator to review your account."
+              : hasOtherActiveWorkspace
+                ? "This account has an active school workspace, but it is not a parent account. Open the staff workspace or contact your administrator if you need family access."
+                : "This account does not have an active parent invitation. Contact the preschool office if you believe this is an error."}
+          </p>
+          <button type="button" className="saas-primary-button" onClick={logout}>Sign out</button>
+        </section>
+      </main>
+    );
   }
 
   return (
