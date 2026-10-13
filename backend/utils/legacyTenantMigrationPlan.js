@@ -25,6 +25,7 @@ function normalizeAcademicYear(value) {
 }
 
 function normalizeLegacyAttendanceDate(value) {
+  if (value === null || value === undefined || value === '') return null;
   const parsed = value instanceof Date ? new Date(value) : new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   const year = parsed.getUTCFullYear();
