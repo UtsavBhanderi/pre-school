@@ -20,6 +20,11 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
+      - name: Report backend dependency advisories
+        working-directory: backend
+        run: |
+          npm audit --json > "$RUNNER_TEMP/backend-npm-audit.json" || true
+          node scripts/reportNpmAudit.js "$RUNNER_TEMP/backend-npm-audit.json"
       - name: Check backend JavaScript syntax
         run: find backend -path 'backend/node_modules' -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Check operational shell script syntax
