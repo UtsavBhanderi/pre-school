@@ -378,11 +378,11 @@ test('tenant notices, calendar, handover and teacher work reports remain branch-
     assert.equal(created.status, 201, JSON.stringify(created.data));
     const reportId = created.data.report.id;
 
-    const teacherList = await api('/api/saas/work-reports', teacher, { query: { from: reportDate, to: reportDate } });
+    const teacherList = await api('/api/saas/work-reports', { ...teacher, query: { from: reportDate, to: reportDate } });
     assert.equal(teacherList.status, 200);
     assert.ok(teacherList.data.reports.some((report) => report.id === reportId));
 
-    const ownerBList = await api('/api/saas/work-reports', b, { query: { from: reportDate, to: reportDate } });
+    const ownerBList = await api('/api/saas/work-reports', { ...b, query: { from: reportDate, to: reportDate } });
     assert.equal(ownerBList.status, 200);
     assert.ok(ownerBList.data.reports.every((report) => report.id !== reportId));
 
