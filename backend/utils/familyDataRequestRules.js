@@ -52,12 +52,16 @@ function validateRequestReviewInput(input = {}, currentStatus) {
   const status = cleanText(input.status, 30);
   const publicResponse = cleanText(input.publicResponse, 600);
   const internalNotes = cleanText(input.internalNotes, 2000);
+  const hasPublicResponse = Object.prototype.hasOwnProperty.call(input, 'publicResponse');
+  const hasInternalNotes = Object.prototype.hasOwnProperty.call(input, 'internalNotes');
   if (!REQUEST_STATUSES.includes(status)) {
     errors.status = 'Choose a valid request status.';
-  } else if (status === currentStatus) {
-    errors.status = 'Choose a different status to record a review update.';
-  } else if (!STATUS_TRANSITIONS[currentStatus]?.includes(status)) {
+  } else if (status !== currentStatus && !STATUS_TRANSITIONS[currentStatus]?.includes(status)) {
     errors.status = 'This request can no longer move to that status.';
+  } else if (status === currentStatus && !hasPublicResponse && !hasInternalNotes) {
+    errors.status = 'Change the status or add a review update before saving.';
+  } else if (status === currentStatus && (currentStatus === 'completed' || currentStatus === 'declined') && hasPublicResponse) {
+    errors.status = 'Closed requests cannot be given a new family-facing response.';
   }
 
   if (['action_required', 'completed', 'declined'].includes(status) && publicResponse.length < 8) {
