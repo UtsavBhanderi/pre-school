@@ -35,6 +35,8 @@ import AcceptInvitation from "./components/AcceptInvitation.jsx";
 import ParentPortal from "./components/ParentPortal.jsx";
 import ForgotPassword from "./components/ForgotPassword.jsx";
 import ResetPassword from "./components/ResetPassword.jsx";
+import CreateOrganization from "./components/CreateOrganization.jsx";
+import VerifyOrganizationSignup from "./components/VerifyOrganizationSignup.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -63,6 +65,8 @@ const App = () => (
           <Route path="accept-invitation" element={<AcceptInvitation />} />
           <Route path="forgot-password" element={<ForgotPassword />} />
           <Route path="reset-password" element={<ResetPassword />} />
+          <Route path="signup" element={<CreateOrganization />} />
+          <Route path="verify-organization" element={<VerifyOrganizationSignup />} />
           <Route
             path="teacher-dashboard"
             element={
