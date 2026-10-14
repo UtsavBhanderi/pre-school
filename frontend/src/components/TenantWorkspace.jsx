@@ -2015,7 +2015,7 @@ export default function TenantWorkspace() {
       }
     }
     if (memberEditDraft.status === "suspended" && member.status !== "suspended" &&
-        !window.confirm("Suspend access for " + member.user.name + "? Their current session may remain active until it expires, but new requests will be denied.")) {
+        !window.confirm("Suspend access for " + member.user.name + "? Their existing sign-in sessions will be revoked immediately.")) {
       return;
     }
 
@@ -2023,7 +2023,18 @@ export default function TenantWorkspace() {
     setErrorMessage("");
     setSuccessMessage("");
     try {
-      const data = member.role === "parent"
+      const currentBranchIds = (member.branches || []).map((item) => String(item.id || item._id)).sort();
+      const draftBranchIds = [...memberEditDraft.branchIds].map(String).sort();
+      const currentClassNames = [...(member.classNames || [])].sort();
+      const draftClassNames = [...memberEditDraft.classNames].sort();
+      const suspensionOnly =
+        memberEditDraft.status === "suspended" &&
+        member.status !== "suspended" &&
+        memberEditDraft.role === member.role &&
+        memberEditDraft.accessAllBranches === Boolean(member.accessAllBranches) &&
+        currentBranchIds.join(",") === draftBranchIds.join(",") &&
+        currentClassNames.join(",") === draftClassNames.join(",");
+      const data = member.role === "parent" || suspensionOnly
         ? { status: memberEditDraft.status, reason: memberEditDraft.reason }
         : {
           role: memberEditDraft.role,

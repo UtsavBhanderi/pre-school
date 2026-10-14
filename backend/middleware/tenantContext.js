@@ -6,6 +6,7 @@ const Branch = require('../models/Branch');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const { canAccessBranch } = require('../utils/tenantAuthorization');
 const { getSubscriptionState } = require('../utils/saasEntitlements');
+const { isReadOnlyMaintenanceRequest } = require('../utils/tenantMaintenancePolicy');
 
 const tenantContext = async (req, res, next) => {
   if (!req.user?._id) {
@@ -65,7 +66,12 @@ const tenantContext = async (req, res, next) => {
 
     // Preserve read access to existing records after a trial/plan problem, but
     // block every tenant-scoped mutation consistently across all SaaS modules.
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !subscriptionAccess.canWrite) {
+    const safeMaintenance = isReadOnlyMaintenanceRequest({
+      method: req.method,
+      originalUrl: req.originalUrl,
+      body: req.body,
+    });
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !subscriptionAccess.canWrite && !safeMaintenance) {
       return res.status(402).json({
         code: 'SUBSCRIPTION_READ_ONLY',
         message: subscriptionAccess.readOnlyReason || 'This subscription is currently read-only.',

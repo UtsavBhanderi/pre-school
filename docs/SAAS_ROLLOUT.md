@@ -152,6 +152,10 @@ The app enforces a 14-day trial deadline and initial plan capacities for branche
 
 See [SAAS_SUBSCRIPTION_POLICY.md](SAAS_SUBSCRIPTION_POLICY.md) for the initial plan defaults and [SAAS_OPERATOR_RUNBOOK.md](SAAS_OPERATOR_RUNBOOK.md) for the controlled, audited CLI used to apply manual subscription changes after external approval. The CLI does not collect payments or prove that a payment was received; no billing gateway or self-service plan change is integrated. Plan capacities are initial product defaults until the commercial plan is formally approved.
 
+## Read-only security maintenance
+
+An expired trial or inactive subscription blocks normal tenant-scoped writes. The only exceptions are the password-confirmed, audited owner-transfer flow and a status-only suspension request for an existing member. Suspension requests cannot change role, branch/class scope or all-branch permissions and revoke the affected user's current JWT sessions. The route/body allowlist and both scenarios are covered by tests using the disposable MongoDB replica set. Do not add any broader bypass to make subscription lockout easier to work around.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.

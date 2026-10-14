@@ -24,6 +24,17 @@ A staff seat counts active non-parent memberships and pending, unexpired staff i
 - An expired trial, past-due, suspended or cancelled subscription is read-only: existing records remain available for review, but tenant-scoped mutations return HTTP 402 with a machine-readable \`SUBSCRIPTION_READ_ONLY\` code.
 - Reads remain available so an organization can retain access to its records while an operator resolves billing. An organization separately marked \`status: suspended\` remains unavailable under the existing organization-access policy.
 
+## Read-only security maintenance
+
+An expired trial, past-due, suspended or cancelled subscription blocks ordinary tenant-scoped mutations with HTTP 402 and the \`SUBSCRIPTION_READ_ONLY\` code. Existing records remain available for review.
+
+Two tightly scoped security actions stay available during this lockout:
+
+- **Ownership transfer:** the existing transfer endpoint still requires the current owner's password, exact organization slug and an active head-office successor. It commits the role transfer and audit event in one transaction, then revokes both users' existing JWT sessions.
+- **Suspend a team member:** an authorized manager may send a status-only request with a reason to suspend an existing membership. The request cannot also change role, branch scope, all-branch access or class assignments. The target's existing JWT sessions are revoked and the action is audited.
+
+These exceptions are not a general write-mode bypass. Admissions, payments, branch creation, invitations, exports and normal role/scope edits remain blocked while the subscription is read-only. The exact route/body allowlist has unit tests and replica-set integration coverage.
+
 ## Capacity enforcement
 
 Capacity is checked in the backend, not trusted from browser forms:
