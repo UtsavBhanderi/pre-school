@@ -6,6 +6,7 @@ const Student = require('../models/Student');
 const TenantClass = require('../models/TenantClass');
 const Guardian = require('../models/Guardian');
 const ChildGuardian = require('../models/ChildGuardian');
+const ChildHealthRecord = require('../models/ChildHealthRecord');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const Attendance = require('../models/Attendance');
 const FeeInvoice = require('../models/FeeInvoice');
@@ -21,6 +22,7 @@ const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
 const { createCsv } = require('../utils/reportCsv');
 const { validateReportRange } = require('../utils/reportRange');
 const { evaluateClassEligibility } = require('../utils/classEligibility');
+const { validateChildHealthInput, buildClassroomHealthSummary } = require('../utils/childHealthValidation');
 const { buildOwnerSetupChecklist } = require('../utils/ownerSetupChecklist');
 const {
   MAX_MONEY_PAISE,
@@ -34,6 +36,8 @@ const {
 const router = express.Router();
 const CHILD_READ_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
 const CHILD_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
+const CHILD_HEALTH_READ_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
+const CHILD_HEALTH_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'];
 const CHILD_LIST_ROLES = [...CHILD_READ_ROLES, 'accountant', 'teacher'];
 const CLASS_READ_ROLES = [...CHILD_READ_ROLES, 'accountant', 'teacher'];
 const CLASS_WRITE_ROLES = ['organization_owner', 'head_office_admin', 'branch_admin'];
@@ -149,7 +153,7 @@ function serializeGuardianLink(link) {
   };
 }
 
-async function serializeChildren(children, organizationId, branchId, includeGuardians = true, includeAddress = true) {
+async function serializeChildren(children, organizationId, branchId, includeGuardians = true, includeAddress = true, includeClassroomHealth = false) {
   if (!children.length) return [];
   const links = includeGuardians ? await ChildGuardian.find({
     organizationId,
@@ -158,6 +162,15 @@ async function serializeChildren(children, organizationId, branchId, includeGuar
   })
     .populate({ path: 'guardianId', select: 'fullName email phone alternatePhone preferredLanguage' })
     .lean() : [];
+  const healthByChild = new Map();
+  if (includeClassroomHealth) {
+    const healthRecords = await ChildHealthRecord.find({
+      organizationId,
+      branchId,
+      childId: { $in: children.map((child) => child._id) },
+    }).select('childId allergies dietaryRestrictions specialCareInstructions emergencyInstructions updatedAt').lean();
+    for (const record of healthRecords) healthByChild.set(String(record.childId), buildClassroomHealthSummary(record));
+  }
   const guardiansByChild = new Map();
   for (const link of links) {
     const key = String(link.childId);
@@ -179,6 +192,7 @@ async function serializeChildren(children, organizationId, branchId, includeGuar
     academicYear: child.batchYear || '',
     address: includeAddress ? child.address || '' : undefined,
     guardians: guardiansByChild.get(String(child._id)) || [],
+    ...(includeClassroomHealth ? { classroomHealth: healthByChild.get(String(child._id)) || buildClassroomHealthSummary(null) } : {}),
     createdAt: child.createdAt,
     updatedAt: child.updatedAt,
   }));
@@ -667,7 +681,7 @@ router.get('/children', requireBranchContext, async (req, res) => {
       .limit(500)
       .lean();
     const canViewFamilyContacts = CHILD_READ_ROLES.includes(req.tenant.membership.role);
-    return res.json({ total: children.length, children: await serializeChildren(children, organizationId, branchId, canViewFamilyContacts, canViewFamilyContacts) });
+    return res.json({ total: children.length, children: await serializeChildren(children, organizationId, branchId, canViewFamilyContacts, canViewFamilyContacts, req.tenant.membership.role === 'teacher') });
   } catch (error) {
     console.error('Unable to list tenant children:', error);
     return res.status(503).json({ message: 'Child records could not be loaded.' });
