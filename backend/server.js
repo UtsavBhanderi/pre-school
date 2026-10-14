@@ -11,6 +11,16 @@ const { requestSecurityHeaders, createRateLimiter } = require('./middleware/requ
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+
+// Trust only the explicitly configured number of reverse-proxy hops. Leaving
+// this at zero is safest for direct connections; hosted deployments should set
+// the exact hop count required by their known load balancer/proxy topology.
+const trustProxyHopsText = String(process.env.TRUST_PROXY_HOPS || '0').trim();
+if (!/^\d+$/.test(trustProxyHopsText) || Number(trustProxyHopsText) > 10) {
+  throw new Error('TRUST_PROXY_HOPS must be a whole number between 0 and 10.');
+}
+app.set('trust proxy', Number(trustProxyHopsText));
+
 const auth = require('./middleware/auth');
 const adminOnly = require('./middleware/adminOnly');
 const staffOnly = require('./middleware/staffOnly');
