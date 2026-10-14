@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee, MdRefresh, MdShield, MdCalendarMonth, MdArrowForward, MdErrorOutline, MdCheckCircle, MdCampaign, MdHistory } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
@@ -45,6 +46,8 @@ const dateLabel = (value) => {
 
 export default function ParentPortal() {
   const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const hasStaffMemberships = Array.isArray(user?.memberships) && user.memberships.some((item) => item.role !== "parent" && item.organization?.id);
   const memberships = useMemo(() => (Array.isArray(user?.memberships) ? user.memberships.filter((item) => item.role === "parent" && item.organization?.id) : []), [user?.memberships]);
   const [organizationId, setOrganizationId] = useState(() => memberships[0]?.organization?.id || "");
   const membership = memberships.find((item) => item.organization.id === organizationId) || memberships[0];
@@ -177,7 +180,10 @@ export default function ParentPortal() {
                 ? "This account has an active school workspace, but it is not a parent account. Open the staff workspace or contact your administrator if you need family access."
                 : "This account does not have an active parent invitation. Contact the preschool office if you believe this is an error."}
           </p>
-          <button type="button" className="saas-primary-button" onClick={logout}>Sign out</button>
+          <div className="parent-portal-entry-actions">
+            {hasOtherActiveWorkspace && hasStaffMemberships && <button type="button" className="saas-secondary-button" onClick={() => navigate("/dashboard")}>Open staff workspace</button>}
+            <button type="button" className="saas-primary-button" onClick={logout}>Sign out</button>
+          </div>
         </section>
       </main>
     );
@@ -191,6 +197,7 @@ export default function ParentPortal() {
           {memberships.length > 1 && <label><span>Preschool</span><select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setSummary(null); setChildren([]); setInvoices([]); setAttendance([]); setNotices([]); setCalendarEvents([]); setHandoverEvents([]); }} aria-label="Choose preschool">{memberships.map((item) => <option key={item.organization.id} value={item.organization.id}>{item.organization.name}</option>)}</select></label>}
           {branches.length > 1 && <label><span>Branch</span><select value={branchId} onChange={(event) => setBranchId(event.target.value)} aria-label="Choose branch"><option value="">All my linked branches</option>{branches.map((branch) => <option key={branch.id || branch._id} value={branch.id || branch._id}>{branch.name}</option>)}</select></label>}
           <button type="button" className="saas-icon-button" onClick={() => setRefreshed((value) => value + 1)} aria-label="Refresh family information"><MdRefresh /></button>
+          {hasStaffMemberships && <button type="button" className="saas-secondary-button parent-staff-portal-switch" onClick={() => navigate("/dashboard")}>Staff workspace</button>}
           <button type="button" className="parent-signout-button" onClick={logout}><MdLogout /> Sign out</button>
         </div>
       </header>
