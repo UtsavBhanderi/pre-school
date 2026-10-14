@@ -104,6 +104,10 @@ This milestone still uses the legacy school's administrator access model for gal
 
 The tenant workspace now displays owner-visible subscription status and usage. Backend checks enforce initial branch, child and staff capacity and set expired/inactive subscriptions to read-only mode. These initial plan limits are documented in [the subscription policy](docs/SAAS_SUBSCRIPTION_POLICY.md). There is **no payment gateway or self-service plan change** in this build, so trial extension and paid-plan activation still require an authorized operational process. Public signup remains closed until the wider tenant/privacy rollout is approved.
 
+## Controlled subscription operations
+
+Subscription status and plan-capacity limits are enforced by the backend. For approved trial extensions, activations, billing-state changes or suspensions, use the dry-run-first operator CLI documented in [SAAS_OPERATOR_RUNBOOK.md](docs/SAAS_OPERATOR_RUNBOOK.md). The command requires a valid change ticket, reason, approver email and typed organization slug before applying a transactionally audited change. It does not take payments or replace the external billing approval process.
+
 ## Requirements
 
 - Node.js 22 or newer (Node.js 24 LTS recommended)

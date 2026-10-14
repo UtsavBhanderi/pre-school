@@ -148,9 +148,9 @@ Never run this command with a write-capable production database account for the 
 
 ## Subscription lifecycle and capacity
 
-The app now enforces a 14-day trial deadline and initial plan capacities for branches, child records and staff seats. Expired trials, past-due, suspended and cancelled subscriptions can read their existing records but cannot perform tenant-scoped mutations. Capacity checks run server-side, within MongoDB transactions, and include pending staff invitations.
+The app enforces a 14-day trial deadline and initial plan capacities for branches, child records and staff seats. Expired trials, past-due, suspended and cancelled subscriptions can read existing records but cannot perform tenant-scoped mutations. Capacity checks run server-side, within MongoDB transactions, and include pending staff invitations.
 
-See [SAAS_SUBSCRIPTION_POLICY.md](SAAS_SUBSCRIPTION_POLICY.md) for the exact initial plan defaults and the current limitation: there is no payment gateway or self-service plan-change flow. Paid-plan activation and trial extensions therefore require an authorized operational process. Treat the capacity values as defaults until the product and commercial plan have been formally approved.
+See [SAAS_SUBSCRIPTION_POLICY.md](SAAS_SUBSCRIPTION_POLICY.md) for the initial plan defaults and [SAAS_OPERATOR_RUNBOOK.md](SAAS_OPERATOR_RUNBOOK.md) for the controlled, audited CLI used to apply manual subscription changes after external approval. The CLI does not collect payments or prove that a payment was received; no billing gateway or self-service plan change is integrated. Plan capacities are initial product defaults until the commercial plan is formally approved.
 
 ## Next implementation gates (in order)
 
