@@ -53,6 +53,14 @@ test('production configuration rejects wildcard, HTTP, localhost and path-based 
   assert.ok(errors.some((error) => error.includes('API_PUBLIC_URL must contain only the canonical origin')));
 });
 
+test('production CORS origins must match the browser origin exactly', () => {
+  const errors = validateProductionConfig({
+    ...validProductionConfig,
+    FRONTEND_ORIGIN: 'https://school.example.com/',
+  });
+  assert.ok(errors.some((error) => error.includes('FRONTEND_ORIGIN entry 1 must contain only the canonical origin')));
+});
+
 test('production configuration requires an external MongoDB endpoint and working email settings', () => {
   const errors = validateProductionConfig({
     ...validProductionConfig,
