@@ -163,3 +163,171 @@ test('successful administrator login reaches the task-first dashboard', async ()
   );
   await page.close();
 });
+
+
+async function mockTenantApi(page) {
+  let savedChildren = [];
+  let scopedChildCreateSeen = false;
+
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    let status = 200;
+    let body = {};
+
+    if (path === '/api/auth/login' && request.method() === 'POST') {
+      body = { token: 'browser-smoke-tenant-token' };
+    } else if (path === '/api/auth/me' && request.method() === 'GET') {
+      body = {
+        user: {
+          id: 'owner-user-1',
+          username: 'School Owner',
+          email: 'owner@example.com',
+          role: 'admin',
+          memberships: [{
+            id: 'membership-1',
+            organization: {
+              id: 'org-1',
+              name: 'Little Stars Preschool',
+              slug: 'little-stars-abc123',
+              timezone: 'Asia/Kolkata',
+              locale: 'en-IN',
+              currency: 'INR',
+              status: 'active',
+              subscription: { plan: 'growth', status: 'active' },
+            },
+            role: 'organization_owner',
+            status: 'active',
+            branchIds: [{
+              id: 'branch-1',
+              name: 'Main Branch',
+              code: 'MAIN',
+              status: 'active',
+              timezone: 'Asia/Kolkata',
+            }],
+            accessAllBranches: true,
+          }],
+        },
+      };
+    } else if (path === '/api/saas/branches') {
+      body = [{
+        _id: 'branch-1',
+        id: 'branch-1',
+        name: 'Main Branch',
+        code: 'MAIN',
+        status: 'active',
+        timezone: 'Asia/Kolkata',
+        address: { city: 'Surat', state: 'Gujarat', postalCode: '395001', country: 'India' },
+      }];
+    } else if (path === '/api/saas/operations/summary') {
+      body = {
+        organization: { id: 'org-1', name: 'Little Stars Preschool' },
+        branch: url.searchParams.get('branchId') ? { id: 'branch-1', name: 'Main Branch' } : null,
+        date: '2026-10-14',
+        branchCount: 1,
+        children: { total: savedChildren.length, addedToday: savedChildren.length },
+        attendance: { present: 0, absent: 0, recorded: 0 },
+        fees: { collectedTodayPaise: 0, collectedToday: 0, outstandingPaise: 0, outstanding: 0, currency: 'INR' },
+      };
+    } else if (path === '/api/saas/operations/classes') {
+      body = [{
+        id: 'class-1',
+        name: 'Play Group',
+        code: 'PG',
+        status: 'active',
+        defaultFee: 15000,
+        feeFrequency: 'annual',
+        minAgeMonths: 18,
+        maxAgeMonths: 36,
+        capacity: 25,
+        description: 'First preschool classroom',
+      }];
+    } else if (path === '/api/saas/operations/children' && request.method() === 'POST') {
+      const headers = request.headers();
+      scopedChildCreateSeen =
+        headers['x-organization-id'] === 'org-1' &&
+        headers['x-branch-id'] === 'branch-1';
+      const input = request.postDataJSON();
+      const guardian = input.guardians?.[0] || {};
+      const child = {
+        id: 'child-1',
+        admissionNumber: 'STU-MAIN-2026-00001',
+        firstName: input.firstName || 'Aarav',
+        middleName: input.middleName || '',
+        lastName: input.lastName || 'Patel',
+        fullName: [input.firstName, input.middleName, input.lastName].filter(Boolean).join(' '),
+        dateOfBirth: input.dateOfBirth || '',
+        gender: input.gender || '',
+        className: input.className || 'Play Group',
+        academicYear: input.academicYear || '2026-2027',
+        address: input.address || '',
+        guardians: [{
+          id: 'guardian-1',
+          name: guardian.name || 'Disha Patel',
+          email: guardian.email || '',
+          phone: guardian.phone || '+91 98765 43210',
+          relationship: guardian.relationship || 'mother',
+          primaryContact: true,
+          billingContact: guardian.isBillingContact !== false,
+          emergencyContact: guardian.isEmergencyContact !== false,
+          authorizedPickup: guardian.authorizedPickup !== false,
+          receivesSchoolUpdates: guardian.receivesSchoolUpdates !== false,
+        }],
+        createdAt: '2026-10-14T09:00:00.000Z',
+        updatedAt: '2026-10-14T09:00:00.000Z',
+      };
+      savedChildren = [child];
+      body = { message: 'Child registered successfully.', child };
+      status = 201;
+    } else if (path === '/api/saas/operations/children' && request.method() === 'GET') {
+      body = { total: savedChildren.length, children: savedChildren };
+    } else if (path === '/api/saas/media') {
+      body = { assets: [] };
+    } else if (path === '/api/saas/context') {
+      body = {
+        organization: { id: 'org-1', name: 'Little Stars Preschool', currency: 'INR', status: 'active' },
+        membership: { role: 'organization_owner', status: 'active', accessAllBranches: true, branchIds: ['branch-1'] },
+        branch: null,
+      };
+    }
+
+    await route.fulfill({
+      status,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(body),
+    });
+  });
+
+  return { hasScopedChildCreate: () => scopedChildCreateSeen };
+}
+
+test('organization owner can enter the tenant workspace and register a child in the selected branch', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const tenantApi = await mockTenantApi(page);
+
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('owner@example.com');
+  await page.locator('#login-password').fill('a-test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+
+  await page.getByRole('heading', { name: 'Little Stars Preschool' }).waitFor().catch(() => {});
+  await page.getByText('Little Stars Preschool', { exact: true }).first().waitFor();
+  await page.locator('.saas-topbar-selectors select').selectOption('branch-1');
+  await page.getByRole('button', { name: 'Children' }).click();
+  await page.getByRole('heading', { name: 'Children and families' }).waitFor();
+  await page.getByRole('button', { name: 'Register a child' }).first().click();
+
+  await page.locator('input[name="firstName"]').fill('Aarav');
+  await page.locator('input[name="lastName"]').fill('Patel');
+  await page.locator('select[name="className"]').selectOption('Play Group');
+  await page.locator('input[name="guardianName"]').fill('Disha Patel');
+  await page.locator('input[name="guardianPhone"]').fill('+91 98765 43210');
+  await page.locator('input[name="guardianEmail"]').fill('disha@example.com');
+  await page.getByRole('button', { name: 'Save child record' }).click();
+
+  await page.getByRole('status').getByText('Child registered successfully.').waitFor();
+  await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
+  assert.equal(tenantApi.hasScopedChildCreate(), true, 'Child creation must send both the organization and selected branch IDs.');
+  await page.close();
+});
