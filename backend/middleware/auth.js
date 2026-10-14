@@ -26,6 +26,14 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'The account associated with this token no longer exists.' });
     }
 
+    // Tokens issued before authVersion existed are treated as version 0. Once
+    // a password reset increments the stored version, all prior JWTs are denied.
+    const tokenVersion = Number.isInteger(decoded?.user?.authVersion) ? decoded.user.authVersion : 0;
+    const currentVersion = Number.isInteger(user.authVersion) ? user.authVersion : 0;
+    if (tokenVersion !== currentVersion) {
+      return res.status(401).json({ message: 'Your sign-in session has expired. Please sign in again.' });
+    }
+
     req.user = user;
     return next();
   } catch (error) {
