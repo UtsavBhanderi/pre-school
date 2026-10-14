@@ -4,7 +4,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment, MdFolderOpen,
+  MdShield, MdClose, MdExpandMore, MdSettings, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment, MdFolderOpen,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
