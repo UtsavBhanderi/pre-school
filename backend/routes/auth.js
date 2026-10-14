@@ -21,8 +21,7 @@ const signToken = (user) => jwt.sign(
   { expiresIn: '1h' }
 );
 
-// Public registration can create teacher accounts only. An authenticated
-// administrator may create accounts with any supported role.
+// Account creation is restricted to authenticated legacy administrators.
 router.post('/register', async (req, res) => {
   try {
     if (!process.env.JWT_SECRET) {
@@ -35,8 +34,9 @@ router.post('/register', async (req, res) => {
     }
 
     let requester;
+    let decoded;
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
       requester = await User.findById(decoded?.user?.id).select('-password');
     } catch {
       return res.status(401).json({ message: 'Token is invalid or has expired.' });
@@ -66,7 +66,7 @@ router.post('/register', async (req, res) => {
     if (username.length < 2 || username.length > 80) {
       return res.status(400).json({ message: 'Full name must contain 2 to 80 characters.' });
     }
-    if (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ message: 'Enter a valid email address.' });
     }
     if (!isValidNewPassword(password)) {
