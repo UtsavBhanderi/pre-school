@@ -22,6 +22,7 @@ import TenantMediaLibrary from "./TenantMediaLibrary.jsx";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
+  { id: "setup", label: "Getting started", Icon: MdCheckCircle },
   { id: "reports", label: "Reports & exports", Icon: MdAssessment },
   { id: "workreports", label: "Teacher work reports", Icon: MdAssignment },
   { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
@@ -170,6 +171,7 @@ export default function TenantWorkspace() {
   const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
   const visibleTabs = TABS.filter((item) => {
+    if (item.id === 'setup') return canManageOrganization;
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
@@ -189,6 +191,7 @@ export default function TenantWorkspace() {
   const [branches, setBranches] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [summary, setSummary] = useState(null);
+  const [setupChecklist, setSetupChecklist] = useState(null);
   const [classes, setClasses] = useState([]);
   const [children, setChildren] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -535,9 +538,21 @@ export default function TenantWorkspace() {
           await loadNotices();
         } else if (activeTab === "team") {
           await Promise.all([loadBranches(), loadMembersAndAudit(), branchId ? loadChildren("") : Promise.resolve([]), branchId ? loadClasses() : Promise.resolve([])]);
+        } else if (activeTab === "setup") {
+          const data = await saasRequest("/api/saas/operations/onboarding", { organizationId });
+          if (active) setSetupChecklist(data);
         } else if (activeTab === "overview") {
-          const data = await saasRequest("/api/saas/operations/summary", { organizationId, branchId });
-          if (active) setSummary(data);
+          const tasks = [
+            saasRequest("/api/saas/operations/summary", { organizationId, branchId }),
+            canManageOrganization
+              ? saasRequest("/api/saas/operations/onboarding", { organizationId })
+              : Promise.resolve(null),
+          ];
+          const [data, checklist] = await Promise.all(tasks);
+          if (active) {
+            setSummary(data);
+            if (checklist) setSetupChecklist(checklist);
+          }
         }
       } catch (error) {
         if (active) setErrorMessage(displayError(error));
@@ -594,6 +609,7 @@ export default function TenantWorkspace() {
     setBranchId(membership?.accessAllBranches ? "" : membership?.branchIds?.[0]?.id || "");
     setBranches([]);
     setSummary(null);
+    setSetupChecklist(null);
     setChildren([]);
     setInvoices([]);
     setWorkReports([]);
@@ -1910,6 +1926,60 @@ export default function TenantWorkspace() {
             </div>
           )}
 
+          {activeTab === "setup" && canManageOrganization && (
+            <section className="saas-section">
+              <SectionHeading
+                title="Get your preschool ready"
+                description="Follow these steps in order. Progress is calculated from the records in your workspace, so a step is complete only after the work is actually saved."
+                action={<button type="button" className="saas-secondary-button" onClick={() => setRefreshVersion((version) => version + 1)}><MdRefresh /> Refresh progress</button>}
+              />
+              {loading && !setupChecklist ? (
+                <div className="saas-loading" role="status">Checking your setup progress…</div>
+              ) : setupChecklist ? (
+                <>
+                  <div className="saas-setup-progress-card">
+                    <div className="saas-setup-progress-top">
+                      <div>
+                        <span className="saas-eyebrow">ESSENTIAL SETUP</span>
+                        <strong>{setupChecklist.progress.completedRequired} of {setupChecklist.progress.totalRequired} required steps complete</strong>
+                        <p>{setupChecklist.progress.isReady ? "Your essential setup is complete. You can revisit the optional steps any time." : "Complete the remaining essentials to get your day-to-day school workflow ready."}</p>
+                      </div>
+                      <span className="saas-setup-progress-percent">{setupChecklist.progress.percent}%</span>
+                    </div>
+                    <div className="saas-setup-progress-track" role="progressbar" aria-label="Essential setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={setupChecklist.progress.percent}>
+                      <span style={{ width: setupChecklist.progress.percent + "%" }} />
+                    </div>
+                    <div className="saas-setup-scope">Progress scope: {setupChecklist.branchScope.name}. Counts are based on saved organization and branch records.</div>
+                  </div>
+
+                  <div className="saas-setup-step-list">
+                    {setupChecklist.steps.map((step, index) => (
+                      <article className={"saas-setup-step" + (step.completed ? " complete" : "")} key={step.id}>
+                        <span className="saas-setup-step-icon" aria-hidden="true">
+                          {step.completed ? <MdCheckCircle /> : <span>{index + 1}</span>}
+                        </span>
+                        <div className="saas-setup-step-copy">
+                          <div className="saas-setup-step-heading">
+                            <h3>{step.title}</h3>
+                            <span className={"saas-setup-status" + (step.completed ? " complete" : "")}>{step.completed ? "Complete" : step.required ? "Required" : "Optional"}</span>
+                          </div>
+                          <p>{step.description}</p>
+                          {Number.isFinite(step.count) && <small>{step.count} saved record{step.count === 1 ? "" : "s"}</small>}
+                        </div>
+                        <button type="button" className={step.completed ? "saas-secondary-button" : "saas-primary-button"} onClick={() => setActiveTab(step.tab)}>
+                          {step.completed ? "Review" : step.buttonLabel} <MdArrowForward aria-hidden="true" />
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="saas-setup-privacy-note"><MdShield aria-hidden="true" /><div><strong>Keep family records private</strong><p>Invite only verified staff and guardians. Avoid putting children's personal details in notices or public media. Optional tasks do not block essential setup.</p></div></div>
+                </>
+              ) : (
+                <BlankState title="Setup progress is unavailable" detail="Refresh the page. If the problem continues, check that you have owner or head-office access to this organization." action={<button type="button" className="saas-secondary-button" onClick={() => setRefreshVersion((version) => version + 1)}><MdRefresh /> Try again</button>} />
+              )}
+            </section>
+          )}
+
           {activeTab === "overview" && (
             <section className="saas-section">
               <div className="saas-welcome-card">
@@ -1920,6 +1990,16 @@ export default function TenantWorkspace() {
                 </div>
                 <div className="saas-welcome-date"><MdCalendarMonth aria-hidden="true" /> {formatDate(summary?.date || todayLocal())}</div>
               </div>
+              {canManageOrganization && setupChecklist?.progress && !setupChecklist.progress.isReady && (
+                <div className="saas-overview-setup-card">
+                  <div className="saas-overview-setup-icon"><MdCheckCircle aria-hidden="true" /></div>
+                  <div>
+                    <strong>Finish setting up your preschool</strong>
+                    <p>{setupChecklist.progress.completedRequired} of {setupChecklist.progress.totalRequired} essential steps complete. The guide tracks saved classes, child records, attendance and fees.</p>
+                  </div>
+                  <button type="button" className="saas-secondary-button" onClick={() => setActiveTab("setup")}>Continue setup <MdArrowForward aria-hidden="true" /></button>
+                </div>
+              )}
               {loading && !summary ? <div className="saas-loading">Loading your school summary…</div> : (
                 <div className="saas-metrics-grid">
                   <MetricCard label="Active branches" value={summary?.branchCount ?? "—"} detail="Across this organization" Icon={MdApartment} />
