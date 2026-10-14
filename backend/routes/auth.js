@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Organization = require('../models/Organization');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const OrganizationMembership = require('../models/OrganizationMembership');
@@ -53,6 +54,24 @@ router.post('/register', async (req, res) => {
     }
     if (requester.role !== 'admin') {
       return res.status(403).json({ message: 'Only an administrator can create user accounts.' });
+    }
+
+    // This endpoint is only for the legacy single-school workspace. SaaS users
+    // must use organization-scoped invitations so new accounts receive a proper
+    // organization membership, branch scope, and audit trail.
+    const existingMembership = await OrganizationMembership.exists({ userId: requester._id });
+    if (existingMembership) {
+      return res.status(403).json({
+        code: 'TENANT_INVITATION_REQUIRED',
+        message: 'Use your organization’s Team & activity page to invite users and assign their school access.',
+      });
+    }
+    const anyOrganizationExists = await Organization.exists({});
+    if (anyOrganizationExists) {
+      return res.status(403).json({
+        code: 'LEGACY_API_DISABLED_FOR_SAAS',
+        message: 'This account-creation flow is disabled while SaaS organization data exists. Use organization-scoped invitations.',
+      });
     }
 
     const payload = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
