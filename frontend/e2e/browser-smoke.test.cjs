@@ -672,6 +672,7 @@ test('parent login opens the family portal and shows only linked child and billi
   await page.getByRole('button', { name: 'Fee status', exact: true }).click();
   await page.getByRole('heading', { name: 'Fee status' }).waitFor();
   await page.getByText('INV-MAIN-2026-000001', { exact: true }).waitFor();
+  await page.getByText('View payment receipts (1)', { exact: true }).click();
   await page.getByText('REC-MAIN-2026-000001', { exact: true }).waitFor();
   assert.equal(await page.getByText('Riya Sharma', { exact: true }).count(), 0,
     'The parent fee view must not expose another family.');
