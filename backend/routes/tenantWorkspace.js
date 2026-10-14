@@ -3,6 +3,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Branch = require('../models/Branch');
+const User = require('../models/User');
 const TenantClass = require('../models/TenantClass');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const AuditEvent = require('../models/AuditEvent');
@@ -494,6 +495,20 @@ router.patch('/members/:id', async (req, res) => {
       membership.classNames = classNames;
       await membership.save({ session });
 
+      // Any change to role, branch/class scope or account status invalidates the
+      // target user's existing JWTs so their browser must reload the latest access.
+      const revokedSessions = await User.updateOne(
+        { _id: membership.userId },
+        { $inc: { authVersion: 1 } },
+        { session, runValidators: true },
+      );
+      if (revokedSessions.matchedCount !== 1) {
+        const missingUser = new Error('The team member account no longer exists. No access change was committed.');
+        missingUser.code = 'MEMBER_USER_NOT_FOUND';
+        throw missingUser;
+      }
+      changedFields.push('userSessionsRevoked');
+
       const auditBranchId = req.tenant.branch?._id ||
         branchIds[0] ||
         membership.branchIds[0] ||
@@ -515,11 +530,12 @@ router.patch('/members/:id', async (req, res) => {
 
       response = {
         message: requestedStatus === 'suspended'
-          ? 'Access suspended. The person can no longer use this organization workspace.'
-          : 'Team access saved.',
+          ? 'Access suspended. Existing sessions have been revoked and the person can no longer use this organization workspace.'
+          : 'Team access saved. The person must sign in again because existing sessions were revoked.',
         memberId: String(membership._id),
         role: membership.role,
         status: membership.status,
+        sessionsRevoked: true,
       };
     });
 
@@ -538,6 +554,7 @@ router.patch('/members/:id', async (req, res) => {
       INVALID_BRANCH_SCOPE: 400,
       INVALID_BRANCHES: 400,
       INVALID_CLASSES: 400,
+      MEMBER_USER_NOT_FOUND: 404,
     };
     if (codes[error.code]) return res.status(codes[error.code]).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'A conflicting membership change was detected. Refresh the team list and try again.' });
