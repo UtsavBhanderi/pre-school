@@ -421,3 +421,24 @@
 }
 .saas-danger-button:hover:not(:disabled) { color: #fff; border-color: #852a33; background: #852a33; }
 .saas-danger-button:disabled { cursor: not-allowed; opacity: .55; }
+
+
+/* Role-based portals: grouped navigation is easier to scan than a long menu. */
+.saas-sidebar-nav { align-content: start; }
+.saas-sidebar-nav-group { display: grid; gap: .2rem; margin-bottom: .45rem; }
+.saas-sidebar-group-label {
+  margin: .62rem .7rem .25rem;
+  color: #91a3c2;
+  font-size: .65rem;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.saas-sidebar-group-label:first-child { margin-top: .35rem; }
+.saas-nav-item { text-align: left; }
+@media (max-width: 760px) {
+  .saas-sidebar-nav { display: flex; align-items: stretch; }
+  .saas-sidebar-nav-group { display: contents; }
+  .saas-sidebar-group-label { display: none; }
+  .saas-nav-item { min-height: 42px; }
+}
