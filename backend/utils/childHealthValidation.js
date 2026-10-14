@@ -143,6 +143,7 @@ function buildClassroomHealthSummary(record) {
       dietaryRestrictions: [],
       specialCareInstructions: '',
       emergencyInstructions: '',
+      schoolMedicationRequired: false,
       lastUpdatedAt: null,
     };
   }
