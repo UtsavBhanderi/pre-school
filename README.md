@@ -102,7 +102,7 @@ This milestone still uses the legacy school's administrator access model for gal
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer (Node.js 24 LTS recommended)
 - npm
 - A running MongoDB instance or a MongoDB connection string
 
