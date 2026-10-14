@@ -5,7 +5,7 @@ import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdApartment, MdManageAccounts, MdSearch, MdRefresh, MdAdd, MdArrowForward,
   MdCheckCircle, MdErrorOutline, MdCalendarMonth, MdReceiptLong, MdHistory,
-  MdShield, MdClose, MdExpandMore, MdSettings, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment, MdFolderOpen,
+  MdShield, MdClose, MdMenu, MdExpandMore, MdSettings, MdPrint, MdCampaign, MdAssessment, MdDownload, MdAssignment, MdFolderOpen,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -322,6 +322,16 @@ export default function TenantWorkspace() {
   const [branchId, setBranchId] = useState(() => activeMembership?.accessAllBranches ? "" : activeMembership?.branchIds?.[0]?.id || "");
   const [branches, setBranches] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileNavOpen]);
   const [summary, setSummary] = useState(null);
   const [setupChecklist, setSetupChecklist] = useState(null);
   const [subscriptionInfo, setSubscriptionInfo] = useState(null);
@@ -2239,7 +2249,15 @@ export default function TenantWorkspace() {
 
   return (
     <div className="saas-workspace">
-      <aside className="saas-sidebar">
+      {mobileNavOpen && (
+        <button
+          type="button"
+          className="saas-mobile-nav-overlay"
+          aria-label="Close workspace navigation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+      <aside id="saas-sidebar" className={"saas-sidebar" + (mobileNavOpen ? " mobile-open" : "")} aria-label="Workspace navigation">
         <div className="saas-brand">
           <span className="saas-brand-symbol"><MdSchool aria-hidden="true" /></span>
           <span><strong>Preschool</strong><small>Management workspace</small></span>
@@ -2253,7 +2271,7 @@ export default function TenantWorkspace() {
               <div className="saas-sidebar-nav-group" key={group.label}>
                 <div className="saas-sidebar-group-label">{group.label}</div>
                 {groupTabs.map(({ id, label, Icon }) => (
-                  <button key={id} type="button" className={"saas-nav-item" + (activeTab === id ? " active" : "")} onClick={() => setActiveTab(id)} aria-current={activeTab === id ? "page" : undefined}>
+                  <button key={id} type="button" className={"saas-nav-item" + (activeTab === id ? " active" : "")} onClick={() => { setActiveTab(id); setMobileNavOpen(false); }} aria-current={activeTab === id ? "page" : undefined}>
                     <Icon aria-hidden="true" /><span>{label}</span>
                   </button>
                 ))}
@@ -2272,9 +2290,21 @@ export default function TenantWorkspace() {
 
       <main className="saas-main">
         <header className="saas-topbar">
-          <div className="saas-topbar-title">
-            <span className="saas-eyebrow">{roleHome.portalTitle.toUpperCase()} · {roleHome.eyebrow}</span>
-            <h1>{TABS.find((item) => item.id === activeTab)?.label || roleHome.portalTitle}</h1>
+          <div className="saas-topbar-heading-group">
+            <button
+              type="button"
+              className="saas-mobile-menu-button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open workspace navigation"
+              aria-expanded={mobileNavOpen}
+              aria-controls="saas-sidebar"
+            >
+              <MdMenu aria-hidden="true" />
+            </button>
+            <div className="saas-topbar-title">
+              <span className="saas-eyebrow">{roleHome.portalTitle.toUpperCase()} · {roleHome.eyebrow}</span>
+              <h1>{TABS.find((item) => item.id === activeTab)?.label || roleHome.portalTitle}</h1>
+            </div>
           </div>
           <div className="saas-topbar-selectors">
             {memberships.length > 1 && (
