@@ -24,9 +24,13 @@ const TenantMediaAssetSchema = new mongoose.Schema({
   ], immutable: true },
   sizeBytes: { type: Number, required: true, min: 1, max: 104857600, immutable: true },
   originalFileName: { type: String, trim: true, maxlength: 180, default: '', immutable: true },
-  status: { type: String, enum: ['active', 'archived'], default: 'active', index: true },
+  status: { type: String, enum: ['pending_migration', 'active', 'archived'], default: 'active', index: true },
   audience: { type: String, enum: ['staff_only', 'parent_with_photo_consent'], default: 'staff_only', immutable: true },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
+  migrationSourceCollection: { type: String, enum: ['students', 'teachers', 'photos', 'pdfs', 'videos'], default: undefined, immutable: true },
+  migrationSourceDocumentId: { type: String, trim: true, maxlength: 24, match: /^[a-f\\d]{24}$/i, default: undefined, immutable: true },
+  migrationSourceField: { type: String, trim: true, maxlength: 40, default: undefined, immutable: true },
+  migrationBatchId: { type: String, trim: true, maxlength: 80, default: undefined, immutable: true },
   archivedAt: { type: Date, default: null },
   archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   archiveReason: { type: String, trim: true, maxlength: 500, default: '' },
@@ -35,6 +39,23 @@ const TenantMediaAssetSchema = new mongoose.Schema({
 TenantMediaAssetSchema.index({ organizationId: 1, branchId: 1, category: 1, status: 1, createdAt: -1 });
 TenantMediaAssetSchema.index({ organizationId: 1, branchId: 1, childId: 1, category: 1, status: 1 });
 TenantMediaAssetSchema.index({ organizationId: 1, branchId: 1, staffUserId: 1, category: 1, status: 1 });
+TenantMediaAssetSchema.index(
+  {
+    organizationId: 1,
+    branchId: 1,
+    migrationSourceCollection: 1,
+    migrationSourceDocumentId: 1,
+    migrationSourceField: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      migrationSourceCollection: { $type: 'string' },
+      migrationSourceDocumentId: { $type: 'string' },
+      migrationSourceField: { $type: 'string' },
+    },
+  }
+);
 
 module.exports = mongoose.model('TenantMediaAsset', TenantMediaAssetSchema);
 module.exports.MEDIA_CATEGORIES = MEDIA_CATEGORIES;

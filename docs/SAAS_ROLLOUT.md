@@ -60,7 +60,7 @@ For organization context endpoints, send the authenticated token in `x-auth-toke
 - Fee invoices and transaction ledger entries store amounts as integer paise. Payments and refunds are immutable entries; an invoice write lock serializes concurrent ledger updates before balance validation.
 - Tenant attendance and fee-transaction CSV exports require branch context, enforce role/class/date-range limits, revalidate child/invoice links in the same organization and branch, neutralize spreadsheet formula input, and write a `report.exported` audit event.
 
-These workflows have automated unit/syntax/build checks, but the parent invitation and attendance/finance workflows still need isolated MongoDB integration tests using organizations A and B. Parent/guardian identity verification and real-world acceptance testing remain release gates.
+GitHub Actions now runs isolated MongoDB tenant/invitation/operations integration suites plus Chromium browser smoke tests for owner registration, attendance and fee workflows, and the linked-child parent portal. These CI fixtures do not prove a customer's real data is correctly migrated or that the deployed host, email, storage, backup and restore settings are right. Parent identity verification, actual staging-backup rehearsal and real-school acceptance testing remain release gates.
 
 ## Tenant-aware private media foundation
 
@@ -158,16 +158,16 @@ An expired trial or inactive subscription blocks normal tenant-scoped writes. Th
 
 ## Next implementation gates (in order)
 
-1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
-2. Decide/document the legacy data migration strategy and idempotent migration script; back up and reconcile before execution.
-3. Scope students, guardians, classes, attendance, fees/transactions, announcements, reports, teachers/users and related nested references to `organizationId` and `branchId`.
-4. Introduce parent/guardian identity and relationships, consent lifecycle and purpose/retention controls.
-5. Complete organization-aware media authorization for child/guardian photos, staff photos, gallery images, PDFs and videos. The current 120-second legacy-admin signed links are transitional; migrate the files to private storage and bind each download to the caller's membership, branch and record scope.
-6. Revoke existing JWT sessions whenever a user's organization role, branch/class scope or status changes; the owner-transfer flow now requires current-password verification, typed organization-slug confirmation, an active head-office successor, an atomic audit record and re-login for both users. Validate both flows with replica-set integration tests and continue reviewing non-browser tokens.
-7. Add signup/login onboarding, organization/branch switcher and the first owner/branch workspace.
-8. Add tenant-negative tests for each endpoint (tenant A cannot read, change, enumerate, export or download tenant B resources).
-9. Test backup restoration, audit-event completeness, financial reconciliation and representative user workflows.
-10. Enable registration only after review sign-off for every gate above.
+1. Restore a fresh, approved database backup into a dedicated staging deployment and run the read-only legacy migration, staff identity and media preflights. Review every blocker and reconcile student counts, admission IDs, attendance references, fee totals, discounts, payments/refunds, staff mappings and media ownership before any staging apply.
+2. Rehearse the bounded tenant migration, explicit staff identity migration and private-media copy on that disposable restored staging database. Do not run apply against a production URI; require the exact source label, organization/branch mappings, approved change ticket and authorized approver. Preserve source records/files and compare counts and ledgers before and after.
+3. Integrate migrated private media into each organization-scoped child, staff, gallery, PDF and video workflow. The new tenant media library can inspect newly migrated assets, but old unscoped records and old screens do not automatically start using those assets. Keep legacy direct media delivery disabled whenever SaaS data exists.
+4. Execute end-to-end acceptance tests against the configured staging host for organization sign-up/verification, staff invitations and role changes, parent invitation/linking, branch/class scope, attendance, payments/refunds/receipts, fee exports, parent visibility, child handover, health-information permissions, notices, calendar, teacher reports, subscription lockout and ownership transfer.
+5. Confirm cross-tenant and cross-branch negative tests cover every API action, export, private-media download, parent child/fee route, invitation, CSV/report path and nested reference. Verify that permission changes revoke existing sessions and that pending or revoked invitations/tokens cannot be reused.
+6. Perform an approved encrypted backup and restore rehearsal including the database and tenant-private media files, verify the restored index set and record counts, and document actual recovery time and recovery-point expectations. Keep encrypted backups in approved off-host storage and test access to the private recovery key.
+7. Review production configuration with the real deployment: HTTPS and canonical origins, SMTP delivery, separate random JWT/private-media secrets, exact trusted-proxy hops, MongoDB transaction support, file-storage permissions, rate limits, log retention, audit retention, error alerts and emergency account-revocation procedures.
+8. Have an independent security/privacy review of child and family data, consent handling, health/emergency records, signed media links, password reset, account invitation, owner transfer and operational support access. Correct all high-risk findings and rerun relevant tests.
+9. Complete a school-staff acceptance session using a sanitized staging data set and mobile devices. Confirm everyday workflows and printed receipts/reports with the school's actual timezone, academic year, fee policy and language settings.
+10. Keep \`ENABLE_SAAS_REGISTRATION\`, \`SAAS_TENANT_DATA_READY\` and \`SAAS_LAUNCH_APPROVED\` false until the migration, media, privacy, restore and acceptance gates above have documented owner sign-off. Enabling one or all flags is not a substitute for completing the gates.
 
 ## Automated tenant-isolation coverage
 
@@ -214,6 +214,36 @@ The explicit apply flags and environment variables are documented in the README.
 \`npm run migration:staff\` adds a separate dry-run-first migration for existing administrator/teacher login identities. It requires an exact User-ID + email + legacy-role match, explicit target role/branch assignment, configured teacher classes, and (for a copied teacher profile) a matching legacy Teacher ID. Parent portal identities are deliberately excluded from this migration because they must come from the verified guardian invitation/link flow. Organization-owner rights cannot be assigned by a legacy staff import.
 
 Apply is disabled outside an explicitly gated staging environment and requires an active owner/head-office approver with access to every target branch. It creates only tenant memberships and the new \`TenantStaffProfile\` copies; it never modifies passwords or source User/Teacher rows. The membership/profile rows, a unique migration-run ledger entry and audit event are committed in one transaction. The new command and example manifest are documented in the README. This importer has not been run against a real school database and does not unblock public signup.
+
+## Legacy media migration — staging-only prototype
+
+A separate command, \`npm run migration:media\`, now provides a record-by-record, dry-run-first path for copying local legacy media into tenant-private storage. **This does not complete the legacy screen migration or approve production onboarding.** It does not edit/delete source files or rewrite the original student, teacher, gallery, PDF or video records.
+
+### Required order and supported mappings
+
+1. Restore and verify an approved database backup in a dedicated staging database whose database name explicitly contains \`staging\`.
+2. Run the student/attendance/fee tenant migration and the explicit staff identity migration first. A student photo is accepted only after the student record has the target organization and branch; a teacher photo requires an active \`TenantStaffProfile\` whose \`legacySourceTeacherId\` exactly matches the old Teacher record and whose target user/branch is verified.
+3. Copy the example manifest to a private working file and enter each source collection, source document ID, media field and target branch explicitly. Review unscoped gallery/PDF/video ownership from school records; those old collections have no trustworthy tenant scope of their own.
+4. Run a dry-run, correct every blocker, check the source/media ownership and restore approvals, then rerun until the plan is clean.
+5. Only on the disposable staging restore, set \`NODE_ENV=staging\`, \`SAAS_MIGRATION_ENV=staging\`, and \`ALLOW_LEGACY_MEDIA_MIGRATION=true\`. Supply the exact source label, organization ID, active owner/head-office approver and approved change-ticket reference to the apply command.
+6. Verify every new asset through the authenticated tenant media API and repeat the full rehearsal from a fresh backup. The source files remain in place.
+
+The manifest supports only these known local fields: Student \`studentPhoto\`, \`motherPhoto\` and \`fatherPhoto\`; Teacher \`selfPhoto\`; Photo \`url\`; PDF \`filePath\`; and Video \`filePath\`. Files must live in their expected existing upload folder. Absolute links are migrated only when their origin matches the configured \`API_PUBLIC_URL\`; external URLs are skipped and are never downloaded. Files are required to be regular non-symlink files with an allowlisted extension, file size and matching binary signature.
+
+Every migrated file receives a random private storage name under the target organization/branch. Migration metadata has a unique source-record/field key for repeat-safe operation. The asset first enters a hidden \`pending_migration\` state; it becomes active only after its private copy passes size, signature and SHA-256 comparison. If a process stops during copying, rerunning the same manifest can safely resume a pending item. Audits record preparation and activation without copying child or family names, URLs or file contents into the event.
+
+By default every migrated media asset is \`staff_only\`. Parent access may only be requested for the child's own \`studentPhoto\` field, and only when a verified ChildGuardian relationship carries recorded \`photoUse=granted\` consent. A missing consent record blocks that item; consent is never inferred. Family portrait fields, staff photos, gallery images and learning resources remain staff-only. The manifest's four confirmation fields must all be true for apply: source ownership verified, backup restored in staging, resource ownership reviewed, and photo consent reviewed.
+
+Example workflow (Bash):
+
+~~~bash
+cd backend
+cp ../docs/legacy-media-manifest.example.json ../legacy-media-manifest.json
+# Edit the private copy with verified IDs and branch mappings.
+npm run migration:media -- --manifest ../legacy-media-manifest.json --json
+~~~
+
+Apply is intentionally separate and staging-only. Keep the copy of the manifest secured: it contains internal record IDs. The command does not change the source record values and does not make legacy screens use the migrated assets automatically. The existing tenant media library is the inspection path for migrated content; legacy student/staff/resource screen integration, a restored-staging rehearsal, and acceptance tests are still required release gates.
 
 ## Organization and branch settings
 

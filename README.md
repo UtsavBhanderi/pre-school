@@ -228,7 +228,7 @@ GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation H
 
 ## Guarded legacy data migration (staging only)
 
-The new \`npm run migration:tenant\` command defaults to a **dry run**. It reads an explicit JSON manifest, audits the current source and target, and prints bounded counts/blocker codes. It never creates collections/indexes in dry-run mode. The first supported write migration is intentionally limited to the selected legacy-unscoped student, attendance and fee collections; staff identity, guardians, report cards, calendar events and uploaded media remain out of scope.
+The new \`npm run migration:tenant\` command defaults to a **dry run**. It reads an explicit JSON manifest, audits the current source and target, and prints bounded counts/blocker codes. It never creates collections/indexes in dry-run mode. The first supported write migration is intentionally limited to selected legacy-unscoped student, attendance and fee collections. Staff identity has a separate explicit migration command; legacy media has a separate staging-only copy prototype. Guardians, report cards, calendar events and source-screen media integration still require their own reviewed mapping and acceptance process.
 
 The write path is deliberately unavailable in development/production. It requires all of the following in a **disposable, restored staging environment**:
 
@@ -254,6 +254,23 @@ A write attempt is one MongoDB transaction and is capped to keep the first migra
 
 After an approved staging apply, rerun the read-only preflight and compare source versus destination counts, attendance rows and financial ledgers. Test the entire school workflow against organizations A and B before any production migration is approved. This staging-only runner is not permission to enable public registration and does not migrate private media; the SaaS registration flags must remain disabled until all remaining migration and privacy gates are reviewed.
 
+
+## Legacy media migration (staging-only prototype)
+
+A dry-run-first command, \`npm run migration:media\`, copies explicitly mapped legacy photos and local school resources into the new organization/branch-private media store. It supports legacy Student photos, Teacher self-photos, gallery images, PDF uploads and video uploads.
+
+The tool validates target ownership, branch access, allowed file types/sizes/signatures, private source paths and (if parent visibility is requested) recorded photo consent. It never deletes or edits source files/records. Its default mode is read-only; apply is gated to a staging database, a verified approver and an approved change ticket. Interrupted copies can be resumed through hidden pending asset records.
+
+Start from a private manifest copy:
+
+~~~bash
+cd backend
+cp ../docs/legacy-media-manifest.example.json ../legacy-media-manifest.json
+# Replace every placeholder with verified IDs and target branches; leave confirmations false.
+npm run migration:media -- --manifest ../legacy-media-manifest.json --json
+~~~
+
+Read [the detailed migration gates](docs/SAAS_ROLLOUT.md#legacy-media-migration--staging-only-prototype) before any apply run. Existing legacy screens are not automatically rewritten to use the new assets, and external resource URLs are skipped rather than downloaded. This is a staging prototype—not approval for production migration or public organization signup.
 
 ## Verified legacy staff migration (staging only)
 

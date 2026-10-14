@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "sourceSchoolLabel": "REPLACE WITH VERIFIED LEGACY SCHOOL LABEL",
+  "organizationId": "REPLACE_WITH_24_HEX_ORGANIZATION_ID",
+  "confirmations": {
+    "sourceOwnershipVerified": false,
+    "backupRestoredInStaging": false,
+    "resourceOwnershipReviewed": false,
+    "photoConsentReviewed": false
+  },
+  "items": [
+    {
+      "sourceCollection": "students",
+      "sourceDocumentId": "REPLACE_WITH_24_HEX_STUDENT_ID",
+      "sourceField": "studentPhoto",
+      "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID",
+      "allowParentAccess": false
+    },
+    {
+      "sourceCollection": "teachers",
+      "sourceDocumentId": "REPLACE_WITH_24_HEX_LEGACY_TEACHER_ID",
+      "sourceField": "selfPhoto",
+      "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID",
+      "staffUserId": "REPLACE_WITH_24_HEX_TENANT_USER_ID"
+    },
+    {
+      "sourceCollection": "photos",
+      "sourceDocumentId": "REPLACE_WITH_24_HEX_PHOTO_ID",
+      "sourceField": "url",
+      "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID"
+    },
+    {
+      "sourceCollection": "pdfs",
+      "sourceDocumentId": "REPLACE_WITH_24_HEX_PDF_ID",
+      "sourceField": "filePath",
+      "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID"
+    },
+    {
+      "sourceCollection": "videos",
+      "sourceDocumentId": "REPLACE_WITH_24_HEX_VIDEO_ID",
+      "sourceField": "filePath",
+      "branchId": "REPLACE_WITH_24_HEX_BRANCH_ID"
+    }
+  ]
+}

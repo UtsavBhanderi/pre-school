@@ -10,6 +10,7 @@
     "migration:preflight": "node legacyMigrationPreflight.js",
     "migration:tenant": "node legacyTenantMigration.js",
     "migration:staff": "node legacyStaffMigration.js",
+    "migration:media": "node legacyMediaMigration.js",
     "subscription:manage": "node scripts/manageSaasSubscription.js"
   },
   "keywords": [],
