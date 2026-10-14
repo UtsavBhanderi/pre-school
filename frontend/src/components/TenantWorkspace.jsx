@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
@@ -276,6 +277,8 @@ function BlankState({ title, detail, action }) {
 
 export default function TenantWorkspace() {
   const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const hasParentMemberships = Array.isArray(user?.memberships) && user.memberships.some((item) => item.role === "parent" && item.organization?.id);
   const memberships = useMemo(
     () => (Array.isArray(user?.memberships) ? user.memberships.filter((item) => item?.organization?.id && item.role !== 'parent') : []),
     [user?.memberships],
@@ -2288,6 +2291,11 @@ export default function TenantWorkspace() {
                 {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
               </select>
             </label>
+            {hasParentMemberships && (
+              <button type="button" className="saas-secondary-button saas-portal-switch" onClick={() => navigate("/parent-portal")}>
+                <MdPeople aria-hidden="true" /> Family portal
+              </button>
+            )}
             <button type="button" className="saas-icon-button" onClick={() => setRefreshVersion((version) => version + 1)} aria-label="Refresh overview" title="Refresh"><MdRefresh /></button>
           </div>
         </header>
