@@ -12,6 +12,7 @@ const OrganizationMembership = require('../models/OrganizationMembership');
 const AuditEvent = require('../models/AuditEvent');
 const { hashInvitationToken, isInvitationLive } = require('../utils/invitationTokens');
 const { assertOrganizationWritable, assertQuotaCapacity } = require('../utils/saasQuota');
+const { isValidExistingAccountPassword, isValidNewAccountPassword } = require('../utils/invitationPasswordPolicy');
 
 const router = express.Router();
 
@@ -20,10 +21,6 @@ const signToken = (user) => jwt.sign(
   process.env.JWT_SECRET,
   { expiresIn: '1h' }
 );
-
-function validPassword(value) {
-  return typeof value === 'string' && value.length >= 12 && value.length <= 128 && value.trim().length > 0;
-}
 
 async function findLiveInvitation(token, session) {
   const tokenHash = hashInvitationToken(token);
@@ -67,8 +64,8 @@ router.post('/accept', async (req, res) => {
   const token = typeof req.body?.token === 'string' ? req.body.token : '';
   const password = req.body?.password;
   if (!hashInvitationToken(token)) return res.status(400).json({ message: 'Open the full invitation link and try again.' });
-  if (!validPassword(password)) {
-    return res.status(400).json({ message: 'Use a password between 12 and 128 characters. For an existing account, enter its current password.' });
+  if (!isValidExistingAccountPassword(password)) {
+    return res.status(400).json({ message: 'Enter your current password, or use at least 12 characters for a new account.' });
   }
 
   let acceptedUser;
@@ -114,6 +111,11 @@ router.post('/accept', async (req, res) => {
               throw badPassword;
             }
           } else {
+            if (!isValidNewAccountPassword(password)) {
+              const weakNewPassword = new Error('New accounts require a password with at least 12 characters. Use your current password if you already have an account.');
+              weakNewPassword.code = 'NEW_PASSWORD_TOO_SHORT';
+              throw weakNewPassword;
+            }
             const legacyRole = invitation.role === 'parent'
               ? 'student'
               : ['head_office_admin', 'branch_admin'].includes(invitation.role) ? 'admin' : 'teacher';
@@ -234,6 +236,7 @@ router.post('/accept', async (req, res) => {
       ORGANIZATION_UNAVAILABLE: 410,
       BRANCH_UNAVAILABLE: 409,
       EXISTING_ACCOUNT_PASSWORD: 401,
+      NEW_PASSWORD_TOO_SHORT: 400,
       MEMBERSHIP_EXISTS: 409,
       GUARDIAN_MISMATCH: 409,
       PLAN_LIMIT_REACHED: 409,
