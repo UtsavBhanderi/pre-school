@@ -32,9 +32,6 @@ const announcementsRoutes = require('./routes/announcements');
 const organizationsRoutes = require('./routes/organizations');
 const tenantWorkspaceRoutes = require('./routes/tenantWorkspace');
 const tenantOperationsRoutes = require('./routes/tenantOperations');
-const tenantInvitationsRoutes = require('./routes/tenantInvitations');
-const invitationAcceptanceRoutes = require('./routes/invitationAcceptance');
-const tenantParentRoutes = require('./routes/tenantParent');
 const invitationsRoutes = require('./routes/invitations');
 const publicInvitationsRoutes = require('./routes/publicInvitations');
 const parentPortalRoutes = require('./routes/parentPortal');
@@ -123,11 +120,10 @@ app.use('/api/auth', authRoutes);
 // single-school APIs. Public registration has two explicit readiness gates.
 app.use('/api/organizations', organizationsRoutes);
 
-// The acceptance endpoint is public but token-gated. Mount before the generic
-// /api/saas router, which enforces tenant headers for all authenticated APIs.
-app.use('/api/invitations', invitationAcceptanceRoutes);
-app.use('/api/saas/invitations', auth, tenantInvitationsRoutes);
-app.use('/api/saas/parent', auth, tenantParentRoutes);
+// Keep one implementation mounted for each workflow. The public invitation
+// routes use the current pending/accepted/revoked schema and atomically create
+// memberships with guardianIds; older parallel routers use incompatible
+// status/guardian fields and must not shadow the supported endpoints.
 app.use('/api/invitations', publicInvitationsRoutes);
 app.use('/api/saas/invitations', auth, invitationsRoutes);
 app.use('/api/saas/parent', auth, parentPortalRoutes);
