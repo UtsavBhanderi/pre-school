@@ -13,6 +13,7 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 - Teacher daily-work reports and student report-document generation
 - Tenant-scoped teacher work reports with class assignment checks, administrator review, follow-up notes and locked review history
 - Organization and branch profile settings with timezone, language, date preferences, contact details and guarded currency changes
+- First-run owner setup guide that tracks actual saved classes, child records, attendance and fees
 - Internal school notices with scheduled visibility, staff targeting, editing and archiving
 - Organization/branch-scoped school calendar with holidays, trips, meetings, staff/parent audiences, cancellation history and audit entries
 - Tenant-private media library for gallery photos, learning PDFs and learning videos, plus consent-gated child-photo previews in the family portal

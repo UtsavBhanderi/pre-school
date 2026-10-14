@@ -21,6 +21,7 @@ const { getZonedDayBounds, getTodayInTimeZone } = require('../utils/zonedDate');
 const { createCsv } = require('../utils/reportCsv');
 const { validateReportRange } = require('../utils/reportRange');
 const { evaluateClassEligibility } = require('../utils/classEligibility');
+const { buildOwnerSetupChecklist } = require('../utils/ownerSetupChecklist');
 const {
   MAX_MONEY_PAISE,
   parseMoneyToPaise,
@@ -489,6 +490,62 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
 });
 
 
+
+router.get('/onboarding', async (req, res) => {
+  if (!allowed(req, ['organization_owner', 'head_office_admin'], res)) return;
+
+  const branchFilter = {
+    organizationId: req.tenant.organization._id,
+    status: 'active',
+  };
+  if (req.tenant.branch) {
+    branchFilter._id = req.tenant.branch._id;
+  } else if (!req.tenant.membership.accessAllBranches) {
+    branchFilter._id = { $in: req.tenant.membership.branchIds || [] };
+  }
+
+  try {
+    const scopedBranches = await Branch.find(branchFilter)
+      .select('_id name code phone email address timezone')
+      .lean();
+    const scopedBranchIds = scopedBranches.map((branch) => branch._id);
+    const branchScope = {
+      organizationId: req.tenant.organization._id,
+      branchId: { $in: scopedBranchIds },
+    };
+
+    const [activeClasses, childCount, attendanceCount, invoiceCount, paymentCount, staffCount, parentCount] = await Promise.all([
+      TenantClass.countDocuments({ ...branchScope, status: 'active' }),
+      Student.countDocuments(branchScope),
+      Attendance.countDocuments(branchScope),
+      FeeInvoice.countDocuments(branchScope),
+      FeeTransaction.countDocuments({ ...branchScope, type: 'payment' }),
+      OrganizationMembership.countDocuments({
+        organizationId: req.tenant.organization._id,
+        status: 'active',
+        role: { $in: ['head_office_admin', 'branch_admin', 'admissions', 'teacher', 'accountant', 'hr_manager', 'transport_staff'] },
+        ...(req.tenant.membership.accessAllBranches ? {} : { branchIds: { $in: scopedBranchIds } }),
+      }),
+      OrganizationMembership.countDocuments({
+        organizationId: req.tenant.organization._id,
+        status: 'active',
+        role: 'parent',
+        guardianIds: { $exists: true, $ne: [] },
+        ...(req.tenant.membership.accessAllBranches ? {} : { branchIds: { $in: scopedBranchIds } }),
+      }),
+    ]);
+
+    return res.json(buildOwnerSetupChecklist({
+      organization: req.tenant.organization,
+      branches: scopedBranches,
+      branch: req.tenant.branch,
+      counts: { activeClasses, childCount, attendanceCount, invoiceCount, paymentCount, staffCount, parentCount },
+    }));
+  } catch (error) {
+    console.error('Unable to build the owner setup checklist:', error);
+    return res.status(503).json({ message: 'The setup checklist could not be loaded. Please refresh and try again.' });
+  }
+});
 
 router.get('/summary', async (req, res) => {
   if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant', 'admissions', 'teacher', 'hr_manager', 'transport_staff'], res)) return;
