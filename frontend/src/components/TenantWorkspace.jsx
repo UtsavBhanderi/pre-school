@@ -100,6 +100,18 @@ const createBlankChildDraft = (className = "") => ({
   communicationConsent: "unknown", photoConsent: "unknown",
 });
 
+const createBlankHealthDraft = () => ({
+  allergies: [{ name: "", reaction: "", severity: "unknown", emergencyAction: "" }],
+  medications: [{ name: "", dosage: "", instructions: "", startDate: "", endDate: "", administerAtSchool: false, parentAuthorizationRecorded: false, authorizationNotes: "" }],
+  dietaryRestrictions: [{ name: "", details: "" }],
+  specialCareInstructions: "",
+  emergencyInstructions: "",
+  physicianName: "",
+  physicianPhone: "",
+  medicalNotes: "",
+});
+
+
 const tokenHeaders = (organizationId, branchId) => {
   const token = localStorage.getItem("token");
   return {
@@ -236,6 +248,12 @@ export default function TenantWorkspace() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [showChildForm, setShowChildForm] = useState(false);
   const [editingChildId, setEditingChildId] = useState("");
+  const [healthTarget, setHealthTarget] = useState(null);
+  const [healthDraft, setHealthDraft] = useState(() => createBlankHealthDraft());
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthError, setHealthError] = useState("");
+  const [healthSuccess, setHealthSuccess] = useState("");
   const [childDraft, setChildDraft] = useState(() => createBlankChildDraft());
   const [childPhotoFile, setChildPhotoFile] = useState(null);
   const [childPhotoParentVisible, setChildPhotoParentVisible] = useState(false);
@@ -688,6 +706,118 @@ export default function TenantWorkspace() {
     setChildPhotoFile(null);
     setChildPhotoParentVisible(false);
     setErrorMessage("");
+  };
+
+  const openHealthProfile = async (child) => {
+    setHealthTarget(child);
+    setHealthDraft(createBlankHealthDraft());
+    setHealthLoading(true);
+    setHealthError("");
+    setHealthSuccess("");
+    try {
+      const result = await saasRequest(
+        "/api/saas/operations/children/" + encodeURIComponent(child.id) + "/health",
+        { organizationId, branchId },
+      );
+      const health = result.health || createBlankHealthDraft();
+      setHealthDraft({
+        ...createBlankHealthDraft(),
+        ...health,
+        allergies: Array.isArray(health.allergies) && health.allergies.length
+          ? health.allergies.map((item) => ({ name: "", reaction: "", severity: "unknown", emergencyAction: "", ...item }))
+          : createBlankHealthDraft().allergies,
+        medications: Array.isArray(health.medications) && health.medications.length
+          ? health.medications.map((item) => ({ name: "", dosage: "", instructions: "", startDate: "", endDate: "", administerAtSchool: false, parentAuthorizationRecorded: false, authorizationNotes: "", ...item }))
+          : createBlankHealthDraft().medications,
+        dietaryRestrictions: Array.isArray(health.dietaryRestrictions) && health.dietaryRestrictions.length
+          ? health.dietaryRestrictions.map((item) => ({ name: "", details: "", ...item }))
+          : createBlankHealthDraft().dietaryRestrictions,
+      });
+    } catch (error) {
+      setHealthError(displayError(error));
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  const closeHealthProfile = () => {
+    setHealthTarget(null);
+    setHealthDraft(createBlankHealthDraft());
+    setHealthError("");
+    setHealthSuccess("");
+  };
+
+  const updateHealthArray = (listName, index, field, value) => {
+    setHealthDraft((current) => ({
+      ...current,
+      [listName]: current[listName].map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const addHealthArrayItem = (listName) => {
+    const blanks = {
+      allergies: { name: "", reaction: "", severity: "unknown", emergencyAction: "" },
+      medications: { name: "", dosage: "", instructions: "", startDate: "", endDate: "", administerAtSchool: false, parentAuthorizationRecorded: false, authorizationNotes: "" },
+      dietaryRestrictions: { name: "", details: "" },
+    };
+    setHealthDraft((current) => current[listName].length >= 20
+      ? current
+      : { ...current, [listName]: [...current[listName], blanks[listName]] });
+  };
+
+  const removeHealthArrayItem = (listName, index) => {
+    setHealthDraft((current) => ({ ...current, [listName]: current[listName].filter((_, itemIndex) => itemIndex !== index) }));
+  };
+
+  const saveHealthProfile = async (event) => {
+    event.preventDefault();
+    if (!healthTarget || !organizationId || !branchId) return;
+    const unsafeMedication = healthDraft.medications.find((item) =>
+      item.administerAtSchool && (!item.parentAuthorizationRecorded || !String(item.dosage || "").trim() || !String(item.instructions || "").trim())
+    );
+    if (unsafeMedication) {
+      setHealthError("Before a medicine can be given at school, record parent or guardian authorization, dosage and administration instructions.");
+      return;
+    }
+    if (!window.confirm("Save the health and emergency profile for " + (healthTarget.fullName || "this child") + "? Only authorized staff will see the full profile.")) return;
+
+    setHealthSaving(true);
+    setHealthError("");
+    setHealthSuccess("");
+    const payload = {
+      allergies: healthDraft.allergies,
+      medications: healthDraft.medications,
+      dietaryRestrictions: healthDraft.dietaryRestrictions,
+      specialCareInstructions: healthDraft.specialCareInstructions,
+      emergencyInstructions: healthDraft.emergencyInstructions,
+      physicianName: healthDraft.physicianName,
+      physicianPhone: healthDraft.physicianPhone,
+      medicalNotes: healthDraft.medicalNotes,
+    };
+
+    try {
+      const result = await saasRequest(
+        "/api/saas/operations/children/" + encodeURIComponent(healthTarget.id) + "/health",
+        { method: "PUT", organizationId, branchId, data: payload },
+      );
+      setHealthDraft({
+        ...createBlankHealthDraft(),
+        ...result.health,
+        allergies: Array.isArray(result.health?.allergies) && result.health.allergies.length ? result.health.allergies : createBlankHealthDraft().allergies,
+        medications: Array.isArray(result.health?.medications) && result.health.medications.length ? result.health.medications : createBlankHealthDraft().medications,
+        dietaryRestrictions: Array.isArray(result.health?.dietaryRestrictions) && result.health.dietaryRestrictions.length ? result.health.dietaryRestrictions : createBlankHealthDraft().dietaryRestrictions,
+      });
+      setHealthSuccess(result.message || "Health and emergency information saved.");
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      const fieldErrors = error?.response?.data?.errors;
+      const firstFieldError = fieldErrors && Object.values(fieldErrors).find(Boolean);
+      setHealthError(firstFieldError ? String(firstFieldError) : displayError(error));
+    } finally {
+      setHealthSaving(false);
+    }
   };
 
   const saveChild = async (event) => {
