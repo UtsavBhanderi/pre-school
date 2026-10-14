@@ -11,6 +11,7 @@
     "migration:tenant": "node legacyTenantMigration.js",
     "migration:staff": "node legacyStaffMigration.js",
     "migration:media": "node legacyMediaMigration.js",
+    "migration:media-verify": "node legacyMediaVerification.js",
     "subscription:manage": "node scripts/manageSaasSubscription.js"
   },
   "keywords": [],
