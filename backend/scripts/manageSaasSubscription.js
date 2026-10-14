@@ -225,13 +225,6 @@ async function main() {
     return;
   }
   if (!process.env.MONGO_URI) throw new OperatorCommandError('MONGO_URI is required; configure the backend .env first.');
-  if (args.apply && (!process.env.NODE_ENV || process.env.NODE_ENV === 'production')) {
-    // This command is intended for a controlled operations workstation. Set
-    // NODE_ENV=staging (or another explicitly approved operational environment)
-    // after connecting to the intended database and confirming the change ticket.
-    throw new OperatorCommandError('For safety, --apply requires NODE_ENV=staging (or another approved non-production label). Re-run without --apply for a preview.');
-  }
-
   await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 });
   try {
     const organization = await Organization.findOne({ slug: args.options.slug }).lean();
