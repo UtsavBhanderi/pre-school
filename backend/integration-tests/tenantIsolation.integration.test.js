@@ -277,6 +277,39 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
     childAOtherBranch, childB, invoiceA, invoiceA2, invoiceB,
   };
 
+  await t.test('owner setup checklist reports saved progress only within the selected organization', async () => {
+    const response = await api('/api/saas/operations/onboarding', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.data.organization.id, String(organizationA._id));
+    assert.equal(response.data.progress.totalRequired, 5);
+    assert.equal(response.data.progress.isReady, false);
+    const childrenStep = response.data.steps.find((step) => step.id === 'children');
+    const invoiceStep = response.data.steps.find((step) => step.id === 'fees');
+    const classStep = response.data.steps.find((step) => step.id === 'classes');
+    assert.equal(childrenStep.count, 3);
+    assert.equal(childrenStep.completed, true);
+    assert.equal(invoiceStep.count, 2);
+    assert.equal(invoiceStep.completed, true);
+    assert.equal(classStep.count, 0);
+    assert.equal(classStep.completed, false);
+    assert.equal(JSON.stringify(response.data).includes('SecretSchoolB'), false);
+
+    const branchStaffResponse = await api('/api/saas/operations/onboarding', {
+      token: tokenFor(branchStaff),
+      organizationId: organizationA._id,
+    });
+    assert.equal(branchStaffResponse.status, 403);
+
+    const crossTenant = await api('/api/saas/operations/onboarding', {
+      token: tokenFor(ownerA),
+      organizationId: organizationB._id,
+    });
+    assert.equal(crossTenant.status, 403);
+  });
+
   await t.test('a tenant list and search never return another organization’s child', async () => {
     const list = await api('/api/saas/operations/children?q=SecretSchoolB', {
       token: tokenFor(ownerA), organizationId: organizationA._id, branchId: branchA._id,
