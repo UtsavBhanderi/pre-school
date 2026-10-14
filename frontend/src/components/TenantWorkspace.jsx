@@ -9,6 +9,7 @@ import {
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
+import "../child-health.css";
 import "../owner-setup-guide.css";
 import "../invitations.css";
 import "../class-config.css";
@@ -100,6 +101,18 @@ const createBlankChildDraft = (className = "") => ({
   communicationConsent: "unknown", photoConsent: "unknown",
 });
 
+const createBlankHealthDraft = () => ({
+  allergies: [{ name: "", reaction: "", severity: "unknown", emergencyAction: "" }],
+  medications: [{ name: "", dosage: "", instructions: "", startDate: "", endDate: "", administerAtSchool: false, parentAuthorizationRecorded: false, authorizationNotes: "" }],
+  dietaryRestrictions: [{ name: "", details: "" }],
+  specialCareInstructions: "",
+  emergencyInstructions: "",
+  physicianName: "",
+  physicianPhone: "",
+  medicalNotes: "",
+});
+
+
 const tokenHeaders = (organizationId, branchId) => {
   const token = localStorage.getItem("token");
   return {
@@ -168,6 +181,7 @@ export default function TenantWorkspace() {
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
   const canUploadChildPhotos = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
+  const canEditChildHealth = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
   const canManageNotices = canManagePeople;
   const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -236,6 +250,12 @@ export default function TenantWorkspace() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [showChildForm, setShowChildForm] = useState(false);
   const [editingChildId, setEditingChildId] = useState("");
+  const [healthTarget, setHealthTarget] = useState(null);
+  const [healthDraft, setHealthDraft] = useState(() => createBlankHealthDraft());
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthError, setHealthError] = useState("");
+  const [healthSuccess, setHealthSuccess] = useState("");
   const [childDraft, setChildDraft] = useState(() => createBlankChildDraft());
   const [childPhotoFile, setChildPhotoFile] = useState(null);
   const [childPhotoParentVisible, setChildPhotoParentVisible] = useState(false);
@@ -520,6 +540,7 @@ export default function TenantWorkspace() {
                 childId: child.id,
                 name: child.fullName,
                 admissionNumber: child.admissionNumber,
+                classroomHealth: child.classroomHealth || null,
                 status: saved?.status || "",
                 reason: saved?.reason || "",
               };
@@ -690,6 +711,118 @@ export default function TenantWorkspace() {
     setErrorMessage("");
   };
 
+  const openHealthProfile = async (child) => {
+    setHealthTarget(child);
+    setHealthDraft(createBlankHealthDraft());
+    setHealthLoading(true);
+    setHealthError("");
+    setHealthSuccess("");
+    try {
+      const result = await saasRequest(
+        "/api/saas/operations/children/" + encodeURIComponent(child.id) + "/health",
+        { organizationId, branchId },
+      );
+      const health = result.health || createBlankHealthDraft();
+      setHealthDraft({
+        ...createBlankHealthDraft(),
+        ...health,
+        allergies: Array.isArray(health.allergies) && health.allergies.length
+          ? health.allergies.map((item) => ({ name: "", reaction: "", severity: "unknown", emergencyAction: "", ...item }))
+          : createBlankHealthDraft().allergies,
+        medications: Array.isArray(health.medications) && health.medications.length
+          ? health.medications.map((item) => ({ name: "", dosage: "", instructions: "", startDate: "", endDate: "", administerAtSchool: false, parentAuthorizationRecorded: false, authorizationNotes: "", ...item }))
+          : createBlankHealthDraft().medications,
+        dietaryRestrictions: Array.isArray(health.dietaryRestrictions) && health.dietaryRestrictions.length
+          ? health.dietaryRestrictions.map((item) => ({ name: "", details: "", ...item }))
+          : createBlankHealthDraft().dietaryRestrictions,
+      });
+    } catch (error) {
+      setHealthError(displayError(error));
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  const closeHealthProfile = () => {
+    setHealthTarget(null);
+    setHealthDraft(createBlankHealthDraft());
+    setHealthError("");
+    setHealthSuccess("");
+  };
+
+  const updateHealthArray = (listName, index, field, value) => {
+    setHealthDraft((current) => ({
+      ...current,
+      [listName]: current[listName].map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const addHealthArrayItem = (listName) => {
+    const blanks = {
+      allergies: { name: "", reaction: "", severity: "unknown", emergencyAction: "" },
+      medications: { name: "", dosage: "", instructions: "", startDate: "", endDate: "", administerAtSchool: false, parentAuthorizationRecorded: false, authorizationNotes: "" },
+      dietaryRestrictions: { name: "", details: "" },
+    };
+    setHealthDraft((current) => current[listName].length >= 20
+      ? current
+      : { ...current, [listName]: [...current[listName], blanks[listName]] });
+  };
+
+  const removeHealthArrayItem = (listName, index) => {
+    setHealthDraft((current) => ({ ...current, [listName]: current[listName].filter((_, itemIndex) => itemIndex !== index) }));
+  };
+
+  const saveHealthProfile = async (event) => {
+    event.preventDefault();
+    if (!healthTarget || !organizationId || !branchId) return;
+    const unsafeMedication = healthDraft.medications.find((item) =>
+      item.administerAtSchool && (!item.parentAuthorizationRecorded || !String(item.dosage || "").trim() || !String(item.instructions || "").trim())
+    );
+    if (unsafeMedication) {
+      setHealthError("Before a medicine can be given at school, record parent or guardian authorization, dosage and administration instructions.");
+      return;
+    }
+    if (!window.confirm("Save the health and emergency profile for " + (healthTarget.fullName || "this child") + "? Only authorized staff will see the full profile.")) return;
+
+    setHealthSaving(true);
+    setHealthError("");
+    setHealthSuccess("");
+    const payload = {
+      allergies: healthDraft.allergies,
+      medications: healthDraft.medications,
+      dietaryRestrictions: healthDraft.dietaryRestrictions,
+      specialCareInstructions: healthDraft.specialCareInstructions,
+      emergencyInstructions: healthDraft.emergencyInstructions,
+      physicianName: healthDraft.physicianName,
+      physicianPhone: healthDraft.physicianPhone,
+      medicalNotes: healthDraft.medicalNotes,
+    };
+
+    try {
+      const result = await saasRequest(
+        "/api/saas/operations/children/" + encodeURIComponent(healthTarget.id) + "/health",
+        { method: "PUT", organizationId, branchId, data: payload },
+      );
+      setHealthDraft({
+        ...createBlankHealthDraft(),
+        ...result.health,
+        allergies: Array.isArray(result.health?.allergies) && result.health.allergies.length ? result.health.allergies : createBlankHealthDraft().allergies,
+        medications: Array.isArray(result.health?.medications) && result.health.medications.length ? result.health.medications : createBlankHealthDraft().medications,
+        dietaryRestrictions: Array.isArray(result.health?.dietaryRestrictions) && result.health.dietaryRestrictions.length ? result.health.dietaryRestrictions : createBlankHealthDraft().dietaryRestrictions,
+      });
+      setHealthSuccess(result.message || "Health and emergency information saved.");
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      const fieldErrors = error?.response?.data?.errors;
+      const firstFieldError = fieldErrors && Object.values(fieldErrors).find(Boolean);
+      setHealthError(firstFieldError ? String(firstFieldError) : displayError(error));
+    } finally {
+      setHealthSaving(false);
+    }
+  };
+
   const saveChild = async (event) => {
     event.preventDefault();
     if (!organizationId || !branchId) return;
@@ -826,7 +959,7 @@ export default function TenantWorkspace() {
       setChildren(roster);
       setAttendanceRows(roster.map((child) => {
         const saved = savedByChild.get(child.id);
-        return { childId: child.id, name: child.fullName, admissionNumber: child.admissionNumber, status: saved?.status || "", reason: saved?.reason || "" };
+        return { childId: child.id, name: child.fullName, admissionNumber: child.admissionNumber, classroomHealth: child.classroomHealth || null, status: saved?.status || "", reason: saved?.reason || "" };
       }));
       setErrorMessage("");
     } catch (error) {
@@ -2104,7 +2237,7 @@ export default function TenantWorkspace() {
                   {children.length ? (
                     <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Child</th><th>Admission number</th><th>Class / year</th><th>Parent or guardian</th><th>Mobile</th><th>Record updated</th><th>Actions</th></tr></thead><tbody>
                       {children.map((child) => (
-                        <tr key={child.id}><td><div className="saas-child-identity">{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span aria-hidden="true"><MdPeople /></span>}<div><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></div></div></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button></td></tr>
+                        <tr key={child.id}><td><div className="saas-child-identity">{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span aria-hidden="true"><MdPeople /></span>}<div><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></div></div></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><div className="saas-child-row-actions"><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button>{canEditChildHealth && <button type="button" className="saas-secondary-button saas-health-action" onClick={() => openHealthProfile(child)}><MdShield aria-hidden="true" /> Health &amp; safety</button>}</div></td></tr>
                       ))}
                     </tbody></table></div>
                   ) : !loading && <BlankState title={appliedQuery ? "No matching child" : "No children registered yet"} detail={appliedQuery ? "Try another spelling, mobile number or admission number." : "Register the first child using the button above. You can search and update records from this list."} action={appliedQuery ? <button type="button" className="saas-secondary-button" onClick={() => { setQuery(""); setAppliedQuery(""); }}>Show all children</button> : <button type="button" className="saas-primary-button" onClick={() => setShowChildForm(true)}><MdAdd /> Register a child</button>} />}
@@ -2137,6 +2270,17 @@ export default function TenantWorkspace() {
                           <div className="saas-attendance-row" key={row.childId}>
                             <span className="saas-attendance-number">{index + 1}</span>
                             <div className="saas-attendance-child"><strong>{row.name}</strong><small>{row.admissionNumber}</small></div>
+                            {row.classroomHealth?.hasAlerts && (
+                              <details className="saas-classroom-health">
+                                <summary><MdShield aria-hidden="true" /> Health and safety notes</summary>
+                                {row.classroomHealth.allergies?.length > 0 && <div><strong>Allergies</strong><ul>{row.classroomHealth.allergies.map((item, itemIndex) => <li key={item.name + itemIndex}><b>{item.name}</b>{item.severity && item.severity !== "unknown" ? " · " + item.severity : ""}{item.reaction ? " — " + item.reaction : ""}{item.emergencyAction ? ". Action: " + item.emergencyAction : ""}</li>)}</ul></div>}
+                                {row.classroomHealth.dietaryRestrictions?.length > 0 && <div><strong>Dietary restrictions</strong><ul>{row.classroomHealth.dietaryRestrictions.map((item, itemIndex) => <li key={item.name + itemIndex}><b>{item.name}</b>{item.details ? " — " + item.details : ""}</li>)}</ul></div>}
+                                {row.classroomHealth.specialCareInstructions && <div><strong>Special care</strong><p>{row.classroomHealth.specialCareInstructions}</p></div>}
+                                {row.classroomHealth.schoolMedicationRequired && <div className="saas-classroom-medication-note"><strong>Approved school medication plan on file</strong><p>Contact an authorized administrator for the current instructions. Do not administer medicine using this summary alone.</p></div>}
+                                {row.classroomHealth.emergencyInstructions && <div><strong>Emergency instructions</strong><p>{row.classroomHealth.emergencyInstructions}</p></div>}
+                                <small>Full medical notes and medication details are restricted to authorized administrators.</small>
+                              </details>
+                            )}
                             <div className="saas-attendance-controls" role="group" aria-label={"Attendance for " + row.name}>
                               <button type="button" className={"saas-status-button present" + (row.status === "present" ? " selected" : "")} onClick={() => markAttendance(row.childId, "present")}>Present</button>
                               <button type="button" className={"saas-status-button absent" + (row.status === "absent" ? " selected" : "")} onClick={() => markAttendance(row.childId, "absent")}>Absent</button>
@@ -3051,6 +3195,118 @@ export default function TenantWorkspace() {
         </div>
         <footer className="saas-footer"><span>{organization?.name || "Preschool"}{activeBranch ? " · " + activeBranch.name : " · All branches"}</span><span>Keep child information private. Share access only with authorized staff.</span></footer>
       </main>
+
+      {healthTarget && canEditChildHealth && (
+        <div className="saas-modal-backdrop saas-health-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeHealthProfile(); }}>
+          <section className="saas-modal saas-health-modal" role="dialog" aria-modal="true" aria-labelledby="saas-health-modal-title">
+            <div className="saas-modal-header">
+              <div>
+                <span className="saas-eyebrow">RESTRICTED CHILD RECORD</span>
+                <h2 id="saas-health-modal-title">Health &amp; emergency profile</h2>
+                <p>{healthTarget.fullName} · {healthTarget.className} · {healthTarget.admissionNumber}</p>
+              </div>
+              <button type="button" className="saas-icon-button" onClick={closeHealthProfile} aria-label="Close health profile"><MdClose /></button>
+            </div>
+
+            <div className="saas-health-modal-body">
+              {(healthError || healthSuccess) && (
+                <div className={"saas-message " + (healthError ? "error" : "success")} role={healthError ? "alert" : "status"}>
+                  {healthError ? <MdErrorOutline aria-hidden="true" /> : <MdCheckCircle aria-hidden="true" />}
+                  <span>{healthError || healthSuccess}</span>
+                  <button type="button" onClick={() => { setHealthError(""); setHealthSuccess(""); }} aria-label="Dismiss message"><MdClose /></button>
+                </div>
+              )}
+
+              <div className="saas-health-privacy-note">
+                <MdShield aria-hidden="true" />
+                <div>
+                  <strong>Keep this information private and current.</strong>
+                  <p>The full profile is visible only to authorized school administrators and admissions staff. Assigned teachers can see allergy, dietary and emergency-care notes only; they do not receive doctor contacts, general medical notes or medication details in the attendance roster.</p>
+                </div>
+              </div>
+
+              {healthLoading ? <div className="saas-loading" role="status">Loading private health details…</div> : (
+                <form className="saas-health-form" onSubmit={saveHealthProfile}>
+                  <section className="saas-health-section">
+                    <div className="saas-health-section-heading">
+                      <div><h3>Allergies</h3><p>Record the reaction, severity and action staff should follow.</p></div>
+                      <button type="button" className="saas-secondary-button" disabled={healthDraft.allergies.length >= 20} onClick={() => addHealthArrayItem("allergies")}><MdAdd /> Add allergy</button>
+                    </div>
+                    {healthDraft.allergies.map((item, index) => (
+                      <div className="saas-health-entry" key={"allergy-" + index}>
+                        <div className="saas-health-entry-top"><strong>Allergy {index + 1}</strong><button type="button" className="saas-text-button" onClick={() => removeHealthArrayItem("allergies", index)} aria-label={"Remove allergy " + (index + 1)}>Remove</button></div>
+                        <div className="saas-health-grid">
+                          <label>Allergen<input value={item.name} onChange={(event) => updateHealthArray("allergies", index, "name", event.target.value)} maxLength={120} placeholder="e.g. Peanuts" /></label>
+                          <label>Severity<select value={item.severity || "unknown"} onChange={(event) => updateHealthArray("allergies", index, "severity", event.target.value)}><option value="unknown">Not assessed</option><option value="mild">Mild</option><option value="moderate">Moderate</option><option value="severe">Severe</option></select></label>
+                          <label className="saas-health-full">Reaction<input value={item.reaction} onChange={(event) => updateHealthArray("allergies", index, "reaction", event.target.value)} maxLength={500} placeholder="What happens if the child is exposed?" /></label>
+                          <label className="saas-health-full">Emergency action<textarea value={item.emergencyAction} onChange={(event) => updateHealthArray("allergies", index, "emergencyAction", event.target.value)} rows="2" maxLength={500} placeholder="Approved action and who to contact" /></label>
+                        </div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="saas-health-section">
+                    <div className="saas-health-section-heading">
+                      <div><h3>Medication information</h3><p>Keeping a medicine on file does not authorize school staff to administer it.</p></div>
+                      <button type="button" className="saas-secondary-button" disabled={healthDraft.medications.length >= 20} onClick={() => addHealthArrayItem("medications")}><MdAdd /> Add medicine</button>
+                    </div>
+                    <div className="saas-health-caution"><strong>Safety rule:</strong> To mark that a medicine may be given at school, you must confirm parent/guardian authorization, dosage and written instructions. Follow your school’s medication policy and applicable emergency guidance.</div>
+                    {healthDraft.medications.map((item, index) => (
+                      <div className="saas-health-entry" key={"medication-" + index}>
+                        <div className="saas-health-entry-top"><strong>Medicine {index + 1}</strong><button type="button" className="saas-text-button" onClick={() => removeHealthArrayItem("medications", index)} aria-label={"Remove medication " + (index + 1)}>Remove</button></div>
+                        <div className="saas-health-grid">
+                          <label>Medicine name<input value={item.name} onChange={(event) => updateHealthArray("medications", index, "name", event.target.value)} maxLength={120} placeholder="Medicine name" /></label>
+                          <label>Dosage (as documented)<input value={item.dosage} onChange={(event) => updateHealthArray("medications", index, "dosage", event.target.value)} maxLength={100} placeholder="Record the approved dosage" /></label>
+                          <label>Start date<input type="date" value={item.startDate || ""} onChange={(event) => updateHealthArray("medications", index, "startDate", event.target.value)} /></label>
+                          <label>End date<input type="date" value={item.endDate || ""} onChange={(event) => updateHealthArray("medications", index, "endDate", event.target.value)} /></label>
+                          <label className="saas-health-full">Instructions<input value={item.instructions} onChange={(event) => updateHealthArray("medications", index, "instructions", event.target.value)} maxLength={500} placeholder="Exact written instructions" /></label>
+                        </div>
+                        <div className="saas-health-checks">
+                          <label><input type="checkbox" checked={Boolean(item.administerAtSchool)} onChange={(event) => updateHealthArray("medications", index, "administerAtSchool", event.target.checked)} /> School staff may administer this medicine</label>
+                          <label><input type="checkbox" checked={Boolean(item.parentAuthorizationRecorded)} onChange={(event) => updateHealthArray("medications", index, "parentAuthorizationRecorded", event.target.checked)} /> Parent/guardian authorization is on file</label>
+                        </div>
+                        <label className="saas-health-field">Authorization note (optional)<input value={item.authorizationNotes} onChange={(event) => updateHealthArray("medications", index, "authorizationNotes", event.target.value)} maxLength={500} placeholder="Where the written authorization is recorded" /></label>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="saas-health-section">
+                    <div className="saas-health-section-heading">
+                      <div><h3>Dietary restrictions</h3><p>Include food restrictions and any safe handling details.</p></div>
+                      <button type="button" className="saas-secondary-button" disabled={healthDraft.dietaryRestrictions.length >= 20} onClick={() => addHealthArrayItem("dietaryRestrictions")}><MdAdd /> Add restriction</button>
+                    </div>
+                    {healthDraft.dietaryRestrictions.map((item, index) => (
+                      <div className="saas-health-entry" key={"diet-" + index}>
+                        <div className="saas-health-entry-top"><strong>Restriction {index + 1}</strong><button type="button" className="saas-text-button" onClick={() => removeHealthArrayItem("dietaryRestrictions", index)} aria-label={"Remove dietary restriction " + (index + 1)}>Remove</button></div>
+                        <div className="saas-health-grid">
+                          <label>Restriction<input value={item.name} onChange={(event) => updateHealthArray("dietaryRestrictions", index, "name", event.target.value)} maxLength={120} placeholder="e.g. Dairy-free" /></label>
+                          <label>Details<input value={item.details} onChange={(event) => updateHealthArray("dietaryRestrictions", index, "details", event.target.value)} maxLength={500} placeholder="Food to avoid or safe alternative" /></label>
+                        </div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="saas-health-section">
+                    <div className="saas-health-section-heading"><div><h3>Care and emergency instructions</h3><p>Keep instructions short, clear and useful during an urgent situation.</p></div></div>
+                    <div className="saas-health-grid">
+                      <label className="saas-health-full">Special care instructions<textarea value={healthDraft.specialCareInstructions} onChange={(event) => setHealthDraft((draft) => ({ ...draft, specialCareInstructions: event.target.value }))} rows="3" maxLength={1500} placeholder="Care needs relevant to the school day" /></label>
+                      <label className="saas-health-full">Emergency instructions<textarea value={healthDraft.emergencyInstructions} onChange={(event) => setHealthDraft((draft) => ({ ...draft, emergencyInstructions: event.target.value }))} rows="3" maxLength={1500} placeholder="Actions to take and who to contact" /></label>
+                      <label>Doctor / clinic name<input value={healthDraft.physicianName} onChange={(event) => setHealthDraft((draft) => ({ ...draft, physicianName: event.target.value }))} maxLength={120} /></label>
+                      <label>Doctor / clinic phone<input type="tel" value={healthDraft.physicianPhone} onChange={(event) => setHealthDraft((draft) => ({ ...draft, physicianPhone: event.target.value }))} maxLength={30} placeholder="+91 ..." /></label>
+                      <label className="saas-health-full">Additional medical notes (restricted)<textarea value={healthDraft.medicalNotes} onChange={(event) => setHealthDraft((draft) => ({ ...draft, medicalNotes: event.target.value }))} rows="3" maxLength={2000} placeholder="Only include information needed for safe school care." /></label>
+                    </div>
+                  </section>
+
+                  <div className="saas-health-form-actions">
+                    <span>Changes are saved to the audit history without copying the medical details into the audit log.</span>
+                    <div><button type="button" className="saas-secondary-button" onClick={closeHealthProfile}>Close</button><button type="submit" className="saas-primary-button" disabled={healthSaving}>{healthSaving ? "Saving secure profile…" : "Save health profile"}</button></div>
+                  </div>
+                </form>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {paymentTarget && (
         <div className="saas-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaymentTarget(null); }}>

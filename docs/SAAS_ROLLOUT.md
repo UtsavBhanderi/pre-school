@@ -229,3 +229,17 @@ The organization owner and head-office administrator workspace now has a "Gettin
 - Progress is recalculated from the current database when the guide is opened or refreshed. A saved record can complete a step; a visual checkbox cannot.
 
 This guide does not activate public registration or replace the remaining launch review. It is a practical workflow aid after an owner has signed in to an organization.
+
+## Child health and emergency profiles
+
+Child health records are stored separately from ordinary child details and are scoped by organization, branch and child.
+
+- `GET /api/saas/operations/children/:id/health` and `PUT /api/saas/operations/children/:id/health` are available only to organization owners, head-office administrators, branch administrators and admissions staff.
+- The profile supports allergies and reactions, severity, dietary restrictions, special-care notes, emergency instructions, physician contact details and additional restricted medical notes.
+- Every saved change creates an audit event recording the action and changed field names. The event does not copy medical content into the audit log.
+- The normal child list, family portal, invoices and reports do not include the full health profile.
+- Assigned teachers can see only a classroom-safe summary (allergies, reactions, dietary restrictions, special-care and emergency instructions) for children in their assigned classes. They cannot retrieve physician contacts, medication details or private medical notes through that summary.
+- For school-administered medication, the API requires an explicit recorded parent/guardian authorization, dosage and instructions. The software records the school's assertion; it does not independently verify consent or prescribe treatment.
+- Schools must follow their own medication policy and applicable law, verify information with families, limit access to necessary staff, and update/delete records according to their retention policy.
+
+This feature does not replace a medical assessment, emergency training, or documented school safeguarding procedures.
