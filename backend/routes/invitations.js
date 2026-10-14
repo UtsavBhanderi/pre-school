@@ -13,6 +13,7 @@ const { hasTenantRole, canAccessBranch } = require('../utils/tenantAuthorization
 const { INVITABLE_ROLES } = require('../models/OrganizationInvitation');
 const { createInvitationToken, invitationExpiry } = require('../utils/invitationTokens');
 const { createInvitationUrl, sendInvitationEmail } = require('../utils/invitationEmail');
+const { assertQuotaCapacity } = require('../utils/saasQuota');
 const TenantClass = require('../models/TenantClass');
 
 const router = express.Router();
@@ -214,6 +215,13 @@ router.post('/', async (req, res) => {
     await mongoose.startSession().then(async (session) => {
       try {
         await session.withTransaction(async () => {
+          if (role !== 'parent') {
+            await assertQuotaCapacity({
+              organizationId: req.tenant.organization._id,
+              resource: 'staff',
+              session,
+            });
+          }
           const [created] = await OrganizationInvitation.create([{
             organizationId: req.tenant.organization._id,
             branchIds,
@@ -267,6 +275,8 @@ router.post('/', async (req, res) => {
     if (!delivery.sent) response.invitationUrl = inviteUrl;
     return res.status(201).json(response);
   } catch (error) {
+    if (error.code === 'PLAN_LIMIT_REACHED') return res.status(409).json({ code: error.code, message: error.message, limit: error.limit, used: error.used, plan: error.plan });
+    if (error.code === 'SUBSCRIPTION_READ_ONLY') return res.status(402).json({ code: error.code, message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'An invitation identifier conflict occurred. Please try again.' });
     console.error('Unable to create invitation:', error.message);
     return res.status(503).json({ message: 'The invitation could not be created safely.' });
