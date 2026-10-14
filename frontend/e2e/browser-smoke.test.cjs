@@ -507,6 +507,7 @@ test('organization owner can enter the tenant workspace and register a child in 
   await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
   assert.equal(tenantApi.hasScopedChildCreate(), true, 'Child creation must send both the organization and selected branch IDs.');
 
+  await page.getByRole('button', { name: 'Open workspace navigation' }).click();
   await page.getByRole('button', { name: 'Attendance', exact: true }).click();
   await page.getByRole('heading', { name: 'Daily attendance' }).waitFor();
   const attendanceRow = page.locator('.saas-attendance-row').filter({ hasText: 'Aarav Patel' });
@@ -515,6 +516,7 @@ test('organization owner can enter the tenant workspace and register a child in 
   await page.getByText('Attendance saved.', { exact: true }).waitFor();
   assert.equal(tenantApi.hasScopedAttendanceSave(), true, 'Attendance writes must include organization and branch scope headers.');
 
+  await page.getByRole('button', { name: 'Open workspace navigation' }).click();
   await page.getByRole('button', { name: 'Fees & payments', exact: true }).click();
   await page.getByRole('heading', { name: 'Fees and payments' }).waitFor();
   await page.locator('select[name="childId"] option[value="child-1"]').waitFor({ state: 'attached' });
