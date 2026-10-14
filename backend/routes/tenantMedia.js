@@ -229,9 +229,12 @@ async function validateUploadTarget(req, category) {
       organizationId: req.tenant.organization._id,
       userId: targetUserId,
       status: 'active',
-      branchIds: req.tenant.branch._id,
+      $or: [
+        { accessAllBranches: true },
+        { branchIds: req.tenant.branch._id },
+      ],
     }).select('_id').lean();
-    if (!targetMembership && !req.tenant.membership.accessAllBranches) {
+    if (!targetMembership) {
       return { valid: false, status: 404, message: 'The staff account is not assigned to this branch.' };
     }
     const exists = await TenantStaffProfile.exists({
@@ -246,6 +249,61 @@ async function validateUploadTarget(req, category) {
 
   return result;
 }
+
+router.get('/staff-targets', requireBranchContext, async (req, res) => {
+  if (!['organization_owner', 'head_office_admin', 'branch_admin', 'hr_manager'].includes(req.tenant.membership.role)) {
+    return res.status(403).json({ message: 'Your role cannot manage staff photos.' });
+  }
+
+  try {
+    const profiles = await TenantStaffProfile.find({
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+      status: 'active',
+    })
+      .select('userId displayName employeeCode firstName middleName lastName')
+      .sort({ displayName: 1 })
+      .lean();
+
+    if (!profiles.length) return res.json({ total: 0, staff: [] });
+
+    const userIds = [...new Set(profiles.map((profile) => String(profile.userId)))];
+    const [memberships, users] = await Promise.all([
+      OrganizationMembership.find({
+        organizationId: req.tenant.organization._id,
+        userId: { $in: userIds },
+        status: 'active',
+        $or: [
+          { accessAllBranches: true },
+          { branchIds: req.tenant.branch._id },
+        ],
+      }).select('userId role').lean(),
+      User.find({ _id: { $in: userIds } }).select('username email').lean(),
+    ]);
+
+    const membershipByUser = new Map(memberships.map((membership) => [String(membership.userId), membership]));
+    const userById = new Map(users.map((user) => [String(user._id), user]));
+    const staff = profiles.filter((profile) =>
+      membershipByUser.has(String(profile.userId)) && userById.has(String(profile.userId))
+    ).map((profile) => {
+      const user = userById.get(String(profile.userId));
+      const membership = membershipByUser.get(String(profile.userId));
+      const displayName = String(profile.displayName || [profile.firstName, profile.middleName, profile.lastName].filter(Boolean).join(' ').trim() || user.username || '').trim();
+      return {
+        userId: String(profile.userId),
+        displayName,
+        employeeCode: profile.employeeCode || '',
+        email: user.email || '',
+        role: membership.role,
+      };
+    });
+
+    return res.json({ total: staff.length, staff });
+  } catch (error) {
+    console.error('Unable to list staff photo targets:', error.message);
+    return res.status(503).json({ message: 'Staff photo targets could not be loaded.' });
+  }
+});
 
 router.get('/', async (req, res) => {
   const membership = req.tenant.membership;
