@@ -6,6 +6,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { validateProductionConfig } = require('./utils/productionConfig');
 const { requestSecurityHeaders, createRateLimiter } = require('./middleware/requestSecurity');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -215,6 +216,11 @@ async function bootstrapAdminIfConfigured() {
 }
 
 async function startServer() {
+  const productionConfigErrors = validateProductionConfig(process.env);
+  if (productionConfigErrors.length) {
+    throw new Error('Production configuration is unsafe: ' + productionConfigErrors.join(' '));
+  }
+
   const missing = ['MONGO_URI', 'JWT_SECRET'].filter((key) => !process.env[key]);
   if (missing.length) {
     throw new Error(`Missing required environment variable(s): ${missing.join(', ')}. Configure backend/.env.`);
