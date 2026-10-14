@@ -578,3 +578,17 @@
   .fees-step-heading { padding: .75rem; }
   .attendance-quick-guide { flex-direction: column; }
 }
+
+
+/* Compact the repeated search controls; keep compose/edit forms touch-friendly. */
+.ops-notice-search {
+  gap: .5rem;
+  margin: .65rem 0 .85rem;
+  padding: .5rem .7rem;
+  border-radius: 9px;
+}
+.ops-notice-search > svg { font-size: 1.1rem; }
+.ops-notice-search input { min-height: 36px; height: 36px; font-size: .84rem; }
+@media (max-width: 575.98px) {
+  .ops-notice-search { padding: .4rem .55rem; }
+}
