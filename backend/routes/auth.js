@@ -10,8 +10,10 @@ const bcrypt = require('bcryptjs');
 const { createPasswordResetToken, hashPasswordResetToken, passwordResetExpiry, isValidNewPassword } = require('../utils/passwordResetTokens');
 const { createPasswordResetUrl, sendPasswordResetEmail } = require('../utils/passwordResetEmail');
 const { resolveWorkspaceMembershipState } = require('../utils/workspaceMembershipState');
+const UserAccessAuditEvent = require('../models/UserAccessAuditEvent');
 
-const ALLOWED_ROLES = new Set(['teacher', 'admin', 'student']);
+// The legacy school dashboard currently supports teacher and administrator accounts only.
+const ALLOWED_ROLES = new Set(['teacher', 'admin']);
 
 const signToken = (user) => jwt.sign(
   { user: { id: user.id, role: user.role, authVersion: Number.isInteger(user.authVersion) ? user.authVersion : 0 } },
@@ -41,6 +43,14 @@ router.post('/register', async (req, res) => {
     }
 
     if (!requester) return res.status(401).json({ message: 'The authenticated account no longer exists.' });
+    if (requester.status === 'suspended') {
+      return res.status(401).json({ code: 'ACCOUNT_SUSPENDED', message: 'This account is suspended. Contact your school administrator.' });
+    }
+    const tokenVersion = Number.isInteger(decoded?.user?.authVersion) ? decoded.user.authVersion : 0;
+    const currentVersion = Number.isInteger(requester.authVersion) ? requester.authVersion : 0;
+    if (tokenVersion !== currentVersion) {
+      return res.status(401).json({ message: 'Your sign-in session has expired. Please sign in again.' });
+    }
     if (requester.role !== 'admin') {
       return res.status(403).json({ message: 'Only an administrator can create user accounts.' });
     }
@@ -51,13 +61,19 @@ router.post('/register', async (req, res) => {
     const requestedRole = String(req.body.role || 'teacher').toLowerCase();
 
     if (!username || !email || !password) {
-      return res.status(400).json({ message: 'Username, email, and password are required.' });
+      return res.status(400).json({ message: 'Full name, email, and password are required.' });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ message: 'Password must contain at least 8 characters.' });
+    if (username.length < 2 || username.length > 80) {
+      return res.status(400).json({ message: 'Full name must contain 2 to 80 characters.' });
+    }
+    if (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Enter a valid email address.' });
+    }
+    if (!isValidNewPassword(password)) {
+      return res.status(400).json({ message: 'Choose a password between 12 and 128 characters.' });
     }
     if (!ALLOWED_ROLES.has(requestedRole)) {
-      return res.status(400).json({ message: 'Invalid user role.' });
+      return res.status(400).json({ message: 'Choose Administrator or Teacher. Other account roles are not enabled in this workspace.' });
     }
 
     const existingUser = await User.findOne({ email });
@@ -65,10 +81,32 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ message: 'An account with this email already exists.' });
     }
 
-    const user = await User.create({ username, email, password, role: requestedRole });
+    const user = await User.create({ username, email, password, role: requestedRole, status: 'active' });
+    let auditWarning = false;
+    try {
+      await UserAccessAuditEvent.create({
+        actorUserId: requester._id,
+        targetUserId: user._id,
+        targetName: user.username,
+        targetEmail: user.email,
+        action: 'user.created',
+        role: user.role,
+        status: 'active',
+        reason: 'Account created by an administrator',
+        changedFields: ['role', 'status'],
+        ipAddress: String(req.ip || '').slice(0, 64),
+        userAgent: String(req.get('user-agent') || '').slice(0, 300),
+      });
+    } catch (auditError) {
+      auditWarning = true;
+      console.error('Unable to record user creation audit event:', auditError?.name || 'audit_error');
+    }
+
+    // Do not return a JWT for the newly created user to the administrator.
     return res.status(201).json({
-      token: signToken(user),
-      user: { id: user.id, username: user.username, email: user.email, role: user.role },
+      message: 'Account created successfully.',
+      auditWarning,
+      user: { id: user.id, username: user.username, email: user.email, role: user.role, status: 'active', createdAt: user.createdAt },
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -90,6 +128,9 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ email });
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid email or password.' });
+    }
+    if (user.status === 'suspended') {
+      return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: 'This account is suspended. Contact your school administrator.' });
     }
 
     return res.json({ token: signToken(user) });
