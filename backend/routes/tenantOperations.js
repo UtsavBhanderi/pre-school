@@ -198,6 +198,41 @@ async function serializeChildren(children, organizationId, branchId, includeGuar
   }));
 }
 
+function serializeChildHealthRecord(record) {
+  const dateOnly = (value) => value instanceof Date && !Number.isNaN(value.getTime())
+    ? value.toISOString().slice(0, 10)
+    : '';
+  return {
+    allergies: (record?.allergies || []).map((item) => ({
+      name: item.name || '',
+      reaction: item.reaction || '',
+      severity: item.severity || 'unknown',
+      emergencyAction: item.emergencyAction || '',
+    })),
+    medications: (record?.medications || []).map((item) => ({
+      name: item.name || '',
+      dosage: item.dosage || '',
+      instructions: item.instructions || '',
+      startDate: dateOnly(item.startDate),
+      endDate: dateOnly(item.endDate),
+      administerAtSchool: Boolean(item.administerAtSchool),
+      parentAuthorizationRecorded: Boolean(item.parentAuthorizationRecorded),
+      authorizationNotes: item.authorizationNotes || '',
+    })),
+    dietaryRestrictions: (record?.dietaryRestrictions || []).map((item) => ({
+      name: item.name || '',
+      details: item.details || '',
+    })),
+    specialCareInstructions: record?.specialCareInstructions || '',
+    emergencyInstructions: record?.emergencyInstructions || '',
+    physicianName: record?.physicianName || '',
+    physicianPhone: record?.physicianPhone || '',
+    medicalNotes: record?.medicalNotes || '',
+    updatedAt: record?.updatedAt || null,
+    updatedBy: record?.updatedBy ? String(record.updatedBy) : null,
+  };
+}
+
 function validateChildInput(body = {}, timeZone) {
   const firstName = clean(body.firstName, 80);
   const middleName = clean(body.middleName, 80);
@@ -700,6 +735,161 @@ router.get('/children/:id', requireBranchContext, async (req, res) => {
   } catch (error) {
     console.error('Unable to load tenant child:', error);
     return res.status(503).json({ message: 'Child record could not be loaded.' });
+  }
+});
+
+router.get('/children/:id/health/classroom', requireBranchContext, async (req, res) => {
+  if (!allowed(req, ['teacher'], res)) return;
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Choose a valid child record.' });
+  }
+  const assignedClasses = req.tenant.membership.classNames || [];
+  if (!assignedClasses.length) {
+    return res.status(403).json({ message: 'No classes are assigned to your teacher account yet.' });
+  }
+
+  try {
+    const child = await Student.findOne({
+      _id: req.params.id,
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+    }).select('_id firstName middleName lastName standard').lean();
+    if (!child) return res.status(404).json({ message: 'Child record not found in this branch.' });
+    if (!assignedClasses.includes(child.standard)) {
+      return res.status(403).json({ message: 'You can only view safety information for children in your assigned classes.' });
+    }
+    const record = await ChildHealthRecord.findOne({
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+      childId: child._id,
+    }).select('childId allergies dietaryRestrictions specialCareInstructions emergencyInstructions updatedAt').lean();
+
+    return res.json({
+      child: {
+        id: String(child._id),
+        name: childName(child),
+        className: child.standard,
+      },
+      health: buildClassroomHealthSummary(record),
+    });
+  } catch (error) {
+    console.error('Unable to load classroom safety summary:', error);
+    return res.status(503).json({ message: 'Classroom safety information could not be loaded.' });
+  }
+});
+
+router.get('/children/:id/health', requireBranchContext, async (req, res) => {
+  if (!allowed(req, CHILD_HEALTH_READ_ROLES, res)) return;
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Choose a valid child record.' });
+  }
+
+  try {
+    const child = await Student.findOne({
+      _id: req.params.id,
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+    }).select('_id firstName middleName lastName stuNo standard').lean();
+    if (!child) return res.status(404).json({ message: 'Child record not found in this branch.' });
+
+    const record = await ChildHealthRecord.findOne({
+      organizationId: req.tenant.organization._id,
+      branchId: req.tenant.branch._id,
+      childId: child._id,
+    }).lean();
+
+    return res.json({
+      child: {
+        id: String(child._id),
+        name: childName(child),
+        admissionNumber: child.stuNo,
+        className: child.standard,
+      },
+      health: serializeChildHealthRecord(record),
+      hasAlerts: Boolean(
+        record &&
+        ((record.allergies || []).length ||
+          (record.dietaryRestrictions || []).length ||
+          record.specialCareInstructions ||
+          record.emergencyInstructions)
+      ),
+    });
+  } catch (error) {
+    console.error('Unable to load child health profile:', error);
+    return res.status(503).json({ message: 'The child health profile could not be loaded.' });
+  }
+});
+
+router.put('/children/:id/health', requireBranchContext, async (req, res) => {
+  if (!allowed(req, CHILD_HEALTH_WRITE_ROLES, res)) return;
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Choose a valid child record.' });
+  }
+
+  const validation = validateChildHealthInput(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({
+      message: 'Please correct the health and emergency information.',
+      errors: validation.errors,
+    });
+  }
+
+  try {
+    const saved = await inTransaction(async (session) => {
+      const child = await Student.findOne({
+        _id: req.params.id,
+        organizationId: req.tenant.organization._id,
+        branchId: req.tenant.branch._id,
+      }).select('_id firstName middleName lastName').session(session).lean();
+      if (!child) {
+        const notFound = new Error('Child record not found in this branch.');
+        notFound.code = 'CHILD_NOT_FOUND';
+        throw notFound;
+      }
+
+      const record = await ChildHealthRecord.findOneAndUpdate(
+        {
+          organizationId: req.tenant.organization._id,
+          branchId: req.tenant.branch._id,
+          childId: child._id,
+        },
+        {
+          $set: { ...validation.value, updatedBy: req.user._id },
+          $setOnInsert: {
+            organizationId: req.tenant.organization._id,
+            branchId: req.tenant.branch._id,
+            childId: child._id,
+            createdBy: req.user._id,
+          },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true, session },
+      );
+
+      await createAudit(req, session, {
+        action: 'child.health_profile_updated',
+        resourceType: 'child_health_record',
+        resourceId: record._id,
+        summary: 'Child health and emergency profile updated.',
+        changedFields: Object.keys(validation.value),
+      });
+      return record;
+    });
+
+    return res.json({
+      message: 'Health and emergency information saved.',
+      health: serializeChildHealthRecord(saved.toObject ? saved.toObject() : saved),
+      hasAlerts: Boolean(
+        (saved.allergies || []).length ||
+        (saved.dietaryRestrictions || []).length ||
+        saved.specialCareInstructions ||
+        saved.emergencyInstructions
+      ),
+    });
+  } catch (error) {
+    if (error.code === 'CHILD_NOT_FOUND') return res.status(404).json({ message: error.message });
+    if (error.code === 11000) return res.status(409).json({ message: 'Another update was saved at the same time. Reload the profile and try again.' });
+    console.error('Unable to save child health profile:', error.message);
+    return res.status(503).json({ message: 'The health and emergency information could not be saved safely.' });
   }
 });
 
