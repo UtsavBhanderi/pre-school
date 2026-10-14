@@ -380,6 +380,13 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
       organizationId: organizationA._id,
       branchId: branchA._id,
     });
+
+    const teacherFullProfileDenied = await api('/api/saas/operations/children/' + childA._id + '/health', {
+      token: tokenFor(classroomTeacher),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(teacherFullProfileDenied.status, 403);
     assert.equal(teacherClassroomApi.status, 200);
     assert.equal(Object.hasOwn(teacherClassroomApi.data.health, 'medications'), false);
 
