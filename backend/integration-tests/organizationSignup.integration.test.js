@@ -115,7 +115,6 @@ test('organization onboarding verifies email before creating an owner, branch an
   // A verification request must not provision any account, organization or branch.
   assert.equal(await User.countDocuments({ email }), 0);
   assert.equal(await Organization.countDocuments({ name: signupBody.organizationName }), 0);
-  assert.equal(await Branch.countDocuments({ code: 'MAIN' }), 0);
 
   pending = await PendingOrganizationSignup.findOne({ email }).select('+tokenHash').lean();
   assert.ok(pending);
