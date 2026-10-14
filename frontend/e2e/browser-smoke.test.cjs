@@ -306,12 +306,23 @@ test('organization owner can enter the tenant workspace and register a child in 
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const tenantApi = await mockTenantApi(page);
 
+  const browserErrors = [];
+  page.on('pageerror', (error) => browserErrors.push(error.message));
   await page.goto(BASE_URL + '/login');
   await page.getByRole('textbox', { name: 'Email address' }).fill('owner@example.com');
   await page.locator('#login-password').fill('a-test-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
-  await page.getByText('Little Stars Preschool', { exact: true }).first().waitFor();
+  await page.waitForURL(/\\/dashboard\\/home$/, { timeout: 10000 });
+  try {
+    await page.locator('.saas-workspace').waitFor({ state: 'attached', timeout: 15000 });
+  } catch (error) {
+    const bodyText = await page.locator('body').innerText().catch(() => '');
+    throw new Error('Tenant workspace did not mount. URL=' + page.url() +
+      '; body=' + bodyText.slice(0, 2500) +
+      '; browser errors=' + JSON.stringify(browserErrors) +
+      '; cause=' + error.message);
+  }
   await page.locator('.saas-topbar-selectors select').selectOption('branch-1');
   await page.getByRole('button', { name: 'Children' }).click();
   await page.getByRole('heading', { name: 'Children and families' }).waitFor();
