@@ -60,8 +60,8 @@ export default function AcceptInvitation() {
     event.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
-    if (password.length < 12 || password.length > 128 || !password.trim()) {
-      setErrorMessage("Use a password with at least 12 characters.");
+    if (password.length < 8 || password.length > 128 || !password.trim()) {
+      setErrorMessage("Use your current password if you already have an account. New accounts require at least 12 characters.");
       return;
     }
     if (password !== confirmPassword) {
@@ -106,9 +106,9 @@ export default function AcceptInvitation() {
             </div>
             <p className="parent-entry-intro">If you already have an account with this email, enter its current password; otherwise, create a new strong password. This single-use invitation expires on {new Date(invitation.expiresAt).toLocaleString("en-IN")}.</p>
             <form className="saas-modal-form parent-entry-form" onSubmit={accept}>
-              <label><span><MdLock aria-hidden="true" /> New password or existing account password</span><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={12} maxLength={128} required aria-describedby="invite-password-note" /></label>
-              <label><span><MdLock aria-hidden="true" /> Confirm password</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={12} maxLength={128} required /></label>
-              <small id="invite-password-note">Use 12 or more characters. For an existing account, enter its current password; for a new account, create one now.</small>
+              <label><span><MdLock aria-hidden="true" /> New password or existing account password</span><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} required aria-describedby="invite-password-note" /></label>
+              <label><span><MdLock aria-hidden="true" /> Confirm password</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} maxLength={128} required /></label>
+              <small id="invite-password-note">Existing account: enter its current password. New account: create a password with at least 12 characters.</small>
               <div className="parent-entry-privacy">Your access is limited to the organization and branch permissions selected by the school administrator.</div>
               {errorMessage && <div className="saas-message error" role="alert"><MdErrorOutline /><span>{errorMessage}</span></div>}
               {successMessage && <div className="saas-message success" role="status"><MdCheckCircle /><span>{successMessage}</span></div>}
