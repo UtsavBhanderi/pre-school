@@ -9,6 +9,7 @@ const AuditEvent = require('../models/AuditEvent');
 const { tenantContext } = require('../middleware/tenantContext');
 const { hasTenantRole, canManageOrganization, canAccessBranch } = require('../utils/tenantAuthorization');
 const { evaluateMembershipEditPermission, evaluateMembershipRoleTransition } = require('../utils/tenantMembershipPolicy');
+const { assertQuotaCapacity, getSubscriptionSummary } = require('../utils/saasQuota');
 
 const router = express.Router();
 
@@ -93,6 +94,18 @@ router.get('/context', (req, res) => {
   });
 });
 
+router.get('/subscription', async (req, res) => {
+  if (!hasTenantRole(req.tenant.membership, ['organization_owner', 'head_office_admin'])) {
+    return res.status(403).json({ message: 'Only organization owners and head-office administrators can view plan usage.' });
+  }
+  try {
+    return res.json(await getSubscriptionSummary(req.tenant.organization));
+  } catch (error) {
+    console.error('Unable to load subscription summary:', error.message);
+    return res.status(503).json({ message: 'Subscription and capacity information could not be loaded.' });
+  }
+});
+
 router.get('/branches', async (req, res) => {
   try {
     const filter = { organizationId: req.tenant.organization._id, status: { $ne: 'closed' } };
@@ -125,6 +138,11 @@ router.post('/branches', async (req, res) => {
   try {
     session = await mongoose.startSession();
     await session.withTransaction(async () => {
+      await assertQuotaCapacity({
+        organizationId: req.tenant.organization._id,
+        resource: 'branches',
+        session,
+      });
       const [branch] = await Branch.create([{
         ...validation.value,
         organizationId: req.tenant.organization._id,
@@ -149,6 +167,12 @@ router.post('/branches', async (req, res) => {
       branch: createdBranch,
     });
   } catch (error) {
+    if (error.code === 'PLAN_LIMIT_REACHED') {
+      return res.status(409).json({ code: error.code, message: error.message, limit: error.limit, used: error.used, plan: error.plan });
+    }
+    if (error.code === 'SUBSCRIPTION_READ_ONLY') {
+      return res.status(402).json({ code: error.code, message: error.message });
+    }
     if (error.code === 11000) {
       return res.status(409).json({ message: 'This branch code is already used in your organization.' });
     }

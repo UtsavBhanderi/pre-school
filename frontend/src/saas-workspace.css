@@ -346,3 +346,42 @@
 .saas-child-identity > div small { color: #8591a3; font-size: .69rem; }
 .saas-form-grid input[type="file"] { min-height: 42px; padding: .35rem; color: #617089; font-size: .78rem; }
 .saas-consent-checks input:disabled { cursor: not-allowed; opacity: .55; }
+
+
+/* Subscription status and capacity overview */
+.saas-plan-status {
+  display: flex;
+  align-items: flex-start;
+  gap: .85rem;
+  padding: 1.1rem;
+  border: 1px solid #dce4f1;
+  border-radius: 11px;
+  background: #fff;
+}
+.saas-plan-status.writable { border-color: #cce6d7; background: #f7fcf8; }
+.saas-plan-status.readonly { border-color: #edd9bf; background: #fffaf3; }
+.saas-plan-status-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 10px; color: #2d8258; background: #e7f6ed; font-size: 1.35rem; }
+.saas-plan-status.readonly .saas-plan-status-icon { color: #9a6822; background: #fff0d8; }
+.saas-plan-status h2 { margin: .15rem 0 .25rem; color: #243851; font-family: 'DM Sans', sans-serif; font-size: 1.15rem; font-weight: 850; }
+.saas-plan-status p { margin: .25rem 0 0; color: #64758c; font-size: .79rem; line-height: 1.55; }
+.saas-plan-status p strong { color: #334862; }
+.saas-plan-usage-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.saas-plan-usage-card { min-width: 0; padding: 1rem; border: 1px solid #dfe6ef; border-radius: 10px; background: #fff; }
+.saas-plan-usage-heading { display: flex; align-items: center; gap: .5rem; color: #61718a; font-size: .76rem; font-weight: 800; }
+.saas-plan-usage-heading > span { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 8px; color: #3956b5; background: #edf2ff; font-size: 1.05rem; }
+.saas-plan-usage-total { display: flex; align-items: baseline; gap: .45rem; margin: .75rem 0 .65rem; }
+.saas-plan-usage-total strong { color: #233650; font-size: 1.6rem; font-weight: 850; letter-spacing: -.04em; }
+.saas-plan-usage-total span { color: #77859a; font-size: .75rem; }
+.saas-plan-usage-track { height: 7px; overflow: hidden; border-radius: 99px; background: #edf0f5; }
+.saas-plan-usage-track > span { display: block; height: 100%; min-width: 0; border-radius: inherit; background: #4563c8; transition: width .2s ease; }
+.saas-plan-usage-card p { min-height: 2.5em; margin: .65rem 0 .4rem; color: #718097; font-size: .72rem; line-height: 1.5; }
+.saas-plan-usage-card > small { color: #4c6483; font-size: .72rem; font-weight: 800; }
+.saas-plan-guidance { display: flex; align-items: flex-start; gap: .65rem; padding: .95rem 1rem; border: 1px solid #dce5f5; border-radius: 9px; color: #5e6f87; background: #f7f9ff; font-size: .8rem; line-height: 1.6; }
+.saas-plan-guidance > svg { flex: 0 0 auto; margin-top: .1rem; color: #4d64b8; font-size: 1.3rem; }
+.saas-plan-guidance strong { display: block; margin-bottom: .2rem; color: #2e4264; }
+.saas-plan-guidance p { margin: 0; color: #697992; }
+.saas-plan-disclaimer { margin: 0; color: #8a95a6; font-size: .7rem; line-height: 1.55; }
+@media (max-width: 900px) {
+  .saas-plan-usage-grid { grid-template-columns: 1fr; }
+  .saas-plan-usage-card p { min-height: auto; }
+}

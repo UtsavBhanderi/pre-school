@@ -36,6 +36,8 @@ const OrganizationSchema = new mongoose.Schema({
     plan: { type: String, enum: ['trial', 'starter', 'growth', 'group'], default: 'trial' },
     status: { type: String, enum: ['trial', 'active', 'past_due', 'suspended', 'cancelled'], default: 'trial' },
     trialEndsAt: { type: Date, default: null },
+    // Write version used to serialize organization-level quota checks in transactions.
+    quotaVersion: { type: Number, min: 0, default: 0 },
   },
   settings: {
     academicYearStartMonth: { type: Number, min: 1, max: 12, default: 4 },
