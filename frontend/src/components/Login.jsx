@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { MdSchool, MdVisibility, MdVisibilityOff, MdLockOutline, MdAlternateEmail } from "react-icons/md";
 
@@ -139,7 +139,8 @@ const Login = () => {
             </form>
 
             <div className="login-footer-note">
-              Having trouble signing in? Please contact your school administrator.
+              <Link to="/forgot-password" className="login-recovery-link">Forgot your password?</Link>
+              <p>Having trouble signing in? Please contact your school administrator.</p>
             </div>
           </div>
         </div>
