@@ -8,10 +8,11 @@ Status: Phase 0 foundation in progress. This is not production-ready multi-tenan
 - Organization memberships separated from the legacy `User.role`, including explicit branch scope.
 - A fail-closed tenant-context middleware that validates membership and organization/branch relationships server-side.
 - Organization/branch/member/audit read APIs and branch creation with a transaction-backed audit event.
-- Organization registration validation and transactional creation of the organization, initial branch, owner membership and registration audit event.
+- Email-verified organization signup: pending requests store only a one-time token hash and no password; completion transactionally creates the owner, organization, first branch, membership, audit event and 14-day trial.
 - An explicit default-off registration gate that requires both environment flags:
   - `ENABLE_SAAS_REGISTRATION=true`
   - `SAAS_TENANT_DATA_READY=true`
+  - valid `JWT_SECRET`, SMTP settings, and canonical `FRONTEND_URL`/`FRONTEND_ORIGIN`
 - A fail-closed guard on the existing single-school APIs: tenant members cannot use unscoped legacy APIs, and accounts without a membership are also blocked once any SaaS organization exists.
 - Role and validation unit tests.
 
@@ -32,7 +33,11 @@ The second environment flag is an operational gate, not proof of safety. It must
 
 ## New API endpoints
 
-- `POST /api/organizations/register` — gated, transactional initial organization/branch/owner registration.
+- `GET /api/organizations/registration-status` — reports whether email-verified onboarding is enabled.
+- `POST /api/organizations/signup` — starts an email verification request; creates no user or organization.
+- `POST /api/organizations/signup/inspect` — validates a verification token without consuming it.
+- `POST /api/organizations/signup/complete` — consumes a verified token and transactionally creates the owner, organization, initial branch, audit record and 14-day trial.
+- `POST /api/organizations/register` — retired with HTTP 410 so it cannot bypass email verification.
 - `GET /api/organizations/mine` — organization memberships for the authenticated user.
 - `GET /api/saas/context` — selected organization, membership and optional selected branch.
 - `GET /api/saas/branches` — list branches within the selected organization and membership scope.
