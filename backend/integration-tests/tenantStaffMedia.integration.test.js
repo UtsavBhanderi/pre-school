@@ -209,6 +209,13 @@ test('staff photo targets and uploads stay within the selected organization and 
   assert.deepEqual(targetList.data.staff.map((item) => item.userId), [String(staffA._id)]);
   assert.equal(targetList.data.staff[0].displayName, 'Branch One Teacher');
 
+  const teacherCannotEnumerateStaffPhotoTargets = await api('/api/saas/media/staff-targets', {
+    token: tokenFor(staffA),
+    organizationId: organization._id,
+    branchId: branchA._id,
+  });
+  assert.equal(teacherCannotEnumerateStaffPhotoTargets.status, 403);
+
   const upload = await uploadPng(
     '/api/saas/media/upload/staff_photo?staffUserId=' + String(staffA._id),
     { token: ownerToken, organizationId: organization._id, branchId: branchA._id },
