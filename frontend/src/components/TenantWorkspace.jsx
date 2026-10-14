@@ -314,50 +314,7 @@ export default function TenantWorkspace() {
   const roleHome = ROLE_HOME_CONFIG[role] || ROLE_HOME_CONFIG.teacher;
   const visibleTabIds = new Set(visibleTabs.map((item) => item.id));
   const homeActions = roleHome.actions.filter((action) => visibleTabIds.has(action.tab));
-  const homeMetrics = [
-    {
-      key: "branches",
-      label: "Active branches",
-      value: summary?.branchCount ?? "—",
-      detail: "Within your authorized scope",
-      Icon: MdApartment,
-    },
-    {
-      key: "children",
-      label: "Children in your scope",
-      value: summary?.children?.total ?? "—",
-      detail: "Registered in the selected view",
-      Icon: MdPeople,
-    },
-    {
-      key: "newChildren",
-      label: "New admissions today",
-      value: summary?.children?.addedToday ?? "—",
-      detail: "Added today",
-      Icon: MdAdd,
-    },
-    {
-      key: "attendance",
-      label: "Present today",
-      value: summary?.attendance?.present ?? "—",
-      detail: (summary?.attendance?.absent ?? 0) + " absent · " + (summary?.attendance?.recorded ?? 0) + " marked",
-      Icon: MdFactCheck,
-    },
-    {
-      key: "collected",
-      label: "Collected today",
-      value: summary?.fees ? formatMoney(summary.fees.collectedToday, currency) : "—",
-      detail: "Net of any refunds",
-      Icon: MdCurrencyRupee,
-    },
-    {
-      key: "outstanding",
-      label: "Fees still due",
-      value: summary?.fees ? formatMoney(summary.fees.outstanding, currency) : "—",
-      detail: "On open invoices",
-      Icon: MdReceiptLong,
-    },
-  ].filter((metric) => roleHome.metrics.includes(metric.key));
+
   const [branchId, setBranchId] = useState(() => activeMembership?.accessAllBranches ? "" : activeMembership?.branchIds?.[0]?.id || "");
   const [branches, setBranches] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
@@ -445,6 +402,50 @@ export default function TenantWorkspace() {
   const [paymentTarget, setPaymentTarget] = useState(null);
   const [paymentDraft, setPaymentDraft] = useState({ amount: "", method: "cash", reference: "", type: "payment", relatedTransactionId: "", reason: "" });
 
+  const homeMetrics = [
+    {
+      key: "branches",
+      label: "Active branches",
+      value: summary?.branchCount ?? "—",
+      detail: "Within your authorized scope",
+      Icon: MdApartment,
+    },
+    {
+      key: "children",
+      label: "Children in your scope",
+      value: summary?.children?.total ?? "—",
+      detail: "Registered in the selected view",
+      Icon: MdPeople,
+    },
+    {
+      key: "newChildren",
+      label: "New admissions today",
+      value: summary?.children?.addedToday ?? "—",
+      detail: "Added today",
+      Icon: MdAdd,
+    },
+    {
+      key: "attendance",
+      label: "Present today",
+      value: summary?.attendance?.present ?? "—",
+      detail: (summary?.attendance?.absent ?? 0) + " absent · " + (summary?.attendance?.recorded ?? 0) + " marked",
+      Icon: MdFactCheck,
+    },
+    {
+      key: "collected",
+      label: "Collected today",
+      value: summary?.fees ? formatMoney(summary.fees.collectedToday, currency) : "—",
+      detail: "Net of any refunds",
+      Icon: MdCurrencyRupee,
+    },
+    {
+      key: "outstanding",
+      label: "Fees still due",
+      value: summary?.fees ? formatMoney(summary.fees.outstanding, currency) : "—",
+      detail: "On open invoices",
+      Icon: MdReceiptLong,
+    },
+  ].filter((metric) => roleHome.metrics.includes(metric.key));
   useEffect(() => {
     if (!memberships.length) return;
     if (!memberships.some((item) => item.organization.id === organizationId)) {
