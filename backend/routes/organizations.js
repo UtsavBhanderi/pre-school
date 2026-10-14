@@ -53,8 +53,12 @@ function validFrontendConfiguration() {
 }
 
 function registrationIsEnabled() {
+  // This third switch is an explicit launch sign-off. It must remain false
+  // until the migration, privacy, backup/restore and tenant-isolation gates
+  // are formally reviewed; the other flags do not imply approval.
   return process.env.ENABLE_SAAS_REGISTRATION === 'true' &&
     process.env.SAAS_TENANT_DATA_READY === 'true' &&
+    process.env.SAAS_LAUNCH_APPROVED === 'true' &&
     Boolean(process.env.JWT_SECRET) &&
     isVerificationEmailConfigured() &&
     validFrontendConfiguration();
