@@ -527,3 +527,176 @@ img { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .sidebar-nav-group .sidebar-nav-link { transition: none; }
 }
+
+
+/* Shared navigation and compact filters: controls stay comfortable, while
+   repeated filter rows stop consuming the whole page. */
+.admin-sidebar {
+  flex-basis: 252px;
+  width: 252px;
+  padding: .9rem .72rem .75rem;
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+.sidebar-brand {
+  gap: .65rem;
+  padding: .2rem .45rem .9rem;
+  margin-bottom: .55rem;
+}
+.sidebar-brand-mark {
+  flex-basis: 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  font-size: 1.05rem;
+}
+.sidebar-brand-title { font-size: .96rem; }
+.sidebar-brand-subtitle { font-size: .7rem; }
+.sidebar-simple-nav { display: block; min-height: 0; }
+.sidebar-nav-group { margin: .12rem 0 .25rem; }
+.sidebar-nav-group > summary.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  min-height: 32px;
+  padding: .4rem .58rem;
+  margin: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.sidebar-nav-group > summary.sidebar-section-title::-webkit-details-marker { display: none; }
+.sidebar-nav-group > summary.sidebar-section-title:hover,
+.sidebar-nav-group > summary.sidebar-section-title.group-has-active { color: #c8d5f0; background: rgba(255,255,255,.045); }
+.sidebar-group-chevron { flex: 0 0 auto; transition: transform .16s ease; }
+.sidebar-nav-group:not([open]) .sidebar-group-chevron { transform: rotate(-90deg); }
+.sidebar-nav { gap: .14rem; }
+.sidebar-nav-link {
+  min-height: 38px;
+  gap: .62rem;
+  padding: .48rem .58rem;
+  border-radius: 8px;
+  font-size: .8rem;
+  line-height: 1.3;
+}
+.sidebar-icon { flex-basis: 19px; font-size: 1.05rem; }
+.sidebar-nav-link.active { box-shadow: inset 3px 0 #a4b6ff; }
+.sidebar-user { padding: .75rem .55rem .15rem; margin-top: .45rem; }
+.sidebar-logout { min-height: 36px !important; padding: .48rem .55rem !important; }
+.admin-main-content { min-width: 0; }
+
+/* Compact, responsive filters on legacy pages. The older global .col width
+   rule forced every filter to full width even on desktop; grid fixes that. */
+.admin-main-content .filter-panel,
+.admin-main-content .filter-card,
+.admin-main-content .filter-card-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+  gap: .65rem;
+  padding: .7rem;
+  margin-bottom: .85rem;
+  border-radius: 10px;
+  box-shadow: none;
+}
+.admin-main-content .filter-panel > .col,
+.admin-main-content .filter-panel > .col-lg-2,
+.admin-main-content .filter-panel > .col-md-4,
+.admin-main-content .filter-panel > .form-group.col {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  flex: initial;
+  padding: 0;
+  margin: 0;
+}
+.admin-main-content .filter-panel > *,
+.admin-main-content .filter-card > *,
+.admin-main-content .filter-card-panel > * { min-width: 0; }
+.admin-main-content .filter-panel .form-group { margin: 0; }
+.admin-main-content .filter-panel .form-control,
+.admin-main-content .filter-panel .form-select,
+.admin-main-content .filter-panel input[type="date"],
+.admin-main-content .filter-panel input[type="time"],
+.admin-main-content .filter-card .form-control,
+.admin-main-content .filter-card .form-select,
+.admin-main-content .filter-card-panel .form-control,
+.admin-main-content .filter-card-panel .form-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  height: 36px;
+  padding: .35rem .55rem;
+  border-radius: 7px;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+.admin-main-content .filter-panel label,
+.admin-main-content .filter-card label,
+.admin-main-content .filter-card-panel label,
+.admin-main-content .simple-filter-label {
+  display: block;
+  margin: 0 0 .28rem;
+  color: #52627b;
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.admin-main-content .filter-panel .btn,
+.admin-main-content .filter-card .btn,
+.admin-main-content .filter-card-panel .btn {
+  min-height: 34px;
+  padding: .35rem .65rem;
+  font-size: .8rem;
+}
+.admin-main-content .simple-filter-heading { margin-bottom: .6rem; }
+.admin-main-content .simple-filter-heading h3 { font-size: 1rem; }
+.admin-main-content .simple-filter-heading p { margin: .2rem 0 0; font-size: .8rem; }
+.admin-main-content .selection-summary { padding: .65rem .8rem; border-radius: 9px; }
+
+/* The teacher view uses the same quiet, compact navigation language. */
+.teacher-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: 100vh;
+  gap: .4rem;
+  padding: 1rem .8rem;
+}
+.teacher-sidebar-title { margin-bottom: .55rem; font-size: .98rem; }
+.teacher-side-link {
+  width: 100%;
+  min-height: 40px;
+  gap: .65rem;
+  padding: .58rem .7rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: .83rem;
+}
+.teacher-side-link:hover { background: rgba(255,255,255,.08); }
+.teacher-side-link.active { background: #304ba9; box-shadow: inset 3px 0 #a4b6ff; }
+
+@media (max-width: 991.98px) {
+  .teacher-sidebar { position: static; min-height: 0; }
+}
+@media (max-width: 767.98px) {
+  .admin-sidebar { width: min(300px, 88vw); }
+  .admin-main-content .filter-panel,
+  .admin-main-content .filter-card,
+  .admin-main-content .filter-card-panel {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+    gap: .55rem;
+    padding: .6rem;
+  }
+}
+@media (max-width: 575.98px) {
+  .admin-main-content .filter-panel,
+  .admin-main-content .filter-card,
+  .admin-main-content .filter-card-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-group-chevron { transition: none; }
+}
