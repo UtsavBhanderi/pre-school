@@ -47,7 +47,7 @@ The public registration flow is now two-step:
 
 Verification tokens are stored as hashes, expire after 24 hours, and can only be consumed once. The former \`POST /api/organizations/register\` endpoint is retired and returns \`410\` so it cannot bypass email verification. \`GET /api/organizations/registration-status\` tells the signup UI whether onboarding is available.
 
-**Public onboarding remains disabled by default.** It opens only when both \`ENABLE_SAAS_REGISTRATION=true\` and \`SAAS_TENANT_DATA_READY=true\` are set, plus valid JWT configuration, SMTP credentials and a canonical frontend URL. Do not turn these on until the remaining data migration, child-media privacy and cross-tenant release gates in [docs/SAAS_ROLLOUT.md](docs/SAAS_ROLLOUT.md) are signed off.
+**Public onboarding remains disabled by default.** It requires \`ENABLE_SAAS_REGISTRATION=true\`, \`SAAS_TENANT_DATA_READY=true\`, and a separate \`SAAS_LAUNCH_APPROVED=true\`, plus valid secrets, SMTP credentials and canonical HTTPS origins. Keep all three flags false until the remaining data migration, child-media privacy, backup/restore and cross-tenant release gates in [docs/SAAS_ROLLOUT.md](docs/SAAS_ROLLOUT.md) are reviewed and signed off.
 
 ## Multi-tenant SaaS foundation (in progress)
 
@@ -132,7 +132,7 @@ npm start
 
 The API health endpoint is available at `http://localhost:5000/api/health`.
 
-For tenant-private media links, configure `PRIVATE_MEDIA_SECRET` with a different strong random secret of at least 32 characters; do not reuse `JWT_SECRET`. Set `API_PUBLIC_URL` to the canonical API origin. Keep both SaaS onboarding flags disabled until the rollout checklist passes.
+For tenant-private media links, configure `PRIVATE_MEDIA_SECRET` with a different strong random secret of at least 32 characters; do not reuse `JWT_SECRET`. Set `API_PUBLIC_URL` to the canonical API origin. Keep all three SaaS onboarding flags disabled until the rollout checklist passes and the responsible operator records explicit launch approval.
 
 ### 2. Start the frontend
 
