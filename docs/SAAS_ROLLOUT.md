@@ -91,3 +91,10 @@ Use a strong owner password with at least 12 characters. The command refuses to 
 - Missing audit trail for privileged account, membership, permission, fee adjustment, refund, export or branch lifecycle actions.
 - An untested data migration or an unverified backup restore.
 - A platform support path that can browse tenant content without a reason-coded, time-limited and audited process.
+
+
+## Route-mount consistency fix
+
+The server now mounts one implementation for each invitation and parent-portal workflow. The active public invitation handlers use the current invitation schema (`pending`, `accepted`, `revoked`, and `expired`) and the multi-guardian `guardianIds` relationship. Older parallel route modules used incompatible invitation statuses and guardian fields; they are no longer mounted by the server, so they cannot shadow the supported handlers. A backend regression test checks that these workflow mounts remain unique.
+
+This correction prevents the earlier route order from sending requests to incompatible handlers before the current implementation could run. It does not replace the remaining release gates: run the full CI suite and isolated MongoDB tenant/parent authorization tests before production use.
