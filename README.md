@@ -255,6 +255,23 @@ A write attempt is one MongoDB transaction and is capped to keep the first migra
 After an approved staging apply, rerun the read-only preflight and compare source versus destination counts, attendance rows and financial ledgers. Test the entire school workflow against organizations A and B before any production migration is approved. This staging-only runner is not permission to enable public registration and does not migrate private media; the SaaS registration flags must remain disabled until all remaining migration and privacy gates are reviewed.
 
 
+## Legacy media migration (staging-only prototype)
+
+A dry-run-first command, \`npm run migration:media\`, copies explicitly mapped legacy photos and local school resources into the new organization/branch-private media store. It supports legacy Student photos, Teacher self-photos, gallery images, PDF uploads and video uploads.
+
+The tool validates target ownership, branch access, allowed file types/sizes/signatures, private source paths and (if parent visibility is requested) recorded photo consent. It never deletes or edits source files/records. Its default mode is read-only; apply is gated to a staging database, a verified approver and an approved change ticket. Interrupted copies can be resumed through hidden pending asset records.
+
+Start from a private manifest copy:
+
+~~~bash
+cd backend
+cp ../docs/legacy-media-manifest.example.json ../legacy-media-manifest.json
+# Replace every placeholder with verified IDs and target branches; leave confirmations false.
+npm run migration:media -- --manifest ../legacy-media-manifest.json --json
+~~~
+
+Read [the detailed migration gates](docs/SAAS_ROLLOUT.md#legacy-media-migration--staging-only-prototype) before any apply run. Existing legacy screens are not automatically rewritten to use the new assets, and external resource URLs are skipped rather than downloaded. This is a staging prototype—not approval for production migration or public organization signup.
+
 ## Verified legacy staff migration (staging only)
 
 Legacy account access must be mapped manually. The new \`npm run migration:staff\` command links existing account IDs to organization memberships and optionally copies an existing teacher profile into the new tenant-scoped \`TenantStaffProfile\` collection. It never creates or merges login accounts, changes passwords, promotes a legacy admin to organization owner, or turns a legacy student login into a parent portal account.
