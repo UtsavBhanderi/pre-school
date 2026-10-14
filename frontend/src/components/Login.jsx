@@ -139,7 +139,10 @@ const Login = () => {
             </form>
 
             <div className="login-footer-note">
-              <Link to="/forgot-password" className="login-recovery-link">Forgot your password?</Link>
+              <div className="login-help-links">
+                <Link to="/forgot-password" className="login-recovery-link">Forgot your password?</Link>
+                <Link to="/signup" className="login-recovery-link">Create a preschool account</Link>
+              </div>
               <p>Having trouble signing in? Please contact your school administrator.</p>
             </div>
           </div>
