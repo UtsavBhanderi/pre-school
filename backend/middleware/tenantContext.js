@@ -68,8 +68,7 @@ const tenantContext = async (req, res, next) => {
     // block every tenant-scoped mutation consistently across all SaaS modules.
     const safeMaintenance = isReadOnlyMaintenanceRequest({
       method: req.method,
-      baseUrl: req.baseUrl,
-      path: req.path,
+      originalUrl: req.originalUrl,
       body: req.body,
     });
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !subscriptionAccess.canWrite && !safeMaintenance) {
