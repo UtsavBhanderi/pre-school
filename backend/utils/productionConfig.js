@@ -27,7 +27,7 @@ function parseCanonicalHttpsOrigin(raw, field, errors) {
   if (LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
     errors.push(field + ' cannot point to localhost or a loopback address in production.');
   }
-  if (parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+  if (raw !== parsed.origin || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) {
     errors.push(field + ' must contain only the canonical origin, without credentials, paths, query strings or fragments.');
   }
 
