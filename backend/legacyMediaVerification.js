@@ -139,12 +139,16 @@ async function resolveDestinationFile(asset) {
   if (!paths) return { ok: false, reason: 'unsafe_private_storage_path' };
 
   try {
+    const uploadsReal = await fs.realpath(UPLOAD_ROOT);
     const rootReal = await fs.realpath(paths.root);
     const orgReal = await fs.realpath(paths.organizationRoot);
     const branchReal = await fs.realpath(paths.branchRoot);
     const stat = await fs.lstat(paths.filePath);
     const fileReal = await fs.realpath(paths.filePath);
 
+    if (rootReal !== path.join(uploadsReal, 'tenant-media')) {
+      return { ok: false, reason: 'private_storage_root_is_not_canonical' };
+    }
     if (orgReal !== path.join(rootReal, String(asset.organizationId)) ||
         branchReal !== path.join(orgReal, String(asset.branchId))) {
       return { ok: false, reason: 'private_directory_is_not_canonical' };
@@ -222,11 +226,9 @@ async function verifyAsset(asset, apiPublicUrl) {
   if (!organization) return verificationItem(asset, 'blocked', 'organization_record_missing');
   if (!branch) return verificationItem(asset, 'blocked', 'branch_does_not_belong_to_asset_organization');
   if (!sourceRecord) return verificationItem(asset, 'blocked', 'legacy_source_record_missing');
+  const warningCodes = [];
   if (organization.status !== 'active' || branch.status !== 'active') {
-    return verificationItem(asset, 'warning', 'organization_or_branch_is_not_active', {
-      organizationStatus: organization.status,
-      branchStatus: branch.status,
-    });
+    warningCodes.push('organization_or_branch_is_not_active');
   }
 
   const reference = parseLegacyUploadReference(
@@ -277,16 +279,16 @@ async function verifyAsset(asset, apiPublicUrl) {
       'consent.consentRecordedAt': { $ne: null },
       'consent.consentRecordedBy': { $ne: null },
     });
-    if (!currentConsent) {
-      return verificationItem(asset, 'warning', 'photo_consent_is_no_longer_recorded; parent_downloads_are_denied_by_live_access_checks');
-    }
+    if (!currentConsent) warningCodes.push('photo_consent_is_no_longer_recorded_parent_downloads_are_denied_by_live_access_checks');
   } else if (asset.audience !== 'staff_only') {
     return verificationItem(asset, 'blocked', 'asset_audience_is_not_allowlisted');
   }
+  if (asset.status === 'archived') warningCodes.push('asset_is_archived_and_not_available_for_download');
 
-  return verificationItem(asset, asset.status === 'archived' ? 'warning' : 'ok',
-    asset.status === 'archived' ? 'asset_is_archived_and_not_available_for_download' : 'source_linkage_file_signature_size_and_checksum_verified',
+  return verificationItem(asset, warningCodes.length ? 'warning' : 'ok',
+    warningCodes.length ? warningCodes.join(';') : 'source_linkage_file_signature_size_and_checksum_verified',
     {
+      warnings: warningCodes,
       sourceBytes: sourcePath.sizeBytes,
       destinationBytes: destinationPath.sizeBytes,
       checksumMatch: true,
