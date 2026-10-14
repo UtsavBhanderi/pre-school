@@ -83,18 +83,6 @@ function output(report) {
   if (report.nextStep) console.log(report.nextStep);
 }
 
-function addIssue(item, status, reason, extra = {}) {
-  return {
-    status,
-    sourceCollection: item.sourceCollection,
-    sourceDocumentIdPrefix: String(item.sourceDocumentId || '').slice(0, 8),
-    sourceField: item.sourceField,
-    category: mappingFor(item.sourceCollection, item.sourceField)?.category || 'unknown',
-    reason,
-    ...extra,
-  };
-}
-
 async function safeSourceFile(relativePath, expectedFolder) {
   const expectedRoot = path.resolve(UPLOAD_ROOT, expectedFolder);
   const candidate = path.resolve(UPLOAD_ROOT, relativePath);
@@ -138,116 +126,6 @@ async function readAndValidateSignature(filename, mimeType) {
 async function loadSourceRecord(item) {
   const id = new mongoose.Types.ObjectId(item.sourceDocumentId);
   return mongoose.connection.collection(item.sourceCollection).findOne({ _id: id });
-}
-
-async function verifyTargetRecord(item, manifest, branch) {
-  const mapping = mappingFor(item.sourceCollection, item.sourceField);
-  if (!mapping) return { ok: false, reason: 'unsupported_source_mapping' };
-
-  if (mapping.child) {
-    const child = await Student.findOne({
-      _id: item.sourceDocumentId,
-      organizationId: manifest.organizationId,
-      branchId: item.branchId,
-    }).select('_id standard organizationId branchId').lean();
-    if (!child) return { ok: false, reason: 'child_is_not_already_migrated_to_the_selected_organization_and_branch' };
-    if (item.allowParentAccess) {
-      const consent = await ChildGuardian.findOne({
-        organizationId: manifest.organizationId,
-        branchId: item.branchId,
-        childId: child._id,
-        'consent.photoUse': 'granted',
-        'consent.consentRecordedAt': { $ne: null },
-        'consent.consentRecordedBy': { $ne: null },
-      }).select('_id').lean();
-      if (!consent) return { ok: false, reason: 'parent_access_requested_without_a_recorded_photo_consent' };
-    }
-    return { ok: true, childId: child._id, className: child.standard || '', audience: item.allowParentAccess ? 'parent_with_photo_consent' : 'staff_only' };
-  }
-
-  if (mapping.staff) {
-    const profile = await TenantStaffProfile.findOne({
-      organizationId: manifest.organizationId,
-      branchId: item.branchId,
-      userId: item.staffUserId,
-      legacySourceTeacherId: item.sourceDocumentId,
-      status: 'active',
-    }).select('_id userId').lean();
-    if (!profile) return { ok: false, reason: 'teacher_photo_has_no_verified_active_tenant_staff_profile_mapping' };
-    return { ok: true, staffUserId: profile.userId, className: '', audience: 'staff_only' };
-  }
-
-  return { ok: true, className: '', audience: 'staff_only' };
-}
-
-async function buildPlanItem(item, manifest, apiPublicUrl) {
-  const mapping = mappingFor(item.sourceCollection, item.sourceField);
-  const branch = await Branch.findOne({
-    _id: item.branchId,
-    organizationId: manifest.organizationId,
-    status: 'active',
-  }).select('_id code').lean();
-  if (!branch) return addIssue(item, 'blocked', 'target_branch_not_active_in_selected_organization');
-
-  const [sourceRecord, targetRecord] = await Promise.all([
-    loadSourceRecord(item),
-    verifyTargetRecord(item, manifest, branch),
-  ]);
-  if (!sourceRecord) return addIssue(item, 'blocked', 'legacy_source_record_not_found');
-  if (!targetRecord.ok) return addIssue(item, 'blocked', targetRecord.reason);
-
-  const storedValue = sourceRecord[item.sourceField];
-  const reference = parseLegacyUploadReference(storedValue, mapping.folder, apiPublicUrl);
-  if (reference.status === 'skip') return addIssue(item, 'skipped', reference.reason);
-  if (reference.status !== 'local') return addIssue(item, 'blocked', reference.reason);
-
-  const source = await safeSourceFile(reference.relativePath, mapping.folder);
-  if (!source.ok) return addIssue(item, 'blocked', source.reason);
-  const mimeType = reference.mimeType;
-  const categoryRules = CATEGORY_RULES[mapping.category];
-  if (!categoryRules || !Object.prototype.hasOwnProperty.call(categoryRules.mimeExtensions, mimeType)) {
-    return addIssue(item, 'blocked', 'file_extension_not_allowed_for_media_category');
-  }
-  if (source.sizeBytes < 1 || source.sizeBytes > categoryRules.maxBytes || source.sizeBytes > 104857600) {
-    return addIssue(item, 'blocked', 'file_size_outside_category_limit');
-  }
-  if (!(await readAndValidateSignature(source.path, mimeType))) {
-    return addIssue(item, 'blocked', 'file_content_does_not_match_declared_file_type');
-  }
-
-  const identityFilter = {
-    organizationId: manifest.organizationId,
-    branchId: item.branchId,
-    migrationSourceCollection: item.sourceCollection,
-    migrationSourceDocumentId: item.sourceDocumentId,
-    migrationSourceField: item.sourceField,
-  };
-  const existing = await TenantMediaAsset.findOne(identityFilter).select('+storageName').lean();
-  if (existing) {
-    return addIssue(item, 'already_migrated', 'migration_source_already_has_a_media_asset', {
-      assetIdPrefix: String(existing._id).slice(0, 8),
-      existingStatus: existing.status,
-    });
-  }
-
-  return {
-    status: 'ready',
-    sourceCollection: item.sourceCollection,
-    sourceDocumentIdPrefix: item.sourceDocumentId.slice(0, 8),
-    sourceDocumentId: item.sourceDocumentId,
-    sourceField: item.sourceField,
-    category: mapping.category,
-    branchId: item.branchId,
-    sourcePath: source.path,
-    sourceSizeBytes: source.sizeBytes,
-    mimeType,
-    childId: targetRecord.childId || null,
-    staffUserId: targetRecord.staffUserId || null,
-    className: targetRecord.className || '',
-    audience: targetRecord.audience,
-    originalFileName: safeDisplayName(displayNameFor(item, mimeType)),
-    identityFilter,
-  };
 }
 
 async function ensureMigrationIndex() {
@@ -464,7 +342,6 @@ async function run() {
       )) {
         throw new Error('The approver must be an active owner/head-office administrator with access to every target branch.');
       }
-      await ensureMigrationIndex();
     }
 
     const items = [];
@@ -526,6 +403,8 @@ async function run() {
       });
       return;
     }
+
+    await ensureMigrationIndex();
 
     let migrated = 0;
     let alreadyMigrated = summary.alreadyMigrated;
