@@ -215,6 +215,36 @@ The explicit apply flags and environment variables are documented in the README.
 
 Apply is disabled outside an explicitly gated staging environment and requires an active owner/head-office approver with access to every target branch. It creates only tenant memberships and the new \`TenantStaffProfile\` copies; it never modifies passwords or source User/Teacher rows. The membership/profile rows, a unique migration-run ledger entry and audit event are committed in one transaction. The new command and example manifest are documented in the README. This importer has not been run against a real school database and does not unblock public signup.
 
+## Legacy media migration — staging-only prototype
+
+A separate command, \`npm run migration:media\`, now provides a record-by-record, dry-run-first path for copying local legacy media into tenant-private storage. **This does not complete the legacy screen migration or approve production onboarding.** It does not edit/delete source files or rewrite the original student, teacher, gallery, PDF or video records.
+
+### Required order and supported mappings
+
+1. Restore and verify an approved database backup in a dedicated staging database whose database name explicitly contains \`staging\`.
+2. Run the student/attendance/fee tenant migration and the explicit staff identity migration first. A student photo is accepted only after the student record has the target organization and branch; a teacher photo requires an active \`TenantStaffProfile\` whose \`legacySourceTeacherId\` exactly matches the old Teacher record and whose target user/branch is verified.
+3. Copy the example manifest to a private working file and enter each source collection, source document ID, media field and target branch explicitly. Review unscoped gallery/PDF/video ownership from school records; those old collections have no trustworthy tenant scope of their own.
+4. Run a dry-run, correct every blocker, check the source/media ownership and restore approvals, then rerun until the plan is clean.
+5. Only on the disposable staging restore, set \`NODE_ENV=staging\`, \`SAAS_MIGRATION_ENV=staging\`, and \`ALLOW_LEGACY_MEDIA_MIGRATION=true\`. Supply the exact source label, organization ID, active owner/head-office approver and approved change-ticket reference to the apply command.
+6. Verify every new asset through the authenticated tenant media API and repeat the full rehearsal from a fresh backup. The source files remain in place.
+
+The manifest supports only these known local fields: Student \`studentPhoto\`, \`motherPhoto\` and \`fatherPhoto\`; Teacher \`selfPhoto\`; Photo \`url\`; PDF \`filePath\`; and Video \`filePath\`. Files must live in their expected existing upload folder. Absolute links are migrated only when their origin matches the configured \`API_PUBLIC_URL\`; external URLs are skipped and are never downloaded. Files are required to be regular non-symlink files with an allowlisted extension, file size and matching binary signature.
+
+Every migrated file receives a random private storage name under the target organization/branch. Migration metadata has a unique source-record/field key for repeat-safe operation. The asset first enters a hidden \`pending_migration\` state; it becomes active only after its private copy passes size, signature and SHA-256 comparison. If a process stops during copying, rerunning the same manifest can safely resume a pending item. Audits record preparation and activation without copying child or family names, URLs or file contents into the event.
+
+By default every migrated media asset is \`staff_only\`. Parent access may only be requested for the child's own \`studentPhoto\` field, and only when a verified ChildGuardian relationship carries recorded \`photoUse=granted\` consent. A missing consent record blocks that item; consent is never inferred. Family portrait fields, staff photos, gallery images and learning resources remain staff-only. The manifest's four confirmation fields must all be true for apply: source ownership verified, backup restored in staging, resource ownership reviewed, and photo consent reviewed.
+
+Example workflow (Bash):
+
+~~~bash
+cd backend
+cp ../docs/legacy-media-manifest.example.json ../legacy-media-manifest.json
+# Edit the private copy with verified IDs and branch mappings.
+npm run migration:media -- --manifest ../legacy-media-manifest.json --json
+~~~
+
+Apply is intentionally separate and staging-only. Keep the copy of the manifest secured: it contains internal record IDs. The command does not change the source record values and does not make legacy screens use the migrated assets automatically. The existing tenant media library is the inspection path for migrated content; legacy student/staff/resource screen integration, a restored-staging rehearsal, and acceptance tests are still required release gates.
+
 ## Organization and branch settings
 
 The SaaS workspace now includes a role-gated profile editor for organization owners and head-office administrators:
