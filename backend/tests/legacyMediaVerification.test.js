@@ -3,6 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const mongoose = require('mongoose');
+const TenantMediaAsset = require('../models/TenantMediaAsset');
 const { CATEGORY_RULES } = require('../utils/tenantMediaFiles');
 const {
   validMigrationBatchId,
@@ -75,4 +77,23 @@ test('verification summary reports passed, warning and blocked records without r
     byCategory: { child_photo: 2, learning_pdf: 1 },
     byStatus: { ok: 1, warning: 1, blocked: 1 },
   });
+});
+
+
+test('tenant media migration metadata accepts a real hexadecimal MongoDB ID', () => {
+  const asset = new TenantMediaAsset({
+    organizationId: new mongoose.Types.ObjectId('665000000000000000000010'),
+    branchId: new mongoose.Types.ObjectId('665000000000000000000020'),
+    category: 'child_photo',
+    storageName: '01234567-89ab-cdef-0123-456789abcdef.jpg',
+    mimeType: 'image/jpeg',
+    sizeBytes: 120,
+    uploadedBy: new mongoose.Types.ObjectId('665000000000000000000040'),
+    migrationSourceCollection: 'students',
+    migrationSourceDocumentId: '665000000000000000000030',
+    migrationSourceField: 'studentPhoto',
+    migrationBatchId: 'media-0123456789abcdef01234567',
+  });
+  const error = asset.validateSync();
+  assert.equal(error?.errors?.migrationSourceDocumentId, undefined);
 });
