@@ -15,6 +15,7 @@ test('organization onboarding verifies email before creating an owner, branch an
   process.env.NODE_ENV = 'test';
   process.env.ENABLE_SAAS_REGISTRATION = 'true';
   process.env.SAAS_TENANT_DATA_READY = 'true';
+  process.env.SAAS_LAUNCH_APPROVED = 'false';
   process.env.SMTP_HOST = 'smtp.integration.test';
   process.env.SMTP_PORT = '587';
   process.env.EMAIL_USER = 'integration@example.test';
@@ -98,6 +99,20 @@ test('organization onboarding verifies email before creating an owner, branch an
     await mongoose.disconnect();
   });
 
+  // Even if the technical setup flags and SMTP are ready, signup stays closed
+  // until an explicit deployment sign-off has been recorded.
+  const gatedStatus = await api('/api/organizations/registration-status');
+  assert.equal(gatedStatus.status, 200);
+  assert.equal(gatedStatus.data.enabled, false);
+  const gatedSignup = await api('/api/organizations/signup', {
+    method: 'POST',
+    body: signupBody,
+  });
+  assert.equal(gatedSignup.status, 503);
+  assert.equal(gatedSignup.data.code, 'SAAS_ONBOARDING_NOT_READY');
+  assert.equal(deliveredCount, 0);
+
+  process.env.SAAS_LAUNCH_APPROVED = 'true';
   const status = await api('/api/organizations/registration-status');
   assert.equal(status.status, 200);
   assert.equal(status.data.enabled, true);
