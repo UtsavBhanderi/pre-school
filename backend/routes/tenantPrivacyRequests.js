@@ -198,7 +198,7 @@ router.patch('/:id/status', async (req, res) => {
       request.reviewedBy = req.user._id;
       if (!request.reviewedAt) request.reviewedAt = new Date();
       if (nextStatus === 'completed' || nextStatus === 'declined') request.completedAt = new Date();
-      if (suppliedMessage) request.publicResponse = suppliedMessage;
+      if (publicMessage) request.publicResponse = publicMessage;
       if (Object.prototype.hasOwnProperty.call(req.body || {}, 'internalNotes')) {
         request.internalNotes = currentValidation.value.internalNotes;
       }
