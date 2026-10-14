@@ -13,7 +13,7 @@ test('existing accounts may use their current password even when it is shorter t
 });
 
 test('new accounts require at least 12 non-blank characters', () => {
-  assert.equal(isValidNewAccountPassword('ValidPass123'), false);
+  assert.equal(isValidNewAccountPassword('ValidPass12'), false);
   assert.equal(isValidNewAccountPassword('ValidPass1234'), true);
   assert.equal(isValidNewAccountPassword('            '), false);
 });
