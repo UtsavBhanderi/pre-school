@@ -406,6 +406,23 @@ export default function TenantWorkspace() {
   const [paymentTarget, setPaymentTarget] = useState(null);
   const [paymentDraft, setPaymentDraft] = useState({ amount: "", method: "cash", reference: "", type: "payment", relatedTransactionId: "", reason: "" });
 
+
+  useEffect(() => {
+    if (!visibleTabIds.has(activeTab)) setActiveTab("overview");
+  }, [visibleTabKey, activeTab]);
+
+  useEffect(() => {
+    if (!memberships.length) return;
+    if (!memberships.some((item) => item.organization.id === organizationId)) {
+      const next = memberships[0];
+      setOrganizationId(next.organization.id);
+      setBranchId(next.accessAllBranches ? "" : next.branchIds?.[0]?.id || "");
+    }
+  }, [memberships, organizationId]);
+
+  const activeBranch = branches.find((item) => item._id === branchId || item.id === branchId) || null;
+  const memberEditBranchKey = (memberEditDraft?.branchIds || []).join("|");
+  const currency = organization?.currency || "INR";
   const homeMetrics = [
     {
       key: "branches",
@@ -450,22 +467,6 @@ export default function TenantWorkspace() {
       Icon: MdReceiptLong,
     },
   ].filter((metric) => roleHome.metrics.includes(metric.key));
-  useEffect(() => {
-    if (!visibleTabIds.has(activeTab)) setActiveTab("overview");
-  }, [visibleTabKey, activeTab]);
-
-  useEffect(() => {
-    if (!memberships.length) return;
-    if (!memberships.some((item) => item.organization.id === organizationId)) {
-      const next = memberships[0];
-      setOrganizationId(next.organization.id);
-      setBranchId(next.accessAllBranches ? "" : next.branchIds?.[0]?.id || "");
-    }
-  }, [memberships, organizationId]);
-
-  const activeBranch = branches.find((item) => item._id === branchId || item.id === branchId) || null;
-  const memberEditBranchKey = (memberEditDraft?.branchIds || []).join("|");
-  const currency = organization?.currency || "INR";
   const availableGuardianContacts = useMemo(() => {
     const unique = new Map();
     for (const child of children) {
