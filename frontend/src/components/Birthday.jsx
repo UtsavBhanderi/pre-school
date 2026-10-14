@@ -972,7 +972,7 @@ const Birthday = () => {
           </div>
 
           {/* ================= Advanced Filters ================= */}
-          <div className="card border-0 shadow-sm rounded-4 mb-4 no-print">
+          <div className="birthday-advanced-filters card border-0 shadow-sm rounded-4 mb-4 no-print">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                 <h6 className="fw-bold mb-0 d-flex align-items-center gap-2">
