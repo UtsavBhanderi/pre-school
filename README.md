@@ -20,6 +20,20 @@ A React/Vite and Node.js/Express application backed by MongoDB for common presch
 - Printable copies of saved fee payments, with student details and current balance clearly identified
 
 
+## Password recovery
+
+The sign-in page includes a forgot-password workflow. Reset links contain a random secret in the URL fragment, store only its SHA-256 hash on the user record, expire after 30 minutes and can be used once. Completing a reset increments \`authVersion\`, invalidating older JWT sessions. Responses do not disclose whether an email address belongs to an account.
+
+Configure outbound mail before expecting recovery emails:
+
+- \`SMTP_HOST\`, \`SMTP_PORT\` and \`SMTP_SECURE\`
+- \`EMAIL_USER\`, \`EMAIL_PASS\` and optionally \`EMAIL_FROM\`
+- \`FRONTEND_URL\` set to the public frontend origin (not the API origin)
+
+If email is not configured or delivery fails, the API deliberately does not reveal the reset token in a response. Configure and verify SMTP before production use. A password-reset request does not automatically change any organization's or branch permissions.
+
+For database-backed end-to-end verification, run \`npm run test:integration\` with \`MONGO_INTEGRATION_URI\` pointed at a **disposable MongoDB replica set**. The password reset integration test verifies one-time use and old-session revocation.
+
 ## Multi-tenant SaaS foundation (in progress)
 
 The codebase now includes the first foundation models for organizations, branches, organization memberships and audit events, plus fail-closed tenant-context helpers and organization/branch management API routes.
