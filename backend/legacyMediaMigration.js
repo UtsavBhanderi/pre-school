@@ -70,6 +70,7 @@ function output(report) {
   console.log('Batch reference: ' + (report.batchId || 'dry-run'));
   console.log('Ready: ' + report.summary.ready);
   console.log('Already migrated: ' + report.summary.alreadyMigrated);
+  console.log('Pending migration to resume: ' + (report.summary.pendingMigration || 0));
   console.log('Skipped (no local file / external URL): ' + report.summary.skipped);
   console.log('Blocked: ' + report.summary.blocked);
   for (const item of report.items) {
@@ -154,33 +155,51 @@ async function ensureMigrationIndex() {
   });
 }
 
+async function hashFile(filename) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = require('fs').createReadStream(filename);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
+async function findExistingMigrationAsset(identityFilter) {
+  return TenantMediaAsset.findOne(identityFilter).select('+storageName');
+}
+
 async function copyPlanItem(planItem, manifest, approvedBy, batchId, changeTicket) {
   const mapping = mappingFor(planItem.sourceCollection, planItem.sourceField);
-  const storageName = storageNameFor(planItem.category, planItem.mimeType);
-  if (!storageName) throw new Error('No secure storage name could be generated for a validated file.');
-  const directory = path.resolve(TENANT_MEDIA_ROOT, manifest.organizationId, planItem.branchId);
-  if (!directory.startsWith(TENANT_MEDIA_ROOT + path.sep)) throw new Error('Tenant media destination escaped its storage root.');
+  let asset = null;
+  let createdPending = false;
 
-  await fs.mkdir(directory, { recursive: true, mode: 0o750 });
-  const destination = path.resolve(directory, storageName);
-  let copied = false;
-  try {
-    await fs.copyFile(planItem.sourcePath, destination, require('fs').constants.COPYFILE_EXCL);
-    copied = true;
-    await fs.chmod(destination, 0o640);
+  if (planItem.status === 'pending_migration') {
+    asset = await findExistingMigrationAsset(planItem.identityFilter);
+    if (!asset || asset.status !== 'pending_migration') {
+      if (asset && ['active', 'archived'].includes(asset.status)) {
+        return { status: 'already_migrated', assetIdPrefix: String(asset._id).slice(0, 8), category: mapping.category };
+      }
+      throw new Error('The pending media asset could not be found for safe resumption.');
+    }
+  } else {
+    const storageName = storageNameFor(planItem.category, planItem.mimeType);
+    if (!storageName) throw new Error('No secure storage name could be generated for a validated file.');
 
-    let createdAsset;
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        const alreadyExists = await TenantMediaAsset.findOne(planItem.identityFilter).session(session).select('_id').lean();
-        if (alreadyExists) {
-          const duplicate = new Error('This legacy file field has already been migrated.');
-          duplicate.code = 'ALREADY_MIGRATED';
-          throw duplicate;
+        const existing = await TenantMediaAsset.findOne(planItem.identityFilter)
+          .select('+storageName')
+          .session(session);
+        if (existing) {
+          const conflict = new Error('This legacy source field already has a media asset; rerun the dry run.');
+          conflict.code = existing.status === 'pending_migration' ? 'PENDING_EXISTS' : 'ALREADY_MIGRATED';
+          conflict.assetId = String(existing._id);
+          throw conflict;
         }
 
-        const [asset] = await TenantMediaAsset.create([{
+        const [created] = await TenantMediaAsset.create([{
           organizationId: manifest.organizationId,
           branchId: planItem.branchId,
           category: planItem.category,
@@ -191,7 +210,7 @@ async function copyPlanItem(planItem, manifest, approvedBy, batchId, changeTicke
           mimeType: planItem.mimeType,
           sizeBytes: planItem.sourceSizeBytes,
           originalFileName: planItem.originalFileName,
-          status: 'active',
+          status: 'pending_migration',
           audience: planItem.audience,
           uploadedBy: approvedBy,
           migrationSourceCollection: planItem.sourceCollection,
@@ -204,34 +223,128 @@ async function copyPlanItem(planItem, manifest, approvedBy, batchId, changeTicke
           organizationId: manifest.organizationId,
           branchId: planItem.branchId,
           actorUserId: approvedBy,
-          action: 'legacy.media.migrated',
+          action: 'legacy.media.migration_prepared',
           resourceType: 'tenant_media_asset',
-          resourceId: String(asset._id),
+          resourceId: String(created._id),
           outcome: 'success',
-          summary: 'Legacy media copied into private organization storage.',
+          summary: 'Legacy media migration prepared; the asset remains unavailable until its private copy is verified.',
           reason: 'Approved staging media migration ticket ' + changeTicket + '.',
-          changedFields: ['category', 'privateStorage', 'audience'],
+          changedFields: ['category', 'privateStorage', 'migrationStatus'],
           userAgent: 'legacy-media-migration-cli',
         }], { session });
-        createdAsset = asset;
+        asset = created;
+        createdPending = true;
       });
+    } catch (error) {
+      if (error.code === 'PENDING_EXISTS' || error.code === 'ALREADY_MIGRATED' || error.code === 11000) {
+        const existing = await findExistingMigrationAsset(planItem.identityFilter);
+        if (existing?.status === 'pending_migration') {
+          asset = existing;
+          createdPending = false;
+        } else if (existing && ['active', 'archived'].includes(existing.status)) {
+          return { status: 'already_migrated', assetIdPrefix: String(existing._id).slice(0, 8), category: mapping.category };
+        } else {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
     } finally {
       await session.endSession();
     }
-
-    return {
-      status: createdAsset ? 'migrated' : 'already_migrated',
-      assetIdPrefix: createdAsset ? String(createdAsset._id).slice(0, 8) : '',
-      storageName,
-      category: mapping.category,
-    };
-  } catch (error) {
-    if (copied) await fs.unlink(destination).catch(() => {});
-    if (error.code === 'ALREADY_MIGRATED' || error.code === 11000) {
-      return { status: 'already_migrated', category: mapping.category, reason: 'another process migrated this source field' };
-    }
-    throw error;
   }
+
+  const storageName = String(asset.storageName || '');
+  if (!/^[a-f\d-]{36}\.(jpg|png|webp|gif|pdf|mp4|webm|mov)$/i.test(storageName)) {
+    throw new Error('The pending asset has an invalid private storage name.');
+  }
+  const expectedExtension = Object.keys(CATEGORY_RULES[planItem.category].mimeExtensions)
+    .filter((mimeType) => mimeType === asset.mimeType)
+    .map((mimeType) => CATEGORY_RULES[planItem.category].mimeExtensions[mimeType])[0];
+  if (!expectedExtension || !storageName.toLowerCase().endsWith(expectedExtension)) {
+    throw new Error('The pending asset storage extension does not match its verified media type.');
+  }
+
+  const directory = path.resolve(TENANT_MEDIA_ROOT, manifest.organizationId, planItem.branchId);
+  if (!directory.startsWith(TENANT_MEDIA_ROOT + path.sep)) throw new Error('Tenant media destination escaped its storage root.');
+  const destination = path.resolve(directory, storageName);
+  if (!destination.startsWith(directory + path.sep)) throw new Error('Private media filename escaped its branch folder.');
+  await fs.mkdir(directory, { recursive: true, mode: 0o750 });
+
+  const existingFile = await fs.lstat(destination).catch(() => null);
+  let destinationValid = false;
+  if (existingFile) {
+    if (existingFile.isFile() && !existingFile.isSymbolicLink() && existingFile.size === asset.sizeBytes) {
+      const signatureValid = await readAndValidateSignature(destination, asset.mimeType);
+      if (signatureValid) {
+        const [sourceDigest, destinationDigest] = await Promise.all([
+          hashFile(planItem.sourcePath),
+          hashFile(destination),
+        ]);
+        destinationValid = sourceDigest === destinationDigest;
+      }
+    }
+    if (!destinationValid) await fs.unlink(destination).catch(() => {});
+  }
+
+  if (!destinationValid) {
+    await fs.copyFile(planItem.sourcePath, destination, require('fs').constants.COPYFILE_EXCL);
+    await fs.chmod(destination, 0o640);
+    const destinationStats = await fs.stat(destination);
+    const signatureValid = destinationStats.size === asset.sizeBytes && await readAndValidateSignature(destination, asset.mimeType);
+    if (!signatureValid) {
+      await fs.unlink(destination).catch(() => {});
+      throw new Error('Copied media failed destination size or content-signature verification. Pending metadata remains for a safe retry.');
+    }
+    const [sourceDigest, destinationDigest] = await Promise.all([
+      hashFile(planItem.sourcePath),
+      hashFile(destination),
+    ]);
+    if (sourceDigest !== destinationDigest) {
+      await fs.unlink(destination).catch(() => {});
+      throw new Error('Copied media checksum does not match its source. Pending metadata remains for a safe retry.');
+    }
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const updated = await TenantMediaAsset.findOneAndUpdate(
+        { _id: asset._id, organizationId: manifest.organizationId, branchId: planItem.branchId, status: 'pending_migration' },
+        { $set: { status: 'active' } },
+        { new: true, runValidators: true, session },
+      );
+      if (!updated) {
+        const current = await TenantMediaAsset.findById(asset._id).session(session).select('status');
+        if (current?.status === 'active') return;
+        throw new Error('Pending media asset state changed before activation.');
+      }
+
+      await AuditEvent.create([{
+        organizationId: manifest.organizationId,
+        branchId: planItem.branchId,
+        actorUserId: approvedBy,
+        action: 'legacy.media.migrated',
+        resourceType: 'tenant_media_asset',
+        resourceId: String(asset._id),
+        outcome: 'success',
+        summary: 'Legacy media copied into private organization storage and verified.',
+        reason: 'Approved staging media migration ticket ' + changeTicket + '.',
+        changedFields: ['privateStorage', 'audience', 'migrationStatus'],
+        userAgent: 'legacy-media-migration-cli',
+      }], { session });
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  return {
+    status: 'migrated',
+    assetIdPrefix: String(asset._id).slice(0, 8),
+    storageName,
+    category: mapping.category,
+    resumedPendingAsset: !createdPending,
+  };
 }
 
 async function run() {
@@ -352,6 +465,7 @@ async function run() {
 
     const summary = {
       ready: items.filter((item) => item.status === 'ready').length,
+      pendingMigration: items.filter((item) => item.status === 'pending_migration').length,
       alreadyMigrated: items.filter((item) => item.status === 'already_migrated').length,
       skipped: items.filter((item) => item.status === 'skipped').length,
       blocked: items.filter((item) => item.status === 'blocked').length,
@@ -410,7 +524,7 @@ async function run() {
     let alreadyMigrated = summary.alreadyMigrated;
     const outcomes = [];
     for (const item of items) {
-      if (item.status !== 'ready') {
+      if (!['ready', 'pending_migration'].includes(item.status)) {
         outcomes.push(item);
         continue;
       }
@@ -501,9 +615,34 @@ async function buildPlanItem(item, manifest, apiPublicUrl) {
   };
   const existing = await TenantMediaAsset.findOne(identityFilter).select('+storageName').lean();
   if (existing) {
-    const existingPath = path.resolve(TENANT_MEDIA_ROOT, manifest.organizationId, item.branchId, existing.storageName || '');
-    const withinRoot = existingPath.startsWith(path.resolve(TENANT_MEDIA_ROOT, manifest.organizationId, item.branchId) + path.sep);
-    return addIssue(item, 'already_migrated', mapping, withinRoot ? 'migration_source_already_has_a_media_asset' : 'existing_asset_path_invalid', {
+    const existingStorageName = String(existing.storageName || '');
+    if (!/^[a-f\\d-]{36}\\.(jpg|png|webp|gif|pdf|mp4|webm|mov)$/i.test(existingStorageName)) {
+      return blocked(item, mapping, 'existing_asset_path_invalid');
+    }
+    if (existing.status === 'pending_migration') {
+      return {
+        status: 'pending_migration',
+        sourceCollection: item.sourceCollection,
+        sourceDocumentIdPrefix: item.sourceDocumentId.slice(0, 8),
+        sourceDocumentId: item.sourceDocumentId,
+        sourceField: item.sourceField,
+        category: mapping.category,
+        branchId: item.branchId,
+        sourcePath: source.path,
+        sourceSizeBytes: source.sizeBytes,
+        mimeType: reference.mimeType,
+        childId: target.childId || null,
+        staffUserId: target.staffUserId || null,
+        className: target.className || '',
+        audience: target.audience,
+        originalFileName: safeDisplayName(displayNameFor(item, reference.mimeType)),
+        identityFilter,
+        storageName: existingStorageName,
+        assetIdPrefix: String(existing._id).slice(0, 8),
+        reason: 'pending migration can be resumed',
+      };
+    }
+    return addIssue(item, 'already_migrated', mapping, 'migration_source_already_has_a_media_asset', {
       assetIdPrefix: String(existing._id).slice(0, 8),
       existingStatus: existing.status,
     });
