@@ -60,7 +60,7 @@ For organization context endpoints, send the authenticated token in `x-auth-toke
 - Fee invoices and transaction ledger entries store amounts as integer paise. Payments and refunds are immutable entries; an invoice write lock serializes concurrent ledger updates before balance validation.
 - Tenant attendance and fee-transaction CSV exports require branch context, enforce role/class/date-range limits, revalidate child/invoice links in the same organization and branch, neutralize spreadsheet formula input, and write a `report.exported` audit event.
 
-These workflows have automated unit/syntax/build checks, but the parent invitation and attendance/finance workflows still need isolated MongoDB integration tests using organizations A and B. Parent/guardian identity verification and real-world acceptance testing remain release gates.
+GitHub Actions now runs isolated MongoDB tenant/invitation/operations integration suites plus Chromium browser smoke tests for owner registration, attendance and fee workflows, and the linked-child parent portal. These CI fixtures do not prove a customer's real data is correctly migrated or that the deployed host, email, storage, backup and restore settings are right. Parent identity verification, actual staging-backup rehearsal and real-school acceptance testing remain release gates.
 
 ## Tenant-aware private media foundation
 
@@ -158,16 +158,16 @@ An expired trial or inactive subscription blocks normal tenant-scoped writes. Th
 
 ## Next implementation gates (in order)
 
-1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
-2. Decide/document the legacy data migration strategy and idempotent migration script; back up and reconcile before execution.
-3. Scope students, guardians, classes, attendance, fees/transactions, announcements, reports, teachers/users and related nested references to `organizationId` and `branchId`.
-4. Introduce parent/guardian identity and relationships, consent lifecycle and purpose/retention controls.
-5. Complete organization-aware media authorization for child/guardian photos, staff photos, gallery images, PDFs and videos. The current 120-second legacy-admin signed links are transitional; migrate the files to private storage and bind each download to the caller's membership, branch and record scope.
-6. Revoke existing JWT sessions whenever a user's organization role, branch/class scope or status changes; the owner-transfer flow now requires current-password verification, typed organization-slug confirmation, an active head-office successor, an atomic audit record and re-login for both users. Validate both flows with replica-set integration tests and continue reviewing non-browser tokens.
-7. Add signup/login onboarding, organization/branch switcher and the first owner/branch workspace.
-8. Add tenant-negative tests for each endpoint (tenant A cannot read, change, enumerate, export or download tenant B resources).
-9. Test backup restoration, audit-event completeness, financial reconciliation and representative user workflows.
-10. Enable registration only after review sign-off for every gate above.
+1. Restore a fresh, approved database backup into a dedicated staging deployment and run the read-only legacy migration, staff identity and media preflights. Review every blocker and reconcile student counts, admission IDs, attendance references, fee totals, discounts, payments/refunds, staff mappings and media ownership before any staging apply.
+2. Rehearse the bounded tenant migration, explicit staff identity migration and private-media copy on that disposable restored staging database. Do not run apply against a production URI; require the exact source label, organization/branch mappings, approved change ticket and authorized approver. Preserve source records/files and compare counts and ledgers before and after.
+3. Integrate migrated private media into each organization-scoped child, staff, gallery, PDF and video workflow. The new tenant media library can inspect newly migrated assets, but old unscoped records and old screens do not automatically start using those assets. Keep legacy direct media delivery disabled whenever SaaS data exists.
+4. Execute end-to-end acceptance tests against the configured staging host for organization sign-up/verification, staff invitations and role changes, parent invitation/linking, branch/class scope, attendance, payments/refunds/receipts, fee exports, parent visibility, child handover, health-information permissions, notices, calendar, teacher reports, subscription lockout and ownership transfer.
+5. Confirm cross-tenant and cross-branch negative tests cover every API action, export, private-media download, parent child/fee route, invitation, CSV/report path and nested reference. Verify that permission changes revoke existing sessions and that pending or revoked invitations/tokens cannot be reused.
+6. Perform an approved encrypted backup and restore rehearsal including the database and tenant-private media files, verify the restored index set and record counts, and document actual recovery time and recovery-point expectations. Keep encrypted backups in approved off-host storage and test access to the private recovery key.
+7. Review production configuration with the real deployment: HTTPS and canonical origins, SMTP delivery, separate random JWT/private-media secrets, exact trusted-proxy hops, MongoDB transaction support, file-storage permissions, rate limits, log retention, audit retention, error alerts and emergency account-revocation procedures.
+8. Have an independent security/privacy review of child and family data, consent handling, health/emergency records, signed media links, password reset, account invitation, owner transfer and operational support access. Correct all high-risk findings and rerun relevant tests.
+9. Complete a school-staff acceptance session using a sanitized staging data set and mobile devices. Confirm everyday workflows and printed receipts/reports with the school's actual timezone, academic year, fee policy and language settings.
+10. Keep \`ENABLE_SAAS_REGISTRATION\`, \`SAAS_TENANT_DATA_READY\` and \`SAAS_LAUNCH_APPROVED\` false until the migration, media, privacy, restore and acceptance gates above have documented owner sign-off. Enabling one or all flags is not a substitute for completing the gates.
 
 ## Automated tenant-isolation coverage
 
