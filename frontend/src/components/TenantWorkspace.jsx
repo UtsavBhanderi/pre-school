@@ -11,6 +11,8 @@ import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
 import "../invitations.css";
 import "../class-config.css";
+import "../organization-settings.css";
+import OrganizationSettingsPanel from "./OrganizationSettingsPanel.jsx";
 import "../tenant-notices.css";
 import "../tenant-reports.css";
 import "../tenant-calendar.css";
@@ -31,6 +33,7 @@ const TABS = [
   { id: "fees", label: "Fees & payments", Icon: MdCurrencyRupee },
   { id: "classes", label: "Classes & fees", Icon: MdSchool },
   { id: "branches", label: "Branches", Icon: MdApartment },
+  { id: "settings", label: "Organization settings", Icon: MdSettings },
   { id: "team", label: "Team & activity", Icon: MdManageAccounts },
 ];
 
@@ -2728,6 +2731,14 @@ export default function TenantWorkspace() {
                 />
               ) : <div className="saas-loading" role="status">Loading school notices…</div>}
             </section>
+          )}
+
+          {activeTab === "settings" && (
+            <OrganizationSettingsPanel
+              organizationId={organizationId}
+              branchId={branchId}
+              canManageOrganization={canManageOrganization}
+            />
           )}
 
           {activeTab === "team" && (
