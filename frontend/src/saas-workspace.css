@@ -385,3 +385,39 @@
   .saas-plan-usage-grid { grid-template-columns: 1fr; }
   .saas-plan-usage-card p { min-height: auto; }
 }
+
+
+/* Ownership transfer is intentionally visually distinct from routine team edits. */
+.saas-owner-transfer-card { border-color: #ead6d5; }
+.saas-owner-transfer-card .saas-form-heading h3 { color: #813f46; }
+.saas-pill.warning { color: #8a581d; background: #fff0d7; }
+.saas-owner-transfer-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  padding: .85rem .9rem;
+  border: 1px solid #f0d7d3;
+  border-radius: 8px;
+  color: #7e4a4d;
+  background: #fff8f7;
+  font-size: .77rem;
+  line-height: 1.6;
+}
+.saas-owner-transfer-warning > svg { flex: 0 0 auto; margin-top: .1rem; color: #b3474e; font-size: 1.15rem; }
+.saas-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  min-height: 40px;
+  padding: .58rem .82rem;
+  border: 1px solid #a33c45;
+  border-radius: 8px;
+  color: #fff;
+  background: #a33c45;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.saas-danger-button:hover:not(:disabled) { color: #fff; border-color: #852a33; background: #852a33; }
+.saas-danger-button:disabled { cursor: not-allowed; opacity: .55; }

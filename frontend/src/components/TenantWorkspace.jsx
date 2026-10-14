@@ -240,6 +240,7 @@ export default function TenantWorkspace() {
   }));
   const [editingMemberId, setEditingMemberId] = useState("");
   const [memberEditDraft, setMemberEditDraft] = useState(null);
+  const [ownerTransferDraft, setOwnerTransferDraft] = useState({ targetMembershipId: "", confirmOrganizationSlug: "", confirmPassword: "", reason: "" });
   const [memberEditClassOptions, setMemberEditClassOptions] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [inviteDraft, setInviteDraft] = useState({ fullName: '', email: '', role: 'teacher', branchIds: [], guardianIds: [], classNames: [] });
@@ -1878,6 +1879,54 @@ export default function TenantWorkspace() {
     }
   };
 
+  const transferOwnership = async (event) => {
+    event.preventDefault();
+    const successor = members.find((member) => member.id === ownerTransferDraft.targetMembershipId);
+    if (!successor || successor.role !== "head_office_admin" || successor.status !== "active") {
+      setErrorMessage("Choose an active head-office administrator as the new owner.");
+      return;
+    }
+    if (ownerTransferDraft.confirmOrganizationSlug !== organization?.slug) {
+      setErrorMessage("Type the exact organization slug shown above to confirm the transfer.");
+      return;
+    }
+    if (!ownerTransferDraft.confirmPassword) {
+      setErrorMessage("Enter your current password to confirm this sensitive change.");
+      return;
+    }
+    if (ownerTransferDraft.reason.trim().length < 20) {
+      setErrorMessage("Explain the ownership transfer in at least 20 characters.");
+      return;
+    }
+    const confirmed = window.confirm(
+      "Transfer ownership of " + organization.name + " to " + successor.user.name + " (" + successor.user.email + ")? " +
+      "Your account will become a head-office administrator, and both owners will need to sign in again."
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const result = await saasRequest("/api/saas/ownership/transfer-owner", {
+        method: "POST",
+        organizationId,
+        data: {
+          targetMembershipId: ownerTransferDraft.targetMembershipId,
+          confirmOrganizationSlug: ownerTransferDraft.confirmOrganizationSlug,
+          confirmPassword: ownerTransferDraft.confirmPassword,
+          reason: ownerTransferDraft.reason,
+        },
+      });
+      window.alert(result.message || "Ownership transferred. Please sign in again.");
+      logout();
+      window.location.assign("/login");
+    } catch (error) {
+      setErrorMessage(displayError(error));
+      setSaving(false);
+    }
+  };
+
   const canEditMember = (member) => {
     if (!canManagePeople || !member || member.role === "organization_owner" || member.id === activeMembership?.id) return false;
     if (role === "branch_admin") return ["teacher", "admissions", "transport_staff", "parent"].includes(member.role);
@@ -3046,6 +3095,44 @@ export default function TenantWorkspace() {
           {activeTab === "team" && (
             <section className="saas-section">
               <SectionHeading title="Team and family access" description="Invite staff or parents using a one-time link, set their access, and revoke links that should no longer work." />
+
+              {role === "organization_owner" && (
+                <form className="saas-form-card saas-owner-transfer-card" onSubmit={transferOwnership}>
+                  <div className="saas-form-heading">
+                    <div>
+                      <h3>Transfer organization ownership</h3>
+                      <p>Use this only when ownership is changing. Choose an active head-office administrator who already has access to this organization.</p>
+                    </div>
+                    <span className="saas-pill warning">Sensitive change</span>
+                  </div>
+                  <div className="saas-owner-transfer-warning">
+                    <MdShield aria-hidden="true" />
+                    <span>The successor becomes the organization owner with access to every branch. Your role becomes head-office administrator. Existing sign-in sessions for both accounts are revoked, and both people must sign in again.</span>
+                  </div>
+                  <div className="saas-form-grid">
+                    <label className="saas-full-width">New owner — active head-office administrator *
+                      <select value={ownerTransferDraft.targetMembershipId} onChange={(event) => setOwnerTransferDraft((draft) => ({ ...draft, targetMembershipId: event.target.value }))} required>
+                        <option value="">Choose the new owner</option>
+                        {members.filter((member) => member.role === "head_office_admin" && member.status === "active").map((member) => (
+                          <option key={member.id} value={member.id}>{member.user.name} · {member.user.email}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>Type organization slug to confirm *
+                      <input value={ownerTransferDraft.confirmOrganizationSlug} onChange={(event) => setOwnerTransferDraft((draft) => ({ ...draft, confirmOrganizationSlug: event.target.value }))} required autoComplete="off" placeholder={organization?.slug || "organization-slug"} />
+                    </label>
+                    <label>Current password *
+                      <input type="password" value={ownerTransferDraft.confirmPassword} onChange={(event) => setOwnerTransferDraft((draft) => ({ ...draft, confirmPassword: event.target.value }))} required autoComplete="current-password" maxLength={128} />
+                    </label>
+                    <label className="saas-full-width">Reason for the transfer *<textarea value={ownerTransferDraft.reason} onChange={(event) => setOwnerTransferDraft((draft) => ({ ...draft, reason: event.target.value }))} required minLength={20} maxLength={500} rows="3" placeholder="Explain who approved the transfer and why it is taking place." /></label>
+                  </div>
+                  <div className="saas-form-actions">
+                    <button type="button" className="saas-secondary-button" onClick={() => setOwnerTransferDraft({ targetMembershipId: "", confirmOrganizationSlug: "", confirmPassword: "", reason: "" })}>Clear form</button>
+                    <button type="submit" className="saas-danger-button" disabled={saving || !members.some((member) => member.role === "head_office_admin" && member.status === "active")}>{saving ? "Transferring ownership…" : "Transfer ownership"}</button>
+                  </div>
+                  {!members.some((member) => member.role === "head_office_admin" && member.status === "active") && <p className="saas-plan-disclaimer">No eligible successor is available. Invite and activate a head-office administrator before transferring ownership.</p>}
+                </form>
+              )}
 
               {canManagePeople && (
                 <form className="saas-form-card" onSubmit={createInvitation}>

@@ -159,7 +159,7 @@ See [SAAS_SUBSCRIPTION_POLICY.md](SAAS_SUBSCRIPTION_POLICY.md) for the initial p
 3. Scope students, guardians, classes, attendance, fees/transactions, announcements, reports, teachers/users and related nested references to `organizationId` and `branchId`.
 4. Introduce parent/guardian identity and relationships, consent lifecycle and purpose/retention controls.
 5. Complete organization-aware media authorization for child/guardian photos, staff photos, gallery images, PDFs and videos. The current 120-second legacy-admin signed links are transitional; migrate the files to private storage and bind each download to the caller's membership, branch and record scope.
-6. Add session-wide revocation and an audited owner-transfer workflow; verify effective suspension behavior with multi-session integration tests.
+6. Revoke existing JWT sessions whenever a user's organization role, branch/class scope or status changes; the owner-transfer flow now requires current-password verification, typed organization-slug confirmation, an active head-office successor, an atomic audit record and re-login for both users. Validate both flows with replica-set integration tests and continue reviewing non-browser tokens.
 7. Add signup/login onboarding, organization/branch switcher and the first owner/branch workspace.
 8. Add tenant-negative tests for each endpoint (tenant A cannot read, change, enumerate, export or download tenant B resources).
 9. Test backup restoration, audit-event completeness, financial reconciliation and representative user workflows.

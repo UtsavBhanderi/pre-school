@@ -255,6 +255,7 @@ test('team-access changes preserve owner, branch and suspension safeguards', {
     });
     assert.equal(response.status, 200);
     assert.equal(response.data.status, 'suspended');
+    assert.equal(response.data.sessionsRevoked, true);
 
     const persisted = await OrganizationMembership.findById(staffMembership._id).lean();
     assert.equal(persisted.status, 'suspended');
@@ -268,10 +269,11 @@ test('team-access changes preserve owner, branch and suspension safeguards', {
     assert.ok(audit);
     assert.equal(audit.reason, 'Employment ended; access removed');
     assert.ok(audit.changedFields.includes('status'));
+    assert.ok(audit.changedFields.includes('userSessionsRevoked'));
 
     const requestWithSuspendedToken = await api('/api/saas/operations/summary', {
       token: staffToken, organizationId: organization._id, branchId: branch._id,
     });
-    assert.equal(requestWithSuspendedToken.status, 403);
+    assert.equal(requestWithSuspendedToken.status, 401);
   });
 });
