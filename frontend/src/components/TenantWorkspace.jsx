@@ -565,7 +565,7 @@ export default function TenantWorkspace() {
     return () => { active = false; };
   }, [
     organizationId, branchId, activeTab, appliedQuery, attendanceDate, attendanceClass,
-    refreshVersion, loadBranches, loadClasses, loadChildren, loadChildPhotos, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover, loadWorkReports,
+    refreshVersion, canManageOrganization, loadBranches, loadClasses, loadChildren, loadChildPhotos, loadInvoices, loadMembersAndAudit, loadNotices, loadCalendar, loadHandover, loadWorkReports,
   ]);
 
   useEffect(() => {
