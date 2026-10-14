@@ -100,6 +100,10 @@ Set `API_PUBLIC_URL` to the canonical, externally reachable API origin (for exam
 This milestone still uses the legacy school's administrator access model for gallery and resource files; it is not a substitute for organization/branch authorization. Parent/tenant workspace photo uploads and organization-aware private media are a later step. External learning-resource URLs remain external URLs and are not proxied by this server. Public organization sign-up must remain disabled until all legacy data/API paths and all child-related media have organization-level authorization and tenant-isolation tests.
 
 
+## SaaS subscription and capacity policy
+
+The tenant workspace now displays owner-visible subscription status and usage. Backend checks enforce initial branch, child and staff capacity and set expired/inactive subscriptions to read-only mode. These initial plan limits are documented in [the subscription policy](docs/SAAS_SUBSCRIPTION_POLICY.md). There is **no payment gateway or self-service plan change** in this build, so trial extension and paid-plan activation still require an authorized operational process. Public signup remains closed until the wider tenant/privacy rollout is approved.
+
 ## Requirements
 
 - Node.js 22 or newer (Node.js 24 LTS recommended)
