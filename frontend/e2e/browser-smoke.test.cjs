@@ -512,3 +512,169 @@ test('organization owner can enter the tenant workspace and register a child in 
   assert.equal(tenantApi.hasScopedPayment(), true, 'Payment writes must include organization and branch scope headers.');
   await page.close();
 });
+
+
+async function mockParentPortalApi(page) {
+  const parentScopeRequests = [];
+  const unscopedStudentRequests = [];
+
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const headers = request.headers();
+    let status = 200;
+    let body = {};
+
+    if (path.startsWith('/api/saas/parent/')) {
+      parentScopeRequests.push({
+        path,
+        organizationId: headers['x-organization-id'] || '',
+        branchId: headers['x-branch-id'] || '',
+      });
+    }
+    if (path === '/api/students' || path === '/api/saas/operations/children') {
+      unscopedStudentRequests.push(path);
+    }
+
+    if (path === '/api/auth/login' && request.method() === 'POST') {
+      body = { token: 'browser-smoke-parent-token' };
+    } else if (path === '/api/auth/me' && request.method() === 'GET') {
+      body = {
+        user: {
+          id: 'parent-user-1',
+          username: 'Disha Patel',
+          email: 'disha@example.com',
+          role: 'admin',
+          memberships: [{
+            id: 'parent-membership-1',
+            organization: {
+              id: 'org-1',
+              name: 'Little Stars Preschool',
+              slug: 'little-stars-abc123',
+              timezone: 'Asia/Kolkata',
+              locale: 'en-IN',
+              currency: 'INR',
+              status: 'active',
+              subscription: { plan: 'growth', status: 'active' },
+            },
+            role: 'parent',
+            status: 'active',
+            classNames: [],
+            branchIds: [{
+              id: 'branch-1',
+              name: 'Main Branch',
+              code: 'MAIN',
+              status: 'active',
+              timezone: 'Asia/Kolkata',
+            }],
+            accessAllBranches: false,
+          }],
+        },
+      };
+    } else if (path === '/api/saas/parent/summary') {
+      body = {
+        organization: { name: 'Little Stars Preschool', currency: 'INR' },
+        date: '2026-10-14',
+        children: 1,
+        attendanceToday: { present: 1, absent: 0 },
+        fees: { outstandingPaise: 250000, outstanding: 2500, billingChildren: 1 },
+      };
+    } else if (path === '/api/saas/parent/children') {
+      body = {
+        total: 1,
+        children: [{
+          id: 'child-1',
+          name: 'Aarav Patel',
+          admissionNumber: 'STU-MAIN-2026-00001',
+          className: 'Play Group',
+          academicYear: '2026-2027',
+          dateOfBirth: '2022-05-10',
+          gender: 'Male',
+          address: 'Family address',
+          branch: { name: 'Main Branch', code: 'MAIN' },
+          relationships: [{
+            relationship: 'mother',
+            isPrimaryContact: true,
+            isBillingContact: true,
+            authorizedPickup: true,
+            receivesSchoolUpdates: true,
+          }],
+        }],
+      };
+    } else if (path === '/api/saas/media') {
+      body = { assets: [] };
+    } else if (path === '/api/saas/parent/fees') {
+      body = {
+        invoices: [{
+          id: 'parent-invoice-1',
+          invoiceNumber: 'INV-MAIN-2026-000001',
+          childName: 'Aarav Patel',
+          className: 'Play Group',
+          academicYear: '2026-2027',
+          dueDate: '2026-11-01',
+          total: 15000,
+          paid: 12500,
+          outstanding: 2500,
+          status: 'open',
+          currency: 'INR',
+          transactions: [{
+            receiptNumber: 'REC-MAIN-2026-000001',
+            transactionAt: '2026-10-10T09:00:00.000Z',
+            method: 'upi',
+            amount: 12500,
+            type: 'payment',
+          }],
+        }],
+      };
+    } else if (path === '/api/saas/parent/attendance') {
+      body = { children: [] };
+    } else if (path === '/api/saas/notices' || path === '/api/saas/calendar' || path === '/api/saas/handover') {
+      body = path === '/api/saas/calendar' || path === '/api/saas/handover' ? { events: [] } : [];
+    }
+
+    await route.fulfill({
+      status,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(body),
+    });
+  });
+
+  return {
+    parentScopeRequests,
+    unscopedStudentRequests,
+  };
+}
+
+test('parent login opens the family portal and shows only linked child and billing information', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const api = await mockParentPortalApi(page);
+
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('disha@example.com');
+  await page.locator('#login-password').fill('parent-test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+
+  await page.waitForURL((url) => url.pathname === '/parent-portal', { timeout: 10000 });
+  await page.getByRole('heading', { name: /Welcome, Disha Patel/ }).waitFor();
+  await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
+  await page.getByRole('button', { name: 'My children', exact: true }).click();
+  await page.getByRole('heading', { name: 'My children' }).waitFor();
+  await page.getByText('STU-MAIN-2026-00001', { exact: true }).waitFor();
+  assert.equal(await page.getByText('Riya Sharma', { exact: true }).count(), 0,
+    'The family portal must not render an unrelated child.');
+  assert.ok(api.parentScopeRequests.length > 0, 'The portal should load the family-scoped APIs.');
+  assert.ok(api.parentScopeRequests.every((entry) => entry.organizationId === 'org-1'),
+    'Family-scoped requests must carry the selected organization.');
+  assert.equal(api.unscopedStudentRequests.length, 0,
+    'The parent portal must not call the school-wide student list or staff child-list API.');
+
+  await page.getByRole('button', { name: 'Fee status', exact: true }).click();
+  await page.getByRole('heading', { name: 'Fee status' }).waitFor();
+  await page.getByText('INV-MAIN-2026-000001', { exact: true }).waitFor();
+  await page.getByText('View payment receipts (1)', { exact: true }).click();
+  await page.getByText('REC-MAIN-2026-000001', { exact: true }).waitFor();
+  assert.equal(await page.getByText('Riya Sharma', { exact: true }).count(), 0,
+    'The parent fee view must not expose another family.');
+  await page.close();
+});
