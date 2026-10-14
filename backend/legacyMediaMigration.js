@@ -616,7 +616,7 @@ async function buildPlanItem(item, manifest, apiPublicUrl) {
   const existing = await TenantMediaAsset.findOne(identityFilter).select('+storageName').lean();
   if (existing) {
     const existingStorageName = String(existing.storageName || '');
-    if (!/^[a-f\\d-]{36}\\.(jpg|png|webp|gif|pdf|mp4|webm|mov)$/i.test(existingStorageName)) {
+    if (!/^[a-f0-9-]{36}[.](jpg|png|webp|gif|pdf|mp4|webm|mov)$/i.test(existingStorageName)) {
       return blocked(item, mapping, 'existing_asset_path_invalid');
     }
     if (existing.status === 'pending_migration') {
