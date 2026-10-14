@@ -146,6 +146,12 @@ A clean review plan still does **not** authorize migration: financial totals mus
 
 Never run this command with a write-capable production database account for the first audit. Do not point automated tests at a live school database.
 
+## Subscription lifecycle and capacity
+
+The app now enforces a 14-day trial deadline and initial plan capacities for branches, child records and staff seats. Expired trials, past-due, suspended and cancelled subscriptions can read their existing records but cannot perform tenant-scoped mutations. Capacity checks run server-side, within MongoDB transactions, and include pending staff invitations.
+
+See [SAAS_SUBSCRIPTION_POLICY.md](SAAS_SUBSCRIPTION_POLICY.md) for the exact initial plan defaults and the current limitation: there is no payment gateway or self-service plan-change flow. Paid-plan activation and trial extensions therefore require an authorized operational process. Treat the capacity values as defaults until the product and commercial plan have been formally approved.
+
 ## Next implementation gates (in order)
 
 1. Establish baseline integration tests using an isolated MongoDB replica set and seeded organizations A and B.
