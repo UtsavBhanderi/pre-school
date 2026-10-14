@@ -25,6 +25,9 @@ const auth = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'The account associated with this token no longer exists.' });
     }
+    if (user.status === 'suspended') {
+      return res.status(401).json({ code: 'ACCOUNT_SUSPENDED', message: 'This account is suspended. Contact your school administrator.' });
+    }
 
     // Tokens issued before authVersion existed are treated as version 0. Once
     // a password reset increments the stored version, all prior JWTs are denied.
