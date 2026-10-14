@@ -1,0 +1,20 @@
+.saas-setting-field { display: grid; gap: .35rem; min-width: 0; color: #455771; font-size: .77rem; font-weight: 750; line-height: 1.4; }
+.saas-setting-field > span { overflow-wrap: anywhere; }
+.saas-setting-field input, .saas-setting-field select {
+  display: block; width: 100%; min-width: 0; min-height: 42px; padding: .56rem .65rem;
+  border: 1px solid #d4deeb; border-radius: 7px; color: #21344d; background: #fff; font-size: .83rem; font-weight: 500;
+}
+.saas-setting-field input:focus, .saas-setting-field select:focus { outline: 0; border-color: #8ca0e9; box-shadow: 0 0 0 .2rem rgba(54,85,206,.1); }
+.saas-setting-field input:disabled, .saas-setting-field select:disabled { color: #637187; background: #f5f7fb; cursor: not-allowed; }
+.saas-setting-subhead { margin-top: .15rem; padding-top: .9rem; border-top: 1px solid #edf1f6; }
+.saas-setting-subhead h4 { margin: 0 0 .22rem; color: #2b3d56; font-family: 'DM Sans', sans-serif; font-size: .88rem; font-weight: 850; }
+.saas-setting-subhead p { margin: 0; color: #6d7c91; font-size: .77rem; line-height: 1.5; }
+.saas-setting-address-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .85rem; }
+.saas-settings-note { display: flex; align-items: flex-start; gap: .6rem; padding: .8rem .9rem; border: 1px solid #dce6f5; border-radius: 9px; color: #5a6c84; background: #f7f9ff; font-size: .78rem; line-height: 1.55; }
+.saas-settings-note > svg { flex: 0 0 auto; margin-top: .05rem; color: #4a62bc; font-size: 1.15rem; }
+.saas-form-heading h3 > svg { margin-right: .35rem; color: #5268b5; vertical-align: -.12em; }
+.saas-settings-slug { max-width: 50%; padding: .35rem .55rem; border: 1px solid #e0e7f0; border-radius: 7px; color: #66758b; background: #f8faff; font-size: .68rem; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .saas-setting-address-grid { grid-template-columns: 1fr; }
+  .saas-settings-slug { max-width: 100%; }
+}
