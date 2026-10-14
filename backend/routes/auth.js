@@ -55,10 +55,13 @@ router.post('/register', async (req, res) => {
       return res.status(403).json({ message: 'Only an administrator can create user accounts.' });
     }
 
-    const username = String(req.body.username || '').trim();
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
-    const requestedRole = String(req.body.role || 'teacher').toLowerCase();
+    const payload = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? req.body
+      : {};
+    const username = typeof payload.username === 'string' ? payload.username.trim() : '';
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    const password = typeof payload.password === 'string' ? payload.password : '';
+    const requestedRole = typeof payload.role === 'string' ? payload.role.trim().toLowerCase() : 'teacher';
 
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Full name, email, and password are required.' });
