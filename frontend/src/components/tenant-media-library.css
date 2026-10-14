@@ -65,3 +65,43 @@
   .tenant-media-summary { align-items: flex-start; }
   .tenant-media-selected-file { flex-basis: 100%; }
 }
+
+
+.tenant-media-staff-target {
+  display: grid;
+  gap: .35rem;
+  max-width: 580px;
+  color: #455771;
+  font-size: .77rem;
+  font-weight: 800;
+}
+.tenant-media-staff-target select {
+  width: 100%;
+  min-height: 42px;
+  padding: .55rem .65rem;
+  border: 1px solid #d4deeb;
+  border-radius: 7px;
+  color: #263a54;
+  background: #fff;
+  font-size: .8rem;
+  font-weight: 600;
+}
+.tenant-media-staff-target select:focus-visible {
+  outline: 3px solid rgba(64, 94, 213, .35);
+  outline-offset: 2px;
+}
+.tenant-media-staff-target small {
+  color: #7b879a;
+  font-size: .71rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.tenant-media-preview.staff_photo {
+  aspect-ratio: 1 / 1;
+  max-height: 220px;
+}
+.tenant-media-preview.staff_photo > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
