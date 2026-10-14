@@ -6,12 +6,15 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const OrganizationMembership = require('../models/OrganizationMembership');
+const bcrypt = require('bcryptjs');
+const { createPasswordResetToken, hashPasswordResetToken, passwordResetExpiry, isValidNewPassword } = require('../utils/passwordResetTokens');
+const { createPasswordResetUrl, sendPasswordResetEmail } = require('../utils/passwordResetEmail');
 const { resolveWorkspaceMembershipState } = require('../utils/workspaceMembershipState');
 
 const ALLOWED_ROLES = new Set(['teacher', 'admin', 'student']);
 
 const signToken = (user) => jwt.sign(
-  { user: { id: user.id, role: user.role } },
+  { user: { id: user.id, role: user.role, authVersion: Number.isInteger(user.authVersion) ? user.authVersion : 0 } },
   process.env.JWT_SECRET,
   { expiresIn: '1h' }
 );
@@ -93,6 +96,95 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login failed:', error);
     return res.status(500).json({ message: 'Unable to log in right now.' });
+  }
+});
+
+const PASSWORD_RESET_GENERIC_MESSAGE = 'If an account exists for that email address, password reset instructions will be sent shortly.';
+
+router.post('/forgot-password', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    return res.status(400).json({ message: 'Enter a valid email address.' });
+  }
+
+  try {
+    // Do not let the response reveal whether the email has an account.
+    const user = await User.findOne({ email }).select('_id username email').lean();
+    if (user) {
+      const { token, tokenHash } = createPasswordResetToken();
+      const expiresAt = passwordResetExpiry();
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt } },
+        { runValidators: true },
+      );
+
+      const delivery = await sendPasswordResetEmail({
+        email: user.email,
+        fullName: user.username,
+        resetUrl: createPasswordResetUrl(token),
+      });
+
+      if (!delivery.sent) {
+        // Never expose the raw token through an API response or logs when email
+        // delivery is unavailable. Clear the hash so a dead link is not stored.
+        await User.updateOne(
+          { _id: user._id, passwordResetTokenHash: tokenHash },
+          { $set: { passwordResetTokenHash: null, passwordResetExpiresAt: null } },
+        );
+      }
+    }
+
+    return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+  } catch (error) {
+    console.error('Unable to process password reset request:', error?.name || 'request_error');
+    return res.status(503).json({ message: 'We could not process that request right now. Please try again shortly.' });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  const rawToken = typeof req.body?.token === 'string' ? req.body.token : '';
+  const password = req.body?.password;
+  const tokenHash = hashPasswordResetToken(rawToken);
+  if (!tokenHash) {
+    return res.status(400).json({ message: 'The reset link is invalid. Request a new password reset email.' });
+  }
+  if (!isValidNewPassword(password)) {
+    return res.status(400).json({ message: 'Choose a password between 12 and 128 characters. It cannot be blank.' });
+  }
+
+  try {
+    // findOneAndUpdate is conditional and atomic: only one concurrent request
+    // can consume the token. Hash the new password explicitly because this
+    // atomic update does not execute the User document's save middleware.
+    const passwordHash = await bcrypt.hash(password, 12);
+    const now = new Date();
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: { $gt: now },
+      },
+      {
+        $set: {
+          password: passwordHash,
+          passwordResetTokenHash: null,
+          passwordResetExpiresAt: null,
+        },
+        $inc: { authVersion: 1 },
+      },
+      { new: true, runValidators: true },
+    ).select('_id');
+
+    if (!user) {
+      return res.status(410).json({ message: 'This reset link is invalid, expired, or already used. Request a new one.' });
+    }
+
+    return res.json({
+      message: 'Password updated successfully. Please sign in again with your new password.',
+    });
+  } catch (error) {
+    console.error('Unable to complete password reset:', error?.name || 'reset_error');
+    return res.status(503).json({ message: 'Your password could not be updated safely. Please try again.' });
   }
 });
 
