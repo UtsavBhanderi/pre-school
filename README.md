@@ -270,7 +270,7 @@ cp ../docs/legacy-media-manifest.example.json ../legacy-media-manifest.json
 npm run migration:media -- --manifest ../legacy-media-manifest.json --json
 ~~~
 
-Read [the detailed migration gates](docs/SAAS_ROLLOUT.md#legacy-media-migration--staging-only-prototype) before any apply run. Existing legacy screens are not automatically rewritten to use the new assets, and external resource URLs are skipped rather than downloaded. This is a staging prototype—not approval for production migration or public organization signup.
+Read [the detailed migration gates](docs/SAAS_ROLLOUT.md#legacy-media-migration--staging-only-prototype) before any apply run. After a staging apply, verify the returned batch ID using \`NODE_ENV=staging SAAS_MIGRATION_ENV=staging npm run migration:media-verify -- --batch media-<24-hex-batch-id> --json\`. This read-only command checks source linkage, private file paths, file signatures, size and SHA-256 equality; it prints only safe prefixes and reason codes. It refuses to run against a database whose name does not contain \`staging\`. Existing legacy screens are not automatically rewritten to use the new assets, and external resource URLs are skipped rather than downloaded. This is a staging prototype—not approval for production migration or public organization signup.
 
 ## Verified legacy staff migration (staging only)
 
