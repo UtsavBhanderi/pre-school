@@ -158,12 +158,17 @@ function buildClassroomHealthSummary(record) {
   }));
   const specialCareInstructions = record.specialCareInstructions || '';
   const emergencyInstructions = record.emergencyInstructions || '';
+  const schoolMedicationRequired = (record.medications || []).some((item) =>
+    item.administerAtSchool === true && item.parentAuthorizationRecorded === true
+  );
   return {
-    hasAlerts: allergies.length > 0 || dietaryRestrictions.length > 0 || Boolean(specialCareInstructions || emergencyInstructions),
+    hasAlerts: allergies.length > 0 || dietaryRestrictions.length > 0 ||
+      Boolean(specialCareInstructions || emergencyInstructions || schoolMedicationRequired),
     allergies,
     dietaryRestrictions,
     specialCareInstructions,
     emergencyInstructions,
+    schoolMedicationRequired,
     lastUpdatedAt: record.updatedAt || null,
   };
 }
