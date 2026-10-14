@@ -8,7 +8,9 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, minlength: 8 },
   role: { type: String, enum: ['teacher', 'admin', 'student'], default: 'teacher' },
-  // Incrementing authVersion invalidates tokens issued before a password reset.
+  // Missing status on pre-existing documents is treated as active for compatibility.
+  status: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
+  // Incrementing authVersion invalidates tokens issued before a password reset or access change.
   authVersion: { type: Number, min: 0, default: 0 },
   passwordResetTokenHash: { type: String, default: null, select: false },
   passwordResetExpiresAt: { type: Date, default: null, select: false },
