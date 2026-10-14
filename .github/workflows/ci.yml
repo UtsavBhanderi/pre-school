@@ -22,6 +22,10 @@ jobs:
         run: npm ci
       - name: Check backend JavaScript syntax
         run: find backend -path 'backend/node_modules' -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Check operational shell script syntax
+        run: |
+          bash -n backend/ops/mongo-backup.sh
+          bash -n backend/ops/mongo-restore-to-staging.sh
       - name: Run backend unit tests
         working-directory: backend
         run: npm test

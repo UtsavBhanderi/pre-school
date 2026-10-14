@@ -259,3 +259,8 @@ For apply, use a disposable restored staging database only. Both \`NODE_ENV=stag
 The write path is a single MongoDB transaction that creates the mapped memberships, tenant-scoped teacher profile copies (if explicitly mapped), a unique migration-run record and an audit event. Source User credentials and Teacher records are not modified. Repeated plans are treated as a no-op when the exact requested scope is already present. If any identity, role, email, branch, teacher-profile or class configuration does not match, the plan is blocked instead of guessing.
 
 Do not enable public registration merely because this command passes. Existing report cards, resources, private media, and any unmapped identities still need their own reviewed migration paths and tenant-isolation tests.
+
+
+## Encrypted backup and restore rehearsal
+
+A guarded backup/restore toolkit is documented in [the MongoDB backup and restore runbook](docs/MONGO_BACKUP_RESTORE.md). It encrypts database archives using age, records checksums and metadata, and permits restore only to an explicitly approved restore_test_* database on a different MongoDB endpoint. Use an approved secret manager, encrypted off-host storage, a dedicated staging deployment and the documented acceptance checklist. These scripts are operational aids; they do not make a database production-ready or enable self-service registration.
