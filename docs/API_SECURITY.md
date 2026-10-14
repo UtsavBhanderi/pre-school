@@ -32,6 +32,8 @@ The checked settings are:
 
 The example values in `backend/.env.example` are for local development only. Replace every placeholder before deploying. This validation does not prove that the database is a replica set, that backups restore correctly, or that tenant data is safe to onboard.
 
+Public SaaS registration also requires three independent flags: `ENABLE_SAAS_REGISTRATION=true`, `SAAS_TENANT_DATA_READY=true`, and `SAAS_LAUNCH_APPROVED=true`. The final approval flag must remain false until the reviewed migration, tenant isolation, private media, backup/restore and school acceptance gates are signed off.
+
 ## Public endpoint request limits
 
 The process includes bounded fixed-window limits for sensitive unauthenticated endpoints:
