@@ -24,6 +24,7 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
   const Student = require('../models/Student');
   const Guardian = require('../models/Guardian');
   const ChildGuardian = require('../models/ChildGuardian');
+  const ChildHealthRecord = require('../models/ChildHealthRecord');
   const FeeInvoice = require('../models/FeeInvoice');
   const FeeTransaction = require('../models/FeeTransaction');
   const TenantSequence = require('../models/TenantSequence');
@@ -125,6 +126,7 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
     await Promise.allSettled([
       FeeTransaction.deleteMany(organizationFilter),
       FeeInvoice.deleteMany(organizationFilter),
+      ChildHealthRecord.deleteMany(organizationFilter),
       ChildGuardian.deleteMany(organizationFilter),
       Guardian.deleteMany(organizationFilter),
       Attendance.deleteMany(organizationFilter),
@@ -146,6 +148,7 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
   const ownerA = await makeUser('admin', 'owner-a');
   const ownerB = await makeUser('admin', 'owner-b');
   const branchStaff = await makeUser('teacher', 'limited-staff');
+  const classroomTeacher = await makeUser('teacher', 'classroom-teacher');
   const parentUser = await makeUser('student', 'parent-a');
   // Deliberately has no OrganizationMembership: an old admin account must not
   // use unscoped endpoints to browse SaaS-owned rows merely because it lacks a
@@ -206,6 +209,15 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
       userId: branchStaff._id,
       role: 'admissions',
       branchIds: [branchA._id],
+      accessAllBranches: false,
+      status: 'active',
+    },
+    {
+      organizationId: organizationA._id,
+      userId: classroomTeacher._id,
+      role: 'teacher',
+      branchIds: [branchA._id],
+      classNames: ['ENG JR.'],
       accessAllBranches: false,
       status: 'active',
     },
@@ -276,6 +288,116 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
     ownerA, ownerB, branchStaff, parentUser, childA, childA2,
     childAOtherBranch, childB, invoiceA, invoiceA2, invoiceB,
   };
+
+  await t.test('child health profiles are private, audited and limited to classroom-safe details for teachers', async () => {
+    const healthPayload = {
+      allergies: [{
+        name: 'Peanuts',
+        reaction: 'Hives and swelling',
+        severity: 'severe',
+        emergencyAction: 'Follow approved emergency plan and call guardian.',
+      }],
+      medications: [{
+        name: 'Private medication',
+        dosage: 'Only if approved in writing',
+        instructions: 'Follow the written family care plan.',
+        startDate: '2026-10-01',
+        endDate: '2026-10-31',
+        administerAtSchool: false,
+        parentAuthorizationRecorded: false,
+        authorizationNotes: '',
+      }],
+      dietaryRestrictions: [{ name: 'Dairy-free', details: 'Do not serve dairy at school.' }],
+      specialCareInstructions: 'Keep the approved emergency plan accessible to assigned classroom staff.',
+      emergencyInstructions: 'Contact the guardian and follow the school emergency procedure.',
+      physicianName: 'Private physician',
+      physicianPhone: '+91 90000 11111',
+      medicalNotes: 'Private medical background that should not be returned in a classroom summary.',
+    };
+
+    const saved = await api('/api/saas/operations/children/' + childA._id + '/health', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'PUT',
+      body: healthPayload,
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    assert.equal(saved.data.hasAlerts, true);
+    assert.equal(saved.data.health.allergies[0].name, 'Peanuts');
+
+    const loaded = await api('/api/saas/operations/children/' + childA._id + '/health', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(loaded.status, 200);
+    assert.equal(loaded.data.health.medicalNotes, healthPayload.medicalNotes);
+    assert.equal(loaded.data.health.medications[0].name, 'Private medication');
+
+    const parentDenied = await api('/api/saas/operations/children/' + childA._id + '/health', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(parentDenied.status, 403);
+
+    const ownerBDenied = await api('/api/saas/operations/children/' + childA._id + '/health', {
+      token: tokenFor(ownerB),
+      organizationId: organizationB._id,
+      branchId: branchB._id,
+    });
+    assert.equal(ownerBDenied.status, 404);
+
+    const ordinaryList = await api('/api/saas/operations/children?q=AliceA', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(ordinaryList.status, 200);
+    assert.equal(Object.hasOwn(ordinaryList.data.children[0], 'classroomHealth'), false);
+    assert.equal(JSON.stringify(ordinaryList.data).includes('Private medication'), false);
+    assert.equal(JSON.stringify(ordinaryList.data).includes('Private medical background'), false);
+
+    const teacherRoster = await api('/api/saas/operations/children?q=AliceA', {
+      token: tokenFor(classroomTeacher),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(teacherRoster.status, 200, JSON.stringify(teacherRoster.data));
+    const summary = teacherRoster.data.children[0].classroomHealth;
+    assert.equal(summary.hasAlerts, true);
+    assert.equal(summary.allergies[0].name, 'Peanuts');
+    assert.equal(summary.dietaryRestrictions[0].name, 'Dairy-free');
+    assert.equal(Object.hasOwn(summary, 'medications'), false);
+    assert.equal(Object.hasOwn(summary, 'medicalNotes'), false);
+    assert.equal(Object.hasOwn(summary, 'physicianPhone'), false);
+    assert.equal(JSON.stringify(teacherRoster.data).includes('Private medication'), false);
+    assert.equal(JSON.stringify(teacherRoster.data).includes('Private medical background'), false);
+
+    const teacherClassroomApi = await api('/api/saas/operations/children/' + childA._id + '/health/classroom', {
+      token: tokenFor(classroomTeacher),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(teacherClassroomApi.status, 200);
+    assert.equal(Object.hasOwn(teacherClassroomApi.data.health, 'medications'), false);
+
+    const savedRecord = await ChildHealthRecord.findOne({
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      childId: childA._id,
+    }).lean();
+    assert.ok(savedRecord);
+    const audit = await AuditEvent.findOne({
+      organizationId: organizationA._id,
+      action: 'child.health_profile_updated',
+      resourceId: String(savedRecord._id),
+    }).lean();
+    assert.ok(audit);
+    assert.ok(audit.changedFields.includes('medicalNotes'));
+    assert.equal(audit.summary.includes('Private medical background'), false);
+  });
 
   await t.test('owner setup checklist reports saved progress only within the selected organization', async () => {
     const response = await api('/api/saas/operations/onboarding', {
