@@ -17,7 +17,8 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 
-# Runtime uploads/session artifacts and logs
+# Runtime uploads/session artifacts, backups, and logs
+backend/backups/
 backend/uploads/
 uploads/
 backend/routes/cookies.json
