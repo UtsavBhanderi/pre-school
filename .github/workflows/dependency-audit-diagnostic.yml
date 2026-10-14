@@ -1,0 +1,49 @@
+name: Dependency audit diagnostic
+
+on:
+  push:
+    branches:
+      - security/npm-audit-diagnostic
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Report npm audit findings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Report backend advisories without hiding the audit exit code
+        run: |
+          set +e
+          npm --prefix backend audit --json > "$RUNNER_TEMP/backend-audit.json"
+          audit_status=$?
+          set -e
+          node backend/ops/summarize-npm-audit.cjs "$RUNNER_TEMP/backend-audit.json"
+          echo "Backend npm audit exit status: $audit_status"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Report frontend advisories without hiding the audit exit code
+        run: |
+          set +e
+          npm --prefix frontend audit --json > "$RUNNER_TEMP/frontend-audit.json"
+          audit_status=$?
+          set -e
+          node backend/ops/summarize-npm-audit.cjs "$RUNNER_TEMP/frontend-audit.json"
+          echo "Frontend npm audit exit status: $audit_status"
