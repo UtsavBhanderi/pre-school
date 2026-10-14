@@ -31,6 +31,7 @@ const eventRoutes = require('./routes/calendar');
 const announcementsRoutes = require('./routes/announcements');
 const organizationsRoutes = require('./routes/organizations');
 const tenantWorkspaceRoutes = require('./routes/tenantWorkspace');
+const tenantSettingsRoutes = require('./routes/tenantSettings');
 const tenantOperationsRoutes = require('./routes/tenantOperations');
 const invitationsRoutes = require('./routes/invitations');
 const publicInvitationsRoutes = require('./routes/publicInvitations');
@@ -91,6 +92,7 @@ app.use('/api/saas/handover', auth, tenantHandoverRoutes);
 app.use('/api/saas/work-reports', auth, tenantWorkReportsRoutes);
 app.use('/api/saas/operations', auth, tenantOperationsRoutes);
 app.use('/api/saas', auth, tenantWorkspaceRoutes);
+app.use('/api/saas/settings', auth, tenantSettingsRoutes);
 
 // Teachers can submit and view their own work reports; administrative listing
 // is separately protected inside the report router.
