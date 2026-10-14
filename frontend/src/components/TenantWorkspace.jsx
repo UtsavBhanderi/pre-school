@@ -9,6 +9,7 @@ import {
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
+import "../child-health.css";
 import "../owner-setup-guide.css";
 import "../invitations.css";
 import "../class-config.css";
@@ -180,6 +181,7 @@ export default function TenantWorkspace() {
   const canManageOrganization = ['organization_owner', 'head_office_admin'].includes(role);
   const canManagePeople = ['organization_owner', 'head_office_admin', 'branch_admin'].includes(role);
   const canUploadChildPhotos = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
+  const canEditChildHealth = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions'].includes(role);
   const canManageNotices = canManagePeople;
   const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
@@ -538,6 +540,7 @@ export default function TenantWorkspace() {
                 childId: child.id,
                 name: child.fullName,
                 admissionNumber: child.admissionNumber,
+                classroomHealth: child.classroomHealth || null,
                 status: saved?.status || "",
                 reason: saved?.reason || "",
               };
@@ -956,7 +959,7 @@ export default function TenantWorkspace() {
       setChildren(roster);
       setAttendanceRows(roster.map((child) => {
         const saved = savedByChild.get(child.id);
-        return { childId: child.id, name: child.fullName, admissionNumber: child.admissionNumber, status: saved?.status || "", reason: saved?.reason || "" };
+        return { childId: child.id, name: child.fullName, admissionNumber: child.admissionNumber, classroomHealth: child.classroomHealth || null, status: saved?.status || "", reason: saved?.reason || "" };
       }));
       setErrorMessage("");
     } catch (error) {
@@ -2234,7 +2237,7 @@ export default function TenantWorkspace() {
                   {children.length ? (
                     <div className="saas-table-wrap"><table className="saas-table"><thead><tr><th>Child</th><th>Admission number</th><th>Class / year</th><th>Parent or guardian</th><th>Mobile</th><th>Record updated</th><th>Actions</th></tr></thead><tbody>
                       {children.map((child) => (
-                        <tr key={child.id}><td><div className="saas-child-identity">{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span aria-hidden="true"><MdPeople /></span>}<div><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></div></div></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button></td></tr>
+                        <tr key={child.id}><td><div className="saas-child-identity">{childPhotoUrls[child.id] ? <img src={childPhotoUrls[child.id]} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span aria-hidden="true"><MdPeople /></span>}<div><strong>{child.fullName || "—"}</strong><small>{child.dateOfBirth ? "DOB " + formatDate(child.dateOfBirth) : "Date of birth not set"}</small></div></div></td><td>{child.admissionNumber}</td><td>{child.className}<small>{child.academicYear}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.name || child.guardians?.[0]?.name || "—"}<small>{child.guardians?.find((item) => item.primaryContact)?.relationship || child.guardians?.[0]?.relationship || ""}</small></td><td>{child.guardians?.find((item) => item.primaryContact)?.phone || child.guardians?.[0]?.phone || "—"}</td><td>{formatDate(child.updatedAt)}</td><td><div className="saas-child-row-actions"><button type="button" className="saas-secondary-button" onClick={() => beginChildEdit(child)}>Edit record</button>{canEditChildHealth && <button type="button" className="saas-secondary-button saas-health-action" onClick={() => openHealthProfile(child)}><MdShield aria-hidden="true" /> Health &amp; safety</button>}</div></td></tr>
                       ))}
                     </tbody></table></div>
                   ) : !loading && <BlankState title={appliedQuery ? "No matching child" : "No children registered yet"} detail={appliedQuery ? "Try another spelling, mobile number or admission number." : "Register the first child using the button above. You can search and update records from this list."} action={appliedQuery ? <button type="button" className="saas-secondary-button" onClick={() => { setQuery(""); setAppliedQuery(""); }}>Show all children</button> : <button type="button" className="saas-primary-button" onClick={() => setShowChildForm(true)}><MdAdd /> Register a child</button>} />}
@@ -2267,6 +2270,16 @@ export default function TenantWorkspace() {
                           <div className="saas-attendance-row" key={row.childId}>
                             <span className="saas-attendance-number">{index + 1}</span>
                             <div className="saas-attendance-child"><strong>{row.name}</strong><small>{row.admissionNumber}</small></div>
+                            {row.classroomHealth?.hasAlerts && (
+                              <details className="saas-classroom-health">
+                                <summary><MdShield aria-hidden="true" /> Health and safety notes</summary>
+                                {row.classroomHealth.allergies?.length > 0 && <div><strong>Allergies</strong><ul>{row.classroomHealth.allergies.map((item, itemIndex) => <li key={item.name + itemIndex}><b>{item.name}</b>{item.severity && item.severity !== "unknown" ? " · " + item.severity : ""}{item.reaction ? " — " + item.reaction : ""}{item.emergencyAction ? ". Action: " + item.emergencyAction : ""}</li>)}</ul></div>}
+                                {row.classroomHealth.dietaryRestrictions?.length > 0 && <div><strong>Dietary restrictions</strong><ul>{row.classroomHealth.dietaryRestrictions.map((item, itemIndex) => <li key={item.name + itemIndex}><b>{item.name}</b>{item.details ? " — " + item.details : ""}</li>)}</ul></div>}
+                                {row.classroomHealth.specialCareInstructions && <div><strong>Special care</strong><p>{row.classroomHealth.specialCareInstructions}</p></div>}
+                                {row.classroomHealth.emergencyInstructions && <div><strong>Emergency instructions</strong><p>{row.classroomHealth.emergencyInstructions}</p></div>}
+                                <small>Full medical notes and medication details are restricted to authorized administrators.</small>
+                              </details>
+                            )}
                             <div className="saas-attendance-controls" role="group" aria-label={"Attendance for " + row.name}>
                               <button type="button" className={"saas-status-button present" + (row.status === "present" ? " selected" : "")} onClick={() => markAttendance(row.childId, "present")}>Present</button>
                               <button type="button" className={"saas-status-button absent" + (row.status === "absent" ? " selected" : "")} onClick={() => markAttendance(row.childId, "absent")}>Absent</button>
