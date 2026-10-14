@@ -29,6 +29,7 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
   const FeeTransaction = require('../models/FeeTransaction');
   const TenantSequence = require('../models/TenantSequence');
   const AuditEvent = require('../models/AuditEvent');
+  const FamilyDataRequest = require('../models/FamilyDataRequest');
 
   await mongoose.connect(integrationUri, { serverSelectionTimeoutMS: 10000 });
   const server = app.listen(0);
@@ -126,6 +127,7 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
     await Promise.allSettled([
       FeeTransaction.deleteMany(organizationFilter),
       FeeInvoice.deleteMany(organizationFilter),
+      FamilyDataRequest.deleteMany(organizationFilter),
       ChildHealthRecord.deleteMany(organizationFilter),
       ChildGuardian.deleteMany(organizationFilter),
       Guardian.deleteMany(organizationFilter),
@@ -288,6 +290,140 @@ test('tenant APIs isolate organizations, branches, families and concurrent fee p
     ownerA, ownerB, branchStaff, parentUser, childA, childA2,
     childAOtherBranch, childB, invoiceA, invoiceA2, invoiceB,
   };
+
+  await t.test('parents can submit and track only linked-child privacy requests; staff can review them with an audit trail', async () => {
+    const submitted = await api('/api/saas/parent/data-requests', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'POST',
+      body: {
+        childId: String(childA._id),
+        requestType: 'correction',
+        description: 'Please correct the family contact address.',
+        contactPreference: 'portal',
+      },
+    });
+    assert.equal(submitted.status, 201, JSON.stringify(submitted.data));
+    const requestId = submitted.data.request.id;
+    assert.equal(submitted.data.request.status, 'submitted');
+    assert.equal(submitted.data.request.child.name, 'AliceA Integration Child');
+
+    const cannotRequestOtherChild = await api('/api/saas/parent/data-requests', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'POST',
+      body: {
+        childId: String(childA2._id),
+        requestType: 'access_copy',
+        description: 'Please provide a copy of the record.',
+        contactPreference: 'portal',
+      },
+    });
+    assert.equal(cannotRequestOtherChild.status, 404);
+
+    const cannotRequestOtherTenant = await api('/api/saas/parent/data-requests', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'POST',
+      body: {
+        childId: String(childB._id),
+        requestType: 'retention_review',
+        description: 'Please review the retention of these records.',
+        contactPreference: 'portal',
+      },
+    });
+    assert.equal(cannotRequestOtherTenant.status, 404);
+
+    const parentList = await api('/api/saas/parent/data-requests', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(parentList.status, 200);
+    assert.equal(parentList.data.total, 1);
+    assert.equal(parentList.data.requests[0].id, requestId);
+    assert.equal(Object.hasOwn(parentList.data.requests[0], 'internalNotes'), false);
+
+    const staffQueue = await api('/api/saas/privacy-requests?status=submitted', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(staffQueue.status, 200, JSON.stringify(staffQueue.data));
+    assert.equal(staffQueue.data.total, 1);
+    assert.equal(staffQueue.data.requests[0].id, requestId);
+
+    const ownerBCannotList = await api('/api/saas/privacy-requests', {
+      token: tokenFor(ownerB),
+      organizationId: organizationB._id,
+      branchId: branchB._id,
+    });
+    assert.equal(ownerBCannotList.status, 200);
+    assert.equal(ownerBCannotList.data.total, 0);
+
+    const parentCannotReview = await api('/api/saas/privacy-requests/' + requestId + '/status', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'PATCH',
+      body: { status: 'completed', publicResponse: 'This should never be accepted.' },
+    });
+    assert.equal(parentCannotReview.status, 403);
+
+    const missingPublicMessage = await api('/api/saas/privacy-requests/' + requestId + '/status', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'PATCH',
+      body: { status: 'action_required', publicResponse: '' },
+    });
+    assert.equal(missingPublicMessage.status, 400);
+
+    const reviewed = await api('/api/saas/privacy-requests/' + requestId + '/status', {
+      token: tokenFor(ownerA),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+      method: 'PATCH',
+      body: {
+        status: 'under_review',
+        internalNotes: 'Confirm the change against school records.',
+      },
+    });
+    assert.equal(reviewed.status, 200, JSON.stringify(reviewed.data));
+    assert.equal(reviewed.data.request.status, 'under_review');
+    assert.equal(reviewed.data.request.publicResponse, 'The preschool office is reviewing this request.');
+    assert.equal(reviewed.data.request.internalNotes, 'Confirm the change against school records.');
+
+    const parentCanSeeUpdate = await api('/api/saas/parent/data-requests', {
+      token: tokenFor(parentUser),
+      organizationId: organizationA._id,
+      branchId: branchA._id,
+    });
+    assert.equal(parentCanSeeUpdate.status, 200);
+    assert.equal(parentCanSeeUpdate.data.requests[0].status, 'under_review');
+    assert.equal(parentCanSeeUpdate.data.requests[0].publicResponse, 'The preschool office is reviewing this request.');
+    assert.equal(Object.hasOwn(parentCanSeeUpdate.data.requests[0], 'internalNotes'), false);
+
+    const familyRequest = await FamilyDataRequest.findById(requestId).lean();
+    assert.ok(familyRequest);
+    const submissionAudit = await AuditEvent.findOne({
+      organizationId: organizationA._id,
+      action: 'family.data_request_submitted',
+      resourceId: requestId,
+    }).lean();
+    const reviewAudit = await AuditEvent.findOne({
+      organizationId: organizationA._id,
+      action: 'family.data_request_status_updated',
+      resourceId: requestId,
+    }).lean();
+    assert.ok(submissionAudit);
+    assert.ok(reviewAudit);
+    assert.equal(submissionAudit.summary.includes('family contact address'), false);
+    assert.equal(familyRequest.internalNotes, 'Confirm the change against school records.');
+  });
 
   await t.test('child health profiles are private, audited and limited to classroom-safe details for teachers', async () => {
     const healthPayload = {
