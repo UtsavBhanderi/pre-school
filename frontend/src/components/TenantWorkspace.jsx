@@ -37,6 +37,7 @@ const TABS = [
   { id: "classes", label: "Classes & fees", Icon: MdSchool },
   { id: "branches", label: "Branches", Icon: MdApartment },
   { id: "settings", label: "Organization settings", Icon: MdSettings },
+  { id: "subscription", label: "Plan & usage", Icon: MdReceiptLong },
   { id: "team", label: "Team & activity", Icon: MdManageAccounts },
 ];
 
@@ -186,6 +187,7 @@ export default function TenantWorkspace() {
   const canViewAttendanceReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher'].includes(role);
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
   const visibleTabs = TABS.filter((item) => {
+    if (item.id === 'subscription') return canManageOrganization;
     if (item.id === 'setup') return canManageOrganization;
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
@@ -207,6 +209,7 @@ export default function TenantWorkspace() {
   const [activeTab, setActiveTab] = useState("overview");
   const [summary, setSummary] = useState(null);
   const [setupChecklist, setSetupChecklist] = useState(null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState(null);
   const [classes, setClasses] = useState([]);
   const [children, setChildren] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -563,17 +566,25 @@ export default function TenantWorkspace() {
         } else if (activeTab === "setup") {
           const data = await saasRequest("/api/saas/operations/onboarding", { organizationId });
           if (active) setSetupChecklist(data);
+        } else if (activeTab === "subscription") {
+          if (!canManageOrganization) return;
+          const data = await saasRequest("/api/saas/subscription", { organizationId });
+          if (active) setSubscriptionInfo(data);
         } else if (activeTab === "overview") {
           const tasks = [
             saasRequest("/api/saas/operations/summary", { organizationId, branchId }),
             canManageOrganization
               ? saasRequest("/api/saas/operations/onboarding", { organizationId })
               : Promise.resolve(null),
+            canManageOrganization
+              ? saasRequest("/api/saas/subscription", { organizationId })
+              : Promise.resolve(null),
           ];
-          const [data, checklist] = await Promise.all(tasks);
+          const [data, checklist, planSummary] = await Promise.all(tasks);
           if (active) {
             setSummary(data);
             if (checklist) setSetupChecklist(checklist);
+            if (planSummary) setSubscriptionInfo(planSummary);
           }
         }
       } catch (error) {
@@ -632,6 +643,7 @@ export default function TenantWorkspace() {
     setBranches([]);
     setSummary(null);
     setSetupChecklist(null);
+    setSubscriptionInfo(null);
     setChildren([]);
     setInvoices([]);
     setWorkReports([]);
@@ -2964,6 +2976,71 @@ export default function TenantWorkspace() {
               branchId={branchId}
               canManageOrganization={canManageOrganization}
             />
+          )}
+
+          {activeTab === "subscription" && canManageOrganization && (
+            <section className="saas-section">
+              <SectionHeading title="Plan and usage" description="See your current access period and how much organization capacity is in use." action={
+                <button type="button" className="saas-secondary-button" onClick={async () => {
+                  setLoading(true);
+                  setErrorMessage("");
+                  try {
+                    const data = await saasRequest("/api/saas/subscription", { organizationId });
+                    setSubscriptionInfo(data);
+                  } catch (error) {
+                    setErrorMessage(displayError(error));
+                  } finally {
+                    setLoading(false);
+                  }
+                }}><MdRefresh /> Refresh usage</button>
+              } />
+              {!subscriptionInfo && loading ? <div className="saas-loading">Loading plan and usage…</div> : subscriptionInfo ? (
+                <>
+                  <div className={"saas-plan-status " + (subscriptionInfo.canWrite ? "writable" : "readonly")}>
+                    <span className="saas-plan-status-icon">{subscriptionInfo.canWrite ? <MdCheckCircle aria-hidden="true" /> : <MdShield aria-hidden="true" />}</span>
+                    <div>
+                      <span className="saas-eyebrow">CURRENT PLAN</span>
+                      <h2>{subscriptionInfo.plan.charAt(0).toUpperCase() + subscriptionInfo.plan.slice(1)} plan</h2>
+                      <p><strong>Status:</strong> {subscriptionInfo.status.replaceAll("_", " ")}
+                        {subscriptionInfo.status === "trial" && subscriptionInfo.trialEndsAt ? " · Trial ends " + formatDate(subscriptionInfo.trialEndsAt) : ""}
+                        {subscriptionInfo.status === "trial" ? " · " + subscriptionInfo.trialDaysRemaining + " day(s) remaining" : ""}
+                      </p>
+                      <p>{subscriptionInfo.canWrite
+                        ? "School changes are enabled. Plan capacities are checked by the server when new records are created."
+                        : subscriptionInfo.readOnlyReason || "Your workspace is currently read-only."}</p>
+                    </div>
+                  </div>
+                  <div className="saas-plan-usage-grid">
+                    {[
+                      { key: "branches", label: "Branches", detail: "Open school locations", Icon: MdApartment },
+                      { key: "students", label: "Children", detail: "Registered child records", Icon: MdPeople },
+                      { key: "staff", label: "Staff seats", detail: "Active staff and pending staff invitations", Icon: MdManageAccounts },
+                    ].map(({ key, label, detail, Icon }) => {
+                      const used = subscriptionInfo.usage[key] || 0;
+                      const limit = subscriptionInfo.limits[key];
+                      const percent = subscriptionInfo.usage.percentages[key] || 0;
+                      return (
+                        <article className="saas-plan-usage-card" key={key}>
+                          <div className="saas-plan-usage-heading"><span><Icon aria-hidden="true" /></span><small>{label}</small></div>
+                          <div className="saas-plan-usage-total"><strong>{used}</strong><span>of {limit.toLocaleString("en-IN")}</span></div>
+                          <div className="saas-plan-usage-track" role="progressbar" aria-label={label + " usage"} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(limit, used)}><span style={{ width: percent + "%" }} /></div>
+                          <p>{detail}</p>
+                          <small>{subscriptionInfo.usage.remaining[key].toLocaleString("en-IN")} available</small>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className="saas-plan-guidance">
+                    <MdShield aria-hidden="true" />
+                    <div>
+                      <strong>What happens at a limit or after trial?</strong>
+                      <p>The server prevents new branches, admissions or staff invitations from exceeding your plan. After a trial ends or a subscription becomes inactive, existing records stay available in read-only mode. To change a plan or reactivate a workspace, contact your designated platform administrator. Automated online billing is not configured in this build.</p>
+                    </div>
+                  </div>
+                  <p className="saas-plan-disclaimer">Capacity values are the initial product defaults and should be confirmed before selling subscriptions. They are limits, not prices or a promise of service availability.</p>
+                </>
+              ) : <BlankState title="Plan details could not be loaded" detail="Refresh to load the subscription status and current capacity." action={<button type="button" className="saas-secondary-button" onClick={() => setRefreshVersion((value) => value + 1)}>Try again</button>} />}
+            </section>
           )}
 
           {activeTab === "team" && (
