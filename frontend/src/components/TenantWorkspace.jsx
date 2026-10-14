@@ -313,6 +313,7 @@ export default function TenantWorkspace() {
   });
   const roleHome = ROLE_HOME_CONFIG[role] || ROLE_HOME_CONFIG.teacher;
   const visibleTabIds = new Set(visibleTabs.map((item) => item.id));
+  const visibleTabKey = visibleTabs.map((item) => item.id).join('|');
   const homeActions = roleHome.actions.filter((action) => visibleTabIds.has(action.tab));
 
   const [branchId, setBranchId] = useState(() => activeMembership?.accessAllBranches ? "" : activeMembership?.branchIds?.[0]?.id || "");
@@ -446,6 +447,10 @@ export default function TenantWorkspace() {
       Icon: MdReceiptLong,
     },
   ].filter((metric) => roleHome.metrics.includes(metric.key));
+  useEffect(() => {
+    if (!visibleTabIds.has(activeTab)) setActiveTab("overview");
+  }, [visibleTabKey, activeTab]);
+
   useEffect(() => {
     if (!memberships.length) return;
     if (!memberships.some((item) => item.organization.id === organizationId)) {
