@@ -24,7 +24,7 @@ const TenantMediaAssetSchema = new mongoose.Schema({
   ], immutable: true },
   sizeBytes: { type: Number, required: true, min: 1, max: 104857600, immutable: true },
   originalFileName: { type: String, trim: true, maxlength: 180, default: '', immutable: true },
-  status: { type: String, enum: ['active', 'archived'], default: 'active', index: true },
+  status: { type: String, enum: ['pending_migration', 'active', 'archived'], default: 'active', index: true },
   audience: { type: String, enum: ['staff_only', 'parent_with_photo_consent'], default: 'staff_only', immutable: true },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
   migrationSourceCollection: { type: String, enum: ['students', 'teachers', 'photos', 'pdfs', 'videos'], default: undefined, immutable: true },
