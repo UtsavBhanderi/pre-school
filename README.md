@@ -35,6 +35,18 @@ If email is not configured or delivery fails, the API deliberately does not reve
 
 For database-backed end-to-end verification, run \`npm run test:integration\` with \`MONGO_INTEGRATION_URI\` pointed at a **disposable MongoDB replica set**. The password reset integration test verifies one-time use and old-session revocation.
 
+## Verified preschool onboarding
+
+The public registration flow is now two-step:
+
+1. \`POST /api/organizations/signup\` validates the organization, first branch, owner and email. It sends a one-time verification link; it does not create a user or organization.
+2. \`POST /api/organizations/signup/inspect\` checks the token without changing data.
+3. \`POST /api/organizations/signup/complete\` accepts a verified token plus the owner's new password and transactionally creates the user, organization, first branch, owner membership, audit event and a 14-day trial.
+
+Verification tokens are stored as hashes, expire after 24 hours, and can only be consumed once. The former \`POST /api/organizations/register\` endpoint is retired and returns \`410\` so it cannot bypass email verification. \`GET /api/organizations/registration-status\` tells the signup UI whether onboarding is available.
+
+**Public onboarding remains disabled by default.** It opens only when both \`ENABLE_SAAS_REGISTRATION=true\` and \`SAAS_TENANT_DATA_READY=true\` are set, plus valid JWT configuration, SMTP credentials and a canonical frontend URL. Do not turn these on until the remaining data migration, child-media privacy and cross-tenant release gates in [docs/SAAS_ROLLOUT.md](docs/SAAS_ROLLOUT.md) are signed off.
+
 ## Multi-tenant SaaS foundation (in progress)
 
 The codebase now includes the first foundation models for organizations, branches, organization memberships and audit events, plus fail-closed tenant-context helpers and organization/branch management API routes.
