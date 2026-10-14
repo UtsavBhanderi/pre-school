@@ -71,6 +71,23 @@ except Exception as error:
 PY
 )" || exit 1
 
+source_endpoint_sha256="$(python3 - "$metadata_path" <<'PY'
+import json
+import re
+import sys
+
+try:
+    with open(sys.argv[1], encoding='utf-8') as handle:
+        value = json.load(handle).get('sourceEndpointSha256', '')
+    if not isinstance(value, str) or not re.fullmatch(r'[a-f0-9]{64}', value):
+        raise ValueError('missing or invalid source endpoint fingerprint')
+    print(value)
+except Exception as error:
+    print('Invalid backup endpoint metadata: ' + str(error), file=sys.stderr)
+    raise SystemExit(2)
+PY
+)" || exit 1
+
 expected_sha256="$(python3 - "$metadata_path" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding='utf-8') as handle:
@@ -83,12 +100,13 @@ actual_sha256="$(sha256sum "$archive_path" | awk '{print $1}')"
   exit 2
 }
 
-target_database="$(python3 - "$MONGO_RESTORE_TARGET_URI" "$source_database" "$RESTORE_CONFIRM_TARGET_DATABASE" <<'PY'
+target_database="$(python3 - "$MONGO_RESTORE_TARGET_URI" "$source_database" "$RESTORE_CONFIRM_TARGET_DATABASE" "$source_endpoint_sha256" <<'PY'
+import hashlib
 import re
 import sys
 from urllib.parse import unquote, urlsplit
 
-uri, source_database, confirmation = sys.argv[1:]
+uri, source_database, confirmation, source_fingerprint = sys.argv[1:]
 try:
     parsed = urlsplit(uri)
     if parsed.scheme not in ('mongodb', 'mongodb+srv'):
@@ -102,6 +120,11 @@ try:
         raise ValueError('RESTORE_CONFIRM_TARGET_DATABASE does not match the URI database')
     if parsed.hostname is None:
         raise ValueError('destination URI must include a hostname')
+    authority = parsed.netloc.rsplit('@', 1)[-1].lower()
+    endpoint = ','.join(sorted(authority.split(',')))
+    target_fingerprint = hashlib.sha256(endpoint.encode('utf-8')).hexdigest()
+    if target_fingerprint == source_fingerprint:
+        raise ValueError('restore target must be a different MongoDB deployment from the source backup')
     print(database)
 except Exception as error:
     print('Unsafe restore target: ' + str(error), file=sys.stderr)
@@ -143,6 +166,7 @@ mongorestore \
   --gzip \
   --drop \
   --objcheck \
+  --stopOnError \
   --nsFrom="${source_database}.*" \
   --nsTo="${target_database}.*"
 
