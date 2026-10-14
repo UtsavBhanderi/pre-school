@@ -68,11 +68,15 @@ test('CSV exports enforce tenant and role scope, neutralize formulas and write a
         'x-branch-id': String(branchId),
       },
     });
+    // Preserve an initial UTF-8 BOM for assertions. Fetch's default text
+    // decoding may consume it, hiding the actual bytes sent by the server.
+    const bytes = await response.arrayBuffer();
+    const body = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
     return {
       status: response.status,
       contentType: response.headers.get('content-type') || '',
       disposition: response.headers.get('content-disposition') || '',
-      body: await response.text(),
+      body,
     };
   }
 
