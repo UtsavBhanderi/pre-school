@@ -65,13 +65,16 @@ const AuthProvider = ({ children }) => {
   };
 
   const login = async (credentials) => {
-    const { data } = await axios.post(`${API_BASE_URL}/api/auth/login`, credentials);
-    if (!data.token) throw new Error("Sign-in did not return an authentication token.");
+    // A deliberate sign-in replaces any previous browser identity. Clear it
+    // before starting so a failed attempt cannot leave another user's session.
+    localStorage.removeItem("token");
+    setUser(null);
 
     try {
-      // Validate the complete session before persisting its token. This avoids
-      // leaving a stale token behind when credentials are valid but /auth/me
-      // fails or returns an incomplete response.
+      const { data } = await axios.post(`${API_BASE_URL}/api/auth/login`, credentials);
+      if (!data.token) throw new Error("Sign-in did not return an authentication token.");
+
+      // Validate the complete session before persisting its token.
       const nextUser = await requestUserData(data.token);
       localStorage.setItem("token", data.token);
       setUser(nextUser);
