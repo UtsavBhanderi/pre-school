@@ -15,7 +15,7 @@ const { hashInvitationToken, isInvitationLive } = require('../utils/invitationTo
 const router = express.Router();
 
 const signToken = (user) => jwt.sign(
-  { user: { id: String(user._id), role: user.role } },
+  { user: { id: String(user._id), role: user.role, authVersion: Number.isInteger(user.authVersion) ? user.authVersion : 0 } },
   process.env.JWT_SECRET,
   { expiresIn: '1h' }
 );

@@ -33,6 +33,8 @@ import HelpCenter from "./components/HelpCenter.jsx";
 import AnnouncementsPage from "./components/AnnouncementsPage.jsx";
 import AcceptInvitation from "./components/AcceptInvitation.jsx";
 import ParentPortal from "./components/ParentPortal.jsx";
+import ForgotPassword from "./components/ForgotPassword.jsx";
+import ResetPassword from "./components/ResetPassword.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -59,6 +61,8 @@ const App = () => (
           <Route index element={<Login />} />
           <Route path="login" element={<Login />} />
           <Route path="accept-invitation" element={<AcceptInvitation />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="reset-password" element={<ResetPassword />} />
           <Route
             path="teacher-dashboard"
             element={

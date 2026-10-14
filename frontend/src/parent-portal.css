@@ -137,3 +137,24 @@
 
 .parent-child-avatar.has-photo { overflow: hidden; padding: 0; }
 .parent-child-avatar img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+
+
+/* Account recovery pages reuse the parent entry shell for consistency. */
+.parent-recovery-back {
+  width: 100%;
+  margin-top: .75rem;
+}
+.parent-entry-card > footer {
+  margin-top: 1.25rem;
+  color: #78869a;
+  font-size: .72rem;
+  line-height: 1.55;
+  text-align: center;
+}
+.login-recovery-link {
+  display: inline-block;
+  margin-bottom: .4rem;
+  font-size: .82rem;
+  font-weight: 750;
+}
+.login-footer-note p { margin: 0; }
