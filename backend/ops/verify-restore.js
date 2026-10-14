@@ -323,6 +323,184 @@ function feeTransactionIntegrityPipeline() {
   ];
 }
 
+function branchOrganizationIntegrityPipeline() {
+  return [
+    { $match: { organizationId: { $type: 'objectId' } } },
+    {
+      $lookup: {
+        from: 'organizations',
+        let: { tenantOrgId: '$organizationId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$tenantOrgId'] } } },
+          { $project: { _id: 1 } },
+        ],
+        as: '__restore_org',
+      },
+    },
+    { $match: { $expr: { $ne: [{ $size: '$__restore_org' }, 1] } } },
+  ];
+}
+
+function organizationCreatorIntegrityPipeline() {
+  return [
+    {
+      $lookup: {
+        from: 'users',
+        let: { creatorId: '$createdBy' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$creatorId'] } } },
+          { $project: { _id: 1 } },
+        ],
+        as: '__restore_creator',
+      },
+    },
+    { $match: { $expr: { $or: [
+      { $ne: [{ $type: '$createdBy' }, 'objectId'] },
+      { $ne: [{ $size: '$__restore_creator' }, 1] },
+    ] } } },
+  ];
+}
+
+function childMediaIntegrityPipeline() {
+  return [
+    { $match: { organizationId: { $type: 'objectId' }, category: 'child_photo' } },
+    {
+      $lookup: {
+        from: 'students',
+        let: { childId: '$childId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$childId'] } } },
+          { $project: { _id: 1, organizationId: 1, branchId: 1 } },
+        ],
+        as: '__restore_child',
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $or: [
+            { $ne: [{ $type: '$childId' }, 'objectId'] },
+            { $ne: [{ $size: '$__restore_child' }, 1] },
+            { $ne: [{ $arrayElemAt: ['$__restore_child.organizationId', 0] }, '$organizationId'] },
+            { $ne: [{ $arrayElemAt: ['$__restore_child.branchId', 0] }, '$branchId'] },
+          ],
+        },
+      },
+    },
+  ];
+}
+
+function auditBranchIntegrityPipeline() {
+  return [
+    { $match: { organizationId: { $type: 'objectId' } } },
+    {
+      $lookup: {
+        from: 'organizations',
+        let: { tenantOrgId: '$organizationId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$tenantOrgId'] } } },
+          { $project: { _id: 1 } },
+        ],
+        as: '__restore_org',
+      },
+    },
+    {
+      $lookup: {
+        from: 'branches',
+        let: { branchId: '$branchId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$branchId'] } } },
+          { $project: { _id: 1, organizationId: 1 } },
+        ],
+        as: '__restore_branch',
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $or: [
+            { $ne: [{ $size: '$__restore_org' }, 1] },
+            {
+              $and: [
+                { $eq: [{ $type: '$branchId' }, 'objectId'] },
+                {
+                  $or: [
+                    { $ne: [{ $size: '$__restore_branch' }, 1] },
+                    { $ne: [{ $arrayElemAt: ['$__restore_branch.organizationId', 0] }, '$organizationId'] },
+                  ],
+                },
+              ],
+            },
+            { $and: [{ $ne: [{ $type: '$branchId' }, 'objectId'] }, { $ne: [{ $type: '$branchId' }, 'null'] }] },
+          ],
+        },
+      },
+    },
+  ];
+}
+
+function invitationIntegrityPipeline() {
+  return [
+    { $match: { organizationId: { $type: 'objectId' } } },
+    {
+      $lookup: {
+        from: 'organizations',
+        let: { tenantOrgId: '$organizationId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$tenantOrgId'] } } },
+          { $project: { _id: 1 } },
+        ],
+        as: '__restore_org',
+      },
+    },
+    {
+      $lookup: {
+        from: 'branches',
+        let: { inviteBranchIds: { $ifNull: ['$branchIds', []] } },
+        pipeline: [
+          { $match: { $expr: { $in: ['$_id', '$inviteBranchIds'] } } },
+          { $project: { _id: 1, organizationId: 1 } },
+        ],
+        as: '__restore_branches',
+      },
+    },
+    {
+      $lookup: {
+        from: 'guardians',
+        let: { inviteGuardianIds: { $ifNull: ['$guardianIds', []] } },
+        pipeline: [
+          { $match: { $expr: { $in: ['$_id', '$inviteGuardianIds'] } } },
+          { $project: { _id: 1, organizationId: 1 } },
+        ],
+        as: '__restore_guardians',
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $or: [
+            { $ne: [{ $size: '$__restore_org' }, 1] },
+            { $ne: [{ $size: { $ifNull: ['$branchIds', []] } }, { $size: '$__restore_branches' }] },
+            { $ne: [{ $size: { $ifNull: ['$guardianIds', []] } }, { $size: '$__restore_guardians' }] },
+            {
+              $gt: [
+                { $size: { $filter: { input: '$__restore_branches', as: 'b', cond: { $ne: ['$b.organizationId', '$organizationId'] } } } },
+                0,
+              ],
+            },
+            {
+              $gt: [
+                { $size: { $filter: { input: '$__restore_guardians', as: 'g', cond: { $ne: ['$g.organizationId', '$organizationId'] } } } },
+                0,
+              ],
+            },
+          ],
+        },
+      },
+    },
+  ];
+}
+
 async function countIssues(database, collectionNames, collectionName, pipeline) {
   if (!collectionNames.has(collectionName)) return 0;
   const result = await database.collection(collectionName)
@@ -391,11 +569,13 @@ async function main() {
     }
 
     const definitions = [
+      ['organization_creator_missing', 'organizations', organizationCreatorIntegrityPipeline()],
+      ['organization_branch_reference_mismatch', 'branches', branchOrganizationIntegrityPipeline()],
       ['organization_membership_reference_mismatch', 'organizationmemberships', membershipIntegrityPipeline()],
-      ['organization_branch_reference_mismatch', 'branches', organizationAndBranchIntegrityPipeline()],
       ['tenant_class_scope_mismatch', 'tenantclasses', organizationAndBranchIntegrityPipeline()],
       ['tenant_staff_profile_scope_mismatch', 'tenantstaffprofiles', organizationAndBranchIntegrityPipeline()],
       ['tenant_media_scope_mismatch', 'tenantmediaassets', organizationAndBranchIntegrityPipeline()],
+      ['tenant_child_photo_reference_mismatch', 'tenantmediaassets', childMediaIntegrityPipeline()],
       ['tenant_announcement_scope_mismatch', 'tenantannouncements', organizationAndBranchIntegrityPipeline()],
       ['tenant_calendar_scope_mismatch', 'tenantcalendarevents', organizationAndBranchIntegrityPipeline()],
       ['tenant_work_report_scope_mismatch', 'tenantworkreports', organizationAndBranchIntegrityPipeline()],
@@ -403,6 +583,8 @@ async function main() {
       ['tenant_student_scope_mismatch', 'students', organizationAndBranchIntegrityPipeline()],
       ['tenant_attendance_child_mismatch', 'attendances', attendanceChildIntegrityPipeline()],
       ['tenant_guardian_reference_mismatch', 'childguardians', childGuardianIntegrityPipeline()],
+      ['tenant_invitation_reference_mismatch', 'organizationinvitations', invitationIntegrityPipeline()],
+      ['tenant_audit_branch_mismatch', 'auditevents', auditBranchIntegrityPipeline()],
       ['tenant_invoice_child_mismatch', 'feeinvoices', invoiceChildIntegrityPipeline()],
       ['tenant_payment_reference_mismatch', 'feetransactions', feeTransactionIntegrityPipeline()],
     ];
@@ -459,10 +641,15 @@ module.exports = {
   matchesIndex,
   organizationAndBranchIntegrityPipeline,
   membershipIntegrityPipeline,
+  organizationCreatorIntegrityPipeline,
+  branchOrganizationIntegrityPipeline,
   guardianIntegrityPipeline,
   childGuardianIntegrityPipeline,
   attendanceChildIntegrityPipeline,
   invoiceChildIntegrityPipeline,
   feeTransactionIntegrityPipeline,
+  childMediaIntegrityPipeline,
+  invitationIntegrityPipeline,
+  auditBranchIntegrityPipeline,
   countIssues,
 };
