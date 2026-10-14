@@ -216,3 +216,16 @@ The SaaS workspace now includes a role-gated profile editor for organization own
 The APIs reject unknown fields, validate time zones and internationalized currency codes server-side, require an active organization membership, and write audit events in the same transaction as each successful update. The branch code and lifecycle state are intentionally immutable in the profile editor so historical invoice numbers and branch access are not silently changed. Currency changes are blocked once the organization has any invoice or transaction history, protecting the interpretation of existing financial records.
 
 This is configuration, not a production launch switch. Updating settings does not enable public registration, migrate legacy school data or establish parent identity. Only owner/head-office roles can edit; other authorized workspace members can read the settings. The deployment still needs acceptance testing with the organization's actual time zone, fee policy, print formats, email configuration and backup/restore plan.
+
+## First-run owner setup checklist
+
+The organization owner and head-office administrator workspace now has a "Getting started" guide and an overview reminder. It derives completion from saved organization/branch and school records rather than allowing users to tick items as done.
+
+- `GET /api/saas/operations/onboarding` returns setup progress, required and optional steps, and tab destinations.
+- Required essentials: organization contact details, at least one active class, a registered child, saved attendance and a fee invoice.
+- Optional steps guide the owner through branch contact details, inviting staff, recording a first payment and connecting a verified parent portal account.
+- Only organization owners and head-office administrators can request the organization-level checklist.
+- All counts are scoped to the active organization and the caller's permitted branches. The response contains counts and task guidance, not child or family records.
+- Progress is recalculated from the current database when the guide is opened or refreshed. A saved record can complete a step; a visual checkbox cannot.
+
+This guide does not activate public registration or replace the remaining launch review. It is a practical workflow aid after an owner has signed in to an organization.
