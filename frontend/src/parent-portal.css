@@ -178,3 +178,12 @@
   .organization-signup-grid { grid-template-columns: 1fr; }
   .login-help-links { flex-direction: column; gap: .2rem; }
 }
+
+
+/* Role switch: accounts with staff and parent access can move between the two secure portals. */
+.parent-portal-header-actions .parent-staff-portal-switch { min-height: 38px; font-size: .75rem; }
+.parent-portal-entry-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .6rem; }
+@media (max-width: 760px) {
+  .parent-portal-header-actions .parent-staff-portal-switch { flex: 1 1 auto; }
+  .parent-portal-header-actions .parent-signout-button { min-height: 40px; }
+}
