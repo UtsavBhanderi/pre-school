@@ -55,9 +55,10 @@ function normalizeSubscriptionChange(input = {}, { usage = {}, now = new Date() 
 
   const canWrite = status === 'active' || status === 'trial';
   const overLimits = Object.keys(limits).filter((key) => currentUsage[key] > limits[key]);
+  const resourceLabels = { branches: 'branches', students: 'children', staff: 'staff seats' };
   if (canWrite && overLimits.length) {
     errors.capacity = 'The requested writable plan is below current usage for: ' +
-      overLimits.map((key) => key + ' (' + currentUsage[key] + '/' + limits[key] + ')').join(', ') +
+      overLimits.map((key) => (resourceLabels[key] || key) + ' (' + currentUsage[key] + '/' + limits[key] + ')').join(', ') +
       '. Reduce usage or select a larger plan before activating writable access.';
   }
 
