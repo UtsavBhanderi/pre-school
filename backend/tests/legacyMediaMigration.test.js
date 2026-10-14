@@ -135,7 +135,7 @@ test('local upload references require the expected folder and a simple allowlist
     status: 'local',
     folder: 'students',
     filename: '123-child.jpg',
-    relativePath: 'uploads/students/123-child.jpg',
+    relativePath: 'students/123-child.jpg',
     mimeType: 'image/jpeg',
   });
   assert.equal(parseLegacyUploadReference('uploads/pdf/worksheet.pdf', 'pdf').status, 'local');
