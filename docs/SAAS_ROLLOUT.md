@@ -1,6 +1,6 @@
 # SaaS tenant foundation and rollout gates
 
-Status: Phase 0 foundation in progress. This is not production-ready multi-tenant access.
+Status: Multi-tenant foundation and core workflows are implemented; production readiness is still gated on reviewed legacy migration, privacy acceptance, restore verification and remaining tenant-isolation checks.
 
 ## What this foundation introduces
 
@@ -198,3 +198,16 @@ The explicit apply flags and environment variables are documented in the README.
 \`npm run migration:staff\` adds a separate dry-run-first migration for existing administrator/teacher login identities. It requires an exact User-ID + email + legacy-role match, explicit target role/branch assignment, configured teacher classes, and (for a copied teacher profile) a matching legacy Teacher ID. Parent portal identities are deliberately excluded from this migration because they must come from the verified guardian invitation/link flow. Organization-owner rights cannot be assigned by a legacy staff import.
 
 Apply is disabled outside an explicitly gated staging environment and requires an active owner/head-office approver with access to every target branch. It creates only tenant memberships and the new \`TenantStaffProfile\` copies; it never modifies passwords or source User/Teacher rows. The membership/profile rows, a unique migration-run ledger entry and audit event are committed in one transaction. The new command and example manifest are documented in the README. This importer has not been run against a real school database and does not unblock public signup.
+
+## Organization and branch settings
+
+The SaaS workspace now includes a role-gated profile editor for organization owners and head-office administrators:
+
+- GET /api/saas/settings/organization reads the selected organization's contact profile and preferences.
+- PUT /api/saas/settings/organization validates and saves the organization name, timezone, supported locale, currency, contact email/phone, HTTPS website, postal address, academic-year start month, date format and default language.
+- GET /api/saas/settings/branches/:id reads the selected branch's contact profile after verifying organization and branch scope.
+- PUT /api/saas/settings/branches/:id validates and saves the branch name, timezone, contact details, HTTPS website and postal address.
+
+The APIs reject unknown fields, validate time zones and internationalized currency codes server-side, require an active organization membership, and write audit events in the same transaction as each successful update. The branch code and lifecycle state are intentionally immutable in the profile editor so historical invoice numbers and branch access are not silently changed. Currency changes are blocked once the organization has any invoice or transaction history, protecting the interpretation of existing financial records.
+
+This is configuration, not a production launch switch. Updating settings does not enable public registration, migrate legacy school data or establish parent identity. Only owner/head-office roles can edit; other authorized workspace members can read the settings. The deployment still needs acceptance testing with the organization's actual time zone, fee policy, print formats, email configuration and backup/restore plan.

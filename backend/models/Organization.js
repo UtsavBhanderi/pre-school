@@ -17,6 +17,19 @@ const OrganizationSchema = new mongoose.Schema({
   timezone: { type: String, required: true, default: 'Asia/Kolkata', trim: true },
   locale: { type: String, required: true, default: 'en-IN', trim: true },
   currency: { type: String, required: true, default: 'INR', uppercase: true, minlength: 3, maxlength: 3 },
+  contact: {
+    email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
+    phone: { type: String, trim: true, maxlength: 30, default: '' },
+    website: { type: String, trim: true, maxlength: 300, default: '' },
+    address: {
+      line1: { type: String, trim: true, maxlength: 160, default: '' },
+      line2: { type: String, trim: true, maxlength: 160, default: '' },
+      city: { type: String, trim: true, maxlength: 100, default: '' },
+      state: { type: String, trim: true, maxlength: 100, default: '' },
+      postalCode: { type: String, trim: true, maxlength: 20, default: '' },
+      country: { type: String, trim: true, maxlength: 100, default: 'India' },
+    },
+  },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   onboardingCompletedAt: { type: Date, default: null },
   subscription: {

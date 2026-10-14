@@ -9,6 +9,7 @@ const BranchSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'suspended', 'closed'], default: 'active', index: true },
   phone: { type: String, trim: true, maxlength: 30, default: '' },
   email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
+  website: { type: String, trim: true, maxlength: 300, default: '' },
   address: {
     line1: { type: String, trim: true, maxlength: 160, default: '' },
     line2: { type: String, trim: true, maxlength: 160, default: '' },
