@@ -74,7 +74,9 @@ fi
 temp_dir="$(mktemp -d "$BACKUP_DIR/.backup-tmp.XXXXXX")"
 chmod 700 -- "$temp_dir"
 cleanup() { rm -rf -- "$temp_dir"; }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 config_file="$temp_dir/mongodump.yml"
 plain_archive="$temp_dir/$database_name.archive.gz"
@@ -137,4 +139,4 @@ mv -- "$metadata_tmp" "$final_metadata"
 printf 'Encrypted backup created: %s\n' "$final_archive"
 printf 'Metadata: %s\n' "$final_metadata"
 printf 'SHA-256: %s\n' "$archive_sha256"
-printf 'Copy both files to approved encrypted off-host storage and rehearse restores regularly.\n
+printf 'Copy both files to approved encrypted off-host storage and rehearse restores regularly.\n'
