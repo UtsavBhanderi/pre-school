@@ -6,10 +6,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { requestSecurityHeaders, createRateLimiter } = require('./middleware/requestSecurity');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+
+// Trust only the explicitly configured number of reverse-proxy hops. Leaving
+// this at zero is safest for direct connections; hosted deployments should set
+// the exact hop count required by their known load balancer/proxy topology.
+const trustProxyHopsText = String(process.env.TRUST_PROXY_HOPS || '0').trim();
+if (!/^\d+$/.test(trustProxyHopsText) || Number(trustProxyHopsText) > 10) {
+  throw new Error('TRUST_PROXY_HOPS must be a whole number between 0 and 10.');
+}
+app.set('trust proxy', Number(trustProxyHopsText));
+
 const auth = require('./middleware/auth');
 const adminOnly = require('./middleware/adminOnly');
 const staffOnly = require('./middleware/staffOnly');
@@ -50,6 +61,41 @@ const LegacyMigrationRun = require('./models/LegacyMigrationRun');
 const TenantStaffProfile = require('./models/TenantStaffProfile');
 
 app.disable('x-powered-by');
+app.use(requestSecurityHeaders);
+
+// These bounded per-process limits are a baseline defense for public
+// credential/token endpoints. Production deployments must also enforce
+// distributed limits at the reverse proxy, CDN or API gateway.
+const loginRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many sign-in attempts. Please wait 15 minutes before trying again.',
+});
+const accountRegistrationRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many account-creation attempts. Please try again later.',
+});
+const passwordResetRateLimit = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Too many password recovery attempts. Please try again in an hour.',
+});
+const organizationSignupRateLimit = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  message: 'Too many preschool sign-up attempts. Please try again later.',
+});
+const invitationInspectRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many invitation checks. Please wait before trying again.',
+});
+const invitationAcceptRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  message: 'Too many invitation acceptance attempts. Please wait before trying again.',
+});
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
@@ -76,13 +122,20 @@ for (const directory of ['gallery', 'pdf', 'students', 'teachers', 'video']) {
 // Gallery, school photos, PDFs and video files are delivered through short-lived, authorization-checked links.
 
 // Authentication endpoints must remain reachable before a session exists.
+app.use('/api/auth/login', loginRateLimit);
+app.use('/api/auth/register', accountRegistrationRateLimit);
+app.use('/api/auth/forgot-password', passwordResetRateLimit);
+app.use('/api/auth/reset-password', passwordResetRateLimit);
 app.use('/api/auth', authRoutes);
 app.use('/api/media', privateMediaRoutes);
 app.use('/api/saas/media', auth, tenantMediaRoutes);
 
 // Organization registration and membership discovery are separate from the
 // single-school APIs. Public registration has two explicit readiness gates.
+app.use('/api/organizations/signup', organizationSignupRateLimit);
 app.use('/api/organizations', organizationsRoutes);
+app.use('/api/invitations/inspect', invitationInspectRateLimit);
+app.use('/api/invitations/accept', invitationAcceptRateLimit);
 app.use('/api/invitations', publicInvitationsRoutes);
 app.use('/api/saas/invitations', auth, invitationsRoutes);
 app.use('/api/saas/parent', auth, parentPortalRoutes);
