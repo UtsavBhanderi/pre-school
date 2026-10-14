@@ -174,4 +174,4 @@ mongorestore \
 
 printf 'Verifying restored records and tenant-isolation indexes...\n'
 MONGO_RESTORE_TARGET_URI="$MONGO_RESTORE_TARGET_URI" node "$SCRIPT_DIR/verify-restore.js"
-printf 'Restore rehearsal completed. This does not authorize a production restore or public SaaS signup.\n
+printf 'Restore rehearsal completed. This does not authorize a production restore or public SaaS signup.\n'
