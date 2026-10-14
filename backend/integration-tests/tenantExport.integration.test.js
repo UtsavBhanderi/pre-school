@@ -304,7 +304,7 @@ test('CSV exports enforce tenant and role scope, neutralize formulas and write a
     assert.equal(report.status, 200, report.body);
     assert.match(report.contentType, /text\/csv/i);
     assert.match(report.disposition, /attendance-/);
-    assert.ok(report.body.startsWith('\uFEFFDate,Class,Admission number'));
+    assert.ok(report.body.startsWith('\uFEFF\"Date\",\"Class\",\"Admission number\"'));
     assert.ok(report.body.includes('Alpha Child'));
     assert.ok(!report.body.includes('Beta Child'));
     assert.ok(report.body.includes("'=HYPERLINK"));
