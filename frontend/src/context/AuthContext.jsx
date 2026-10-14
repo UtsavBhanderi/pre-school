@@ -34,14 +34,14 @@ const AuthProvider = ({ children }) => {
     }
 
     requestUserData(token).then((nextUser) => {
-      if (active) setUser(nextUser);
+      // Ignore a stale bootstrap response when a sign-in replaced its token.
+      if (active && localStorage.getItem("token") === token) setUser(nextUser);
     }).catch(() => {
-      // Do not remove a newer session if it replaced the token while this
-      // initial request was in flight.
+      // A stale bootstrap failure must not clear a newer sign-in session.
       if (localStorage.getItem("token") === token) {
         localStorage.removeItem("token");
+        if (active) setUser(null);
       }
-      if (active) setUser(null);
     }).finally(() => {
       if (active) setLoading(false);
     });
