@@ -17,6 +17,7 @@ const PARENT_TABS = [
   { id: "children", label: "My children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fee status", Icon: MdCurrencyRupee },
+  { id: "requests", label: "My privacy requests", Icon: MdShield },
 ];
 
 const headersFor = (organizationId, branchId) => ({
@@ -57,6 +58,11 @@ export default function ParentPortal() {
   const [childPhotoUrls, setChildPhotoUrls] = useState({});
   const [attendance, setAttendance] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [dataRequests, setDataRequests] = useState([]);
+  const [requestDraft, setRequestDraft] = useState({ childId: "", requestType: "correction", description: "", contactPreference: "portal" });
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState("");
+
   const [notices, setNotices] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [handoverEvents, setHandoverEvents] = useState([]);
@@ -149,6 +155,9 @@ export default function ParentPortal() {
       } else if (tab === "handover") {
         const handoverResult = await parentRequest("/api/saas/handover", organizationId, branchId, { from: handoverFrom, to: handoverTo });
         setHandoverEvents(Array.isArray(handoverResult?.events) ? handoverResult.events : []);
+      } else if (tab === "requests") {
+        const requestResult = await parentRequest("/api/saas/parent/data-requests", organizationId, branchId);
+        setDataRequests(Array.isArray(requestResult?.requests) ? requestResult.requests : []);
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Your family information could not be loaded. Please try again.");
@@ -158,6 +167,36 @@ export default function ParentPortal() {
   }, [organizationId, branchId, tab, attendanceFrom, attendanceTo, calendarFrom, calendarTo, handoverFrom, handoverTo]);
 
   useEffect(() => { loadAll(); }, [loadAll, refreshed]);
+
+  const submitDataRequest = async (event) => {
+    event.preventDefault();
+    const childId = requestDraft.childId || children[0]?.id || "";
+    if (!childId) {
+      setError("Choose a child linked to your family account.");
+      return;
+    }
+    if (String(requestDraft.description || "").trim().length < 8) {
+      setError("Briefly explain your request in at least 8 characters.");
+      return;
+    }
+    setRequestSubmitting(true);
+    setError("");
+    setRequestSuccess("");
+    try {
+      const response = await axios.post(
+        API_BASE_URL + "/api/saas/parent/data-requests",
+        { ...requestDraft, childId, description: requestDraft.description.trim() },
+        { headers: headersFor(organizationId, branchId) },
+      );
+      setRequestSuccess(response.data.message || "Your request has been submitted.");
+      setRequestDraft({ childId, requestType: "correction", description: "", contactPreference: "portal" });
+      setRefreshed((value) => value + 1);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Your request could not be submitted. Please try again.");
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
 
   const activeBranch = branches.find((item) => String(item.id || item._id) === branchId);
 
@@ -351,6 +390,76 @@ export default function ParentPortal() {
               <div className="saas-empty-state"><strong>No handover history yet</strong><p>Completed arrivals and pickups recorded by your preschool will appear here. For a correction or a refused pickup entry, please contact the school office.</p></div>
             ) : <div className="saas-loading" role="status">Loading arrival and pickup history…</div>}
             <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Private family history</strong><p>This view only includes children connected to your parent account. Internal staff notes and names from refused pickup attempts are not shown.</p></div></div>
+          </section>
+        )}
+
+        {tab === "requests" && (
+          <section className="parent-portal-section parent-data-requests">
+            <div className="parent-portal-section-heading">
+              <div><h2>Privacy and family-record requests</h2><p>Ask the preschool to provide a copy of a child’s records, correct information, review a consent setting or review record retention.</p></div>
+              <button type="button" className="saas-secondary-button" onClick={() => setRefreshed((value) => value + 1)} disabled={loading || requestSubmitting}><MdRefresh aria-hidden="true" /> Refresh</button>
+            </div>
+
+            {requestSuccess && <div className="saas-message success" role="status"><MdCheckCircle aria-hidden="true" /><span>{requestSuccess}</span><button type="button" onClick={() => setRequestSuccess("")} aria-label="Dismiss message">×</button></div>}
+
+            <form className="parent-request-form" onSubmit={submitDataRequest}>
+              <div className="parent-request-form-heading"><MdShield aria-hidden="true" /><div><strong>Submit a request</strong><p>This creates a request for the school team. It does not automatically change or delete school records.</p></div></div>
+              <div className="parent-request-form-grid">
+                <label>Child *
+                  <select value={requestDraft.childId || children[0]?.id || ""} onChange={(event) => setRequestDraft((draft) => ({ ...draft, childId: event.target.value }))} required>
+                    {children.map((child) => <option value={child.id} key={child.id}>{child.name} · {child.className}</option>)}
+                  </select>
+                </label>
+                <label>What do you need? *
+                  <select value={requestDraft.requestType} onChange={(event) => setRequestDraft((draft) => ({ ...draft, requestType: event.target.value }))}>
+                    <option value="access_copy">Copy of my child’s records</option>
+                    <option value="correction">Correct a record</option>
+                    <option value="consent_withdrawal">Update or withdraw a consent</option>
+                    <option value="retention_review">Review how long records are kept</option>
+                  </select>
+                </label>
+                <label>How should the school reply?
+                  <select value={requestDraft.contactPreference} onChange={(event) => setRequestDraft((draft) => ({ ...draft, contactPreference: event.target.value }))}>
+                    <option value="portal">Update here in the parent portal</option>
+                    <option value="email">Email the verified address on my account</option>
+                    <option value="phone">Call the verified number on my account</option>
+                  </select>
+                </label>
+                <label className="parent-request-description">Explain what you need *
+                  <textarea value={requestDraft.description} onChange={(event) => setRequestDraft((draft) => ({ ...draft, description: event.target.value }))} minLength={8} maxLength={1200} rows="3" required placeholder="Describe the record or correction you are requesting." />
+                  <small>For privacy, do not include medical details, bank details or passwords in this message. The school office can contact you securely if more information is needed.</small>
+                </label>
+              </div>
+              <div className="parent-request-form-footer"><span>The school will review the request and share progress here. Some records may need to be retained for legal or school-admin requirements.</span><button type="submit" className="saas-primary-button" disabled={requestSubmitting || !children.length}>{requestSubmitting ? "Submitting…" : "Submit request"}</button></div>
+            </form>
+
+            <div className="parent-portal-section-heading"><div><h2>My requests</h2><p>See the current status and any messages from the preschool.</p></div></div>
+            {dataRequests.length ? (
+              <div className="parent-data-request-list">
+                {dataRequests.map((request) => {
+                  const label = {
+                    access_copy: "Copy of records",
+                    correction: "Record correction",
+                    consent_withdrawal: "Consent update",
+                    retention_review: "Retention review",
+                  }[request.requestType] || request.requestType;
+                  return (
+                    <article className="parent-data-request-card" key={request.id}>
+                      <div className="parent-data-request-top">
+                        <div><span>{label}</span><h3>{request.child?.name || "Child record"}</h3><p>Submitted {dateLabel(request.submittedAt)}</p></div>
+                        <span className={"saas-pill " + request.status}>{request.status.replaceAll("_", " ")}</span>
+                      </div>
+                      <p className="parent-data-request-description">{request.description}</p>
+                      {request.publicResponse && <div className="parent-data-request-response"><strong>Preschool update</strong><p>{request.publicResponse}</p></div>}
+                      {request.history?.length > 1 && <details className="parent-data-request-history"><summary>Request history ({request.history.length} updates)</summary>{request.history.map((item, index) => <div key={item.status + index}><span className={"saas-pill " + item.status}>{item.status.replaceAll("_", " ")}</span><small>{dateLabel(item.createdAt)}</small><p>{item.publicMessage}</p></div>)}</details>}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : !loading ? (
+              <div className="saas-empty-state"><span className="saas-empty-icon"><MdShield aria-hidden="true" /></span><strong>No privacy requests yet</strong><p>Use the form above to submit a request about a child’s records or consent settings.</p></div>
+            ) : <div className="saas-loading" role="status">Loading your requests…</div>}
+            <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Family-specific access</strong><p>You can only submit and view requests associated with children linked to your verified parent account. The preschool reviews requests manually; it will not automatically erase records or expose sensitive files.</p></div></div>
           </section>
         )}
 
