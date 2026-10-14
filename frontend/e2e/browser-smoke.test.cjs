@@ -489,6 +489,7 @@ test('organization owner can enter the tenant workspace and register a child in 
       '; cause=' + error.message);
   }
   await page.locator('.saas-topbar-selectors select').last().selectOption('branch-1');
+  await page.getByRole('button', { name: 'Open workspace navigation' }).click();
   await page.getByRole('button', { name: 'Children', exact: true }).click();
   await page.getByRole('heading', { name: 'Children and families' }).waitFor();
   await page.getByRole('button', { name: 'Register a child' }).first().click();
