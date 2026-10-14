@@ -52,6 +52,15 @@ const PrivateRoute = ({ children, roles }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // SaaS members must never fall back into legacy single-school screens,
+  // whose APIs are intentionally blocked until their tenant migration is complete.
+  if (roles?.includes("teacher") && Array.isArray(user.memberships) && user.memberships.length > 0) {
+    const hasStaffWorkspace = user.memberships.some((membership) => membership.role !== "parent");
+    const hasFamilyWorkspace = user.memberships.some((membership) => membership.role === "parent");
+    if (hasStaffWorkspace) return <Navigate to="/dashboard" replace />;
+    if (hasFamilyWorkspace) return <Navigate to="/parent-portal" replace />;
+  }
+
   return children;
 };
 
