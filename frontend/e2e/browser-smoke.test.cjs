@@ -169,6 +169,7 @@ async function mockTenantApi(page) {
   let savedChildren = [];
   let savedAttendance = [];
   let savedInvoices = [];
+  const requestLog = [];
   let scopedChildCreateSeen = false;
   let scopedAttendanceSaveSeen = false;
   let scopedInvoiceCreateSeen = false;
@@ -178,6 +179,7 @@ async function mockTenantApi(page) {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    requestLog.push({ path, method: request.method() });
     let status = 200;
     let body = {};
 
@@ -441,6 +443,7 @@ async function mockTenantApi(page) {
   });
 
   return {
+    requestLog,
     hasScopedChildCreate: () => scopedChildCreateSeen,
     hasScopedAttendanceSave: () => scopedAttendanceSaveSeen,
     hasScopedInvoiceCreate: () => scopedInvoiceCreateSeen,
@@ -471,13 +474,20 @@ test('organization owner can enter the tenant workspace and register a child in 
   }
   // The workspace loads branch options asynchronously after membership has been
   // verified. Wait for the selector to be enabled and populated before using it.
-  await page.waitForFunction(() => {
-    const selectors = Array.from(document.querySelectorAll('.saas-topbar-selectors select'));
-    const branchSelect = selectors[selectors.length - 1];
-    return branchSelect &&
-      !branchSelect.disabled &&
-      Array.from(branchSelect.options).some((option) => option.value === 'branch-1');
-  }, { timeout: 15000 });
+  try {
+    await page.waitForFunction(() => {
+      const selectors = Array.from(document.querySelectorAll('.saas-topbar-selectors select'));
+      const branchSelect = selectors[selectors.length - 1];
+      return branchSelect &&
+        !branchSelect.disabled &&
+        Array.from(branchSelect.options).some((option) => option.value === 'branch-1');
+    }, { timeout: 15000 });
+  } catch (error) {
+    const bodyText = await page.locator('body').innerText().catch(() => '');
+    throw new Error('Branch selector never loaded. Requests=' + JSON.stringify(tenantApi.requestLog) +
+      '; body=' + bodyText.slice(0, 1800) + '; browser errors=' + JSON.stringify(browserErrors) +
+      '; cause=' + error.message);
+  }
   await page.locator('.saas-topbar-selectors select').last().selectOption('branch-1');
   await page.getByRole('button', { name: 'Children', exact: true }).click();
   await page.getByRole('heading', { name: 'Children and families' }).waitFor();
