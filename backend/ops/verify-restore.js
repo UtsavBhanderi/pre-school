@@ -580,6 +580,7 @@ async function main() {
       ['tenant_calendar_scope_mismatch', 'tenantcalendarevents', organizationAndBranchIntegrityPipeline()],
       ['tenant_work_report_scope_mismatch', 'tenantworkreports', organizationAndBranchIntegrityPipeline()],
       ['tenant_sequence_scope_mismatch', 'tenantsequences', organizationAndBranchIntegrityPipeline()],
+      ['tenant_guardian_organization_mismatch', 'guardians', guardianIntegrityPipeline()],
       ['tenant_student_scope_mismatch', 'students', organizationAndBranchIntegrityPipeline()],
       ['tenant_attendance_child_mismatch', 'attendances', attendanceChildIntegrityPipeline()],
       ['tenant_guardian_reference_mismatch', 'childguardians', childGuardianIntegrityPipeline()],
