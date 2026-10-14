@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { MdAdd, MdArchive, MdDescription, MdErrorOutline, MdImage, MdMovie, MdOpenInNew, MdRefresh, MdShield, MdUploadFile } from "react-icons/md";
+import { MdAdd, MdArchive, MdDescription, MdErrorOutline, MdImage, MdMovie, MdOpenInNew, MdRefresh, MdShield, MdUploadFile, MdPerson } from "react-icons/md";
 import { API_BASE_URL } from "../api.js";
 import "./tenant-media-library.css";
 
 const CATEGORIES = [
   { id: "gallery_image", label: "Gallery photos", shortLabel: "Photos", Icon: MdImage, accept: "image/jpeg,image/png,image/webp,image/gif", maxBytes: 8 * 1024 * 1024, maxLabel: "8 MB", description: "Share approved school-event photos with authorized staff." },
+  { id: "staff_photo", label: "Staff photos", shortLabel: "Staff photos", Icon: MdPerson, accept: "image/jpeg,image/png,image/webp,image/gif", maxBytes: 5 * 1024 * 1024, maxLabel: "5 MB", description: "Keep staff profile photos private to authorized people in this branch." },
   { id: "learning_pdf", label: "PDF resources", shortLabel: "PDFs", Icon: MdDescription, accept: "application/pdf,.pdf", maxBytes: 20 * 1024 * 1024, maxLabel: "20 MB", description: "Store worksheets, learning notes and classroom documents." },
   { id: "learning_video", label: "Learning videos", shortLabel: "Videos", Icon: MdMovie, accept: "video/mp4,video/webm,video/quicktime", maxBytes: 100 * 1024 * 1024, maxLabel: "100 MB", description: "Keep classroom videos in organization- and branch-scoped private storage." },
 ];
 
 const UPLOAD_ROLES = ["organization_owner", "head_office_admin", "branch_admin", "admissions"];
 const ARCHIVE_ROLES = ["organization_owner", "head_office_admin", "branch_admin"];
+const STAFF_PHOTO_ROLES = ["organization_owner", "head_office_admin", "branch_admin", "hr_manager"];
 
 const headersFor = (organizationId, branchId) => ({
   ...(localStorage.getItem("token") ? { "x-auth-token": localStorage.getItem("token") } : {}),
@@ -41,9 +43,12 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [staffTargets, setStaffTargets] = useState([]);
+  const [selectedStaffUserId, setSelectedStaffUserId] = useState("");
+  const [staffTargetsLoading, setStaffTargetsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const activeCategory = CATEGORIES.find((item) => item.id === category) || CATEGORIES[0];
-  const canUpload = UPLOAD_ROLES.includes(role);
+  const canUpload = category === "staff_photo" ? STAFF_PHOTO_ROLES.includes(role) : UPLOAD_ROLES.includes(role);
   const canArchive = ARCHIVE_ROLES.includes(role) && Boolean(branchId);
   const bytesUsed = useMemo(() => assets.reduce((total, asset) => total + (Number(asset.sizeBytes) || 0), 0), [assets]);
 
@@ -68,9 +73,39 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
     }
   }, [organizationId, branchId, category]);
 
+  const loadStaffTargets = useCallback(async () => {
+    if (category !== "staff_photo" || !organizationId || !branchId || !STAFF_PHOTO_ROLES.includes(role)) {
+      setStaffTargets([]);
+      setSelectedStaffUserId("");
+      return;
+    }
+
+    setStaffTargetsLoading(true);
+    try {
+      const response = await axios.get(API_BASE_URL + "/api/saas/media/staff-targets", {
+        headers: headersFor(organizationId, branchId),
+      });
+      const result = Array.isArray(response.data?.staff) ? response.data.staff : [];
+      setStaffTargets(result);
+      setSelectedStaffUserId((current) => result.some((person) => person.userId === current)
+        ? current
+        : result[0]?.userId || "");
+    } catch (requestError) {
+      setStaffTargets([]);
+      setSelectedStaffUserId("");
+      setError(displayError(requestError));
+    } finally {
+      setStaffTargetsLoading(false);
+    }
+  }, [category, organizationId, branchId, role]);
+
   useEffect(() => {
     loadAssets();
   }, [loadAssets, refreshVersion]);
+
+  useEffect(() => {
+    loadStaffTargets();
+  }, [loadStaffTargets]);
 
   const selectCategory = (nextCategory) => {
     setCategory(nextCategory);
@@ -91,6 +126,10 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
       setError("Your role can view this library but cannot upload resources.");
       return;
     }
+    if (category === "staff_photo" && !selectedStaffUserId) {
+      setError("Choose an active staff profile before uploading a staff photo.");
+      return;
+    }
     if (!selectedFile) {
       setError("Choose a file to upload first.");
       return;
@@ -106,8 +145,10 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
+      const uploadUrl = API_BASE_URL + "/api/saas/media/upload/" + activeCategory.id
+        + (category === "staff_photo" ? "?staffUserId=" + encodeURIComponent(selectedStaffUserId) : "");
       const response = await axios.post(
-        API_BASE_URL + "/api/saas/media/upload/" + activeCategory.id,
+        uploadUrl,
         formData,
         { headers: headersFor(organizationId, branchId) },
       );
@@ -191,6 +232,27 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
             <div><h3>Upload to this branch</h3><p>Supported file types only · Maximum size {activeCategory.maxLabel}.</p></div>
           </div>
           {!branchId && <p className="tenant-media-inline-warning">Choose a specific branch from the workspace header before uploading.</p>}
+          {category === "staff_photo" && (
+            <label className="tenant-media-staff-target">
+              Staff member *
+              <select
+                value={selectedStaffUserId}
+                onChange={(event) => setSelectedStaffUserId(event.target.value)}
+                disabled={staffTargetsLoading || uploading || !branchId || staffTargets.length === 0}
+                required
+              >
+                <option value="">{staffTargetsLoading ? "Loading staff profiles…" : "Choose a staff member"}</option>
+                {staffTargets.map((person) => (
+                  <option key={person.userId} value={person.userId}>
+                    {person.displayName}{person.employeeCode ? " · " + person.employeeCode : ""}{person.role ? " · " + person.role.replaceAll("_", " ") : ""}
+                  </option>
+                ))}
+              </select>
+              {!staffTargetsLoading && !staffTargets.length && (
+                <small>No active staff profile is available in this branch. Complete the staff profile setup before uploading a photo.</small>
+              )}
+            </label>
+          )}
           <div className="tenant-media-upload-controls">
             <label className="tenant-media-file-input">Choose a file
               <input
@@ -204,7 +266,7 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
             <div className="tenant-media-selected-file">
               {selectedFile ? <><strong>{selectedFile.name}</strong><span>{sizeLabel(selectedFile.size)}</span></> : <span>No file selected</span>}
             </div>
-            <button type="submit" className="saas-primary-button" disabled={uploading || loading || !selectedFile || !branchId}>
+            <button type="submit" className="saas-primary-button" disabled={uploading || loading || !selectedFile || !branchId || (category === "staff_photo" && !selectedStaffUserId)}>
               <MdAdd /> {uploading ? "Uploading privately…" : "Upload file"}
             </button>
           </div>
@@ -219,8 +281,8 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
           {assets.map((asset) => (
             <article className="tenant-media-card" key={asset.id}>
               <div className={"tenant-media-preview " + category}>
-                {category === "gallery_image" ? (
-                  <img src={asset.url} alt={asset.fileName || "School gallery photo"} loading="lazy" referrerPolicy="no-referrer" />
+                {category === "gallery_image" || category === "staff_photo" ? (
+                  <img src={asset.url} alt={category === "staff_photo" ? "Private staff profile photo" : (asset.fileName || "School gallery photo")} loading="lazy" referrerPolicy="no-referrer" />
                 ) : category === "learning_video" ? (
                   <video src={asset.url} controls preload="metadata" aria-label={asset.fileName || "Learning video"} />
                 ) : (
@@ -228,7 +290,9 @@ export default function TenantMediaLibrary({ organizationId, branchId, role }) {
                 )}
               </div>
               <div className="tenant-media-card-body">
-                <strong title={asset.fileName}>{asset.fileName || "School resource"}</strong>
+                <strong title={asset.fileName}>{category === "staff_photo"
+                  ? (staffTargets.find((person) => person.userId === asset.staffUserId)?.displayName || "Staff profile photo")
+                  : (asset.fileName || "School resource")}</strong>
                 <div className="tenant-media-card-meta"><span>{sizeLabel(asset.sizeBytes)}</span><span>{dateLabel(asset.uploadedAt)}</span></div>
                 <div className="tenant-media-card-actions">
                   {category === "learning_pdf" && (
