@@ -167,7 +167,12 @@ test('successful administrator login reaches the task-first dashboard', async ()
 
 async function mockTenantApi(page) {
   let savedChildren = [];
+  let savedAttendance = [];
+  let savedInvoices = [];
   let scopedChildCreateSeen = false;
+  let scopedAttendanceSaveSeen = false;
+  let scopedInvoiceCreateSeen = false;
+  let scopedPaymentSeen = false;
 
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -227,8 +232,18 @@ async function mockTenantApi(page) {
         date: '2026-10-14',
         branchCount: 1,
         children: { total: savedChildren.length, addedToday: savedChildren.length },
-        attendance: { present: 0, absent: 0, recorded: 0 },
-        fees: { collectedTodayPaise: 0, collectedToday: 0, outstandingPaise: 0, outstanding: 0, currency: 'INR' },
+        attendance: {
+          present: savedAttendance.flatMap((record) => record.children || []).filter((child) => child.status === 'present').length,
+          absent: savedAttendance.flatMap((record) => record.children || []).filter((child) => child.status === 'absent').length,
+          recorded: savedAttendance.flatMap((record) => record.children || []).length,
+        },
+        fees: {
+          collectedTodayPaise: 0,
+          collectedToday: 0,
+          outstandingPaise: savedInvoices.reduce((sum, invoice) => sum + invoice.outstandingPaise, 0),
+          outstanding: savedInvoices.reduce((sum, invoice) => sum + invoice.outstanding, 0),
+          currency: 'INR',
+        },
       };
     } else if (path === '/api/saas/operations/classes') {
       body = [{
@@ -282,6 +297,132 @@ async function mockTenantApi(page) {
       status = 201;
     } else if (path === '/api/saas/operations/children' && request.method() === 'GET') {
       body = { total: savedChildren.length, children: savedChildren };
+    } else if (path === '/api/saas/operations/attendance' && request.method() === 'GET') {
+      const date = url.searchParams.get('date');
+      const className = url.searchParams.get('className');
+      body = savedAttendance.filter((record) =>
+        (!date || record.date === date) && (!className || record.className === className)
+      );
+    } else if (path === '/api/saas/operations/attendance' && request.method() === 'POST') {
+      const headers = request.headers();
+      scopedAttendanceSaveSeen =
+        headers['x-organization-id'] === 'org-1' &&
+        headers['x-branch-id'] === 'branch-1';
+      const input = request.postDataJSON();
+      const children = (input.children || []).map((entry) => {
+        const child = savedChildren.find((item) => item.id === entry.childId);
+        return {
+          id: entry.childId,
+          name: child?.fullName || 'Unknown child',
+          admissionNumber: child?.admissionNumber || '',
+          status: entry.status,
+          reason: entry.reason || '',
+        };
+      });
+      const record = {
+        id: 'attendance-1',
+        date: input.date,
+        className: input.className,
+        updatedAt: '2026-10-14T09:05:00.000Z',
+        children,
+      };
+      savedAttendance = [record];
+      body = {
+        message: 'Attendance saved.',
+        recordId: record.id,
+        date: input.date,
+        className: input.className,
+        total: children.length,
+        present: children.filter((item) => item.status === 'present').length,
+        absent: children.filter((item) => item.status === 'absent').length,
+      };
+    } else if (path === '/api/saas/operations/fees/invoices' && request.method() === 'GET') {
+      body = { total: savedInvoices.length, invoices: savedInvoices };
+    } else if (path === '/api/saas/operations/fees/invoices' && request.method() === 'POST') {
+      const headers = request.headers();
+      scopedInvoiceCreateSeen =
+        headers['x-organization-id'] === 'org-1' &&
+        headers['x-branch-id'] === 'branch-1';
+      const input = request.postDataJSON();
+      const child = savedChildren.find((item) => item.id === input.childId);
+      const lineInput = input.lineItems?.[0] || {};
+      const quantity = Number(lineInput.quantity || 1);
+      const unitAmountPaise = Math.round(Number(lineInput.unitAmount || 0) * 100);
+      const lineTotalPaise = quantity * unitAmountPaise;
+      const subtotalPaise = lineTotalPaise;
+      const discountPaise = Math.round(Number(input.discount || 0) * 100);
+      const totalAmountPaise = subtotalPaise - discountPaise;
+      const invoice = {
+        id: 'invoice-1',
+        invoiceNumber: 'INV-MAIN-2026-000001',
+        academicYear: input.academicYear,
+        child: child ? {
+          id: child.id,
+          name: child.fullName,
+          admissionNumber: child.admissionNumber,
+          className: child.className,
+        } : null,
+        lineItems: [{
+          description: lineInput.description,
+          quantity,
+          unitAmountPaise,
+          unitAmount: unitAmountPaise / 100,
+          lineTotalPaise,
+          lineTotal: lineTotalPaise / 100,
+        }],
+        subtotalPaise,
+        subtotal: subtotalPaise / 100,
+        discountPaise,
+        discount: discountPaise / 100,
+        totalAmountPaise,
+        totalAmount: totalAmountPaise / 100,
+        paidPaise: 0,
+        paid: 0,
+        outstandingPaise: totalAmountPaise,
+        outstanding: totalAmountPaise / 100,
+        overpaidPaise: 0,
+        status: 'open',
+        dueDate: input.dueDate || '',
+        notes: input.notes || '',
+        transactions: [],
+        createdAt: '2026-10-14T09:10:00.000Z',
+      };
+      savedInvoices = [invoice];
+      body = { message: 'Invoice created.', invoice };
+      status = 201;
+    } else if (/^\/api\/saas\/operations\/fees\/invoices\/[^/]+\/transactions$/.test(path) && request.method() === 'POST') {
+      const headers = request.headers();
+      scopedPaymentSeen =
+        headers['x-organization-id'] === 'org-1' &&
+        headers['x-branch-id'] === 'branch-1';
+      const input = request.postDataJSON();
+      const invoice = savedInvoices.find((item) => path.includes(item.id));
+      if (!invoice) {
+        status = 404;
+        body = { message: 'Invoice not found.' };
+      } else {
+        const amount = Number(input.amount || 0);
+        const amountPaise = Math.round(amount * 100);
+        const transaction = {
+          id: 'transaction-1',
+          receiptNumber: 'REC-MAIN-2026-000001',
+          type: input.type || 'payment',
+          amountPaise,
+          amount,
+          method: input.method || 'cash',
+          reference: input.reference || '',
+          transactionAt: '2026-10-14T09:15:00.000Z',
+          relatedTransactionId: null,
+          reason: '',
+        };
+        invoice.transactions.push(transaction);
+        invoice.paidPaise += amountPaise;
+        invoice.paid = invoice.paidPaise / 100;
+        invoice.outstandingPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidPaise);
+        invoice.outstanding = invoice.outstandingPaise / 100;
+        body = { message: 'Payment recorded.', transaction, invoice };
+        status = 201;
+      }
     } else if (path === '/api/saas/media') {
       body = { assets: [] };
     } else if (path === '/api/saas/context') {
@@ -299,7 +440,12 @@ async function mockTenantApi(page) {
     });
   });
 
-  return { hasScopedChildCreate: () => scopedChildCreateSeen };
+  return {
+    hasScopedChildCreate: () => scopedChildCreateSeen,
+    hasScopedAttendanceSave: () => scopedAttendanceSaveSeen,
+    hasScopedInvoiceCreate: () => scopedInvoiceCreateSeen,
+    hasScopedPayment: () => scopedPaymentSeen,
+  };
 }
 
 test('organization owner can enter the tenant workspace and register a child in the selected branch', async () => {
@@ -340,5 +486,29 @@ test('organization owner can enter the tenant workspace and register a child in 
   await page.getByText('Child registered successfully.', { exact: true }).waitFor();
   await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
   assert.equal(tenantApi.hasScopedChildCreate(), true, 'Child creation must send both the organization and selected branch IDs.');
+
+  await page.getByRole('button', { name: 'Attendance', exact: true }).click();
+  await page.getByRole('heading', { name: 'Daily attendance' }).waitFor();
+  const attendanceRow = page.locator('.saas-attendance-row').filter({ hasText: 'Aarav Patel' });
+  await attendanceRow.getByRole('button', { name: 'Present', exact: true }).click();
+  await page.getByRole('button', { name: 'Save attendance', exact: true }).click();
+  await page.getByText('Attendance saved.', { exact: true }).waitFor();
+  assert.equal(tenantApi.hasScopedAttendanceSave(), true, 'Attendance writes must include organization and branch scope headers.');
+
+  await page.getByRole('button', { name: 'Fees & payments', exact: true }).click();
+  await page.getByRole('heading', { name: 'Fees and payments' }).waitFor();
+  await page.locator('select[name="childId"] option[value="child-1"]').waitFor({ state: 'attached' });
+  await page.locator('select[name="childId"]').selectOption('child-1');
+  await page.locator('input[name="amount"]').fill('15000');
+  await page.getByRole('button', { name: 'Create invoice', exact: true }).click();
+  await page.getByText('Invoice created.', { exact: true }).waitFor();
+  assert.equal(tenantApi.hasScopedInvoiceCreate(), true, 'Invoice creation must include organization and branch scope headers.');
+
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Record payment', exact: true }).click();
+  await page.locator('.saas-modal input[type="number"]').fill('15000');
+  await page.locator('.saas-modal button[type="submit"]').click();
+  await page.getByText('Payment recorded. Receipt: REC-MAIN-2026-000001', { exact: true }).waitFor();
+  assert.equal(tenantApi.hasScopedPayment(), true, 'Payment writes must include organization and branch scope headers.');
   await page.close();
 });
