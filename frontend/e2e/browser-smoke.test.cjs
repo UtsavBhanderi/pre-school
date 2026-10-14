@@ -311,7 +311,6 @@ test('organization owner can enter the tenant workspace and register a child in 
   await page.locator('#login-password').fill('a-test-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
-  await page.getByRole('heading', { name: 'Little Stars Preschool' }).waitFor().catch(() => {});
   await page.getByText('Little Stars Preschool', { exact: true }).first().waitFor();
   await page.locator('.saas-topbar-selectors select').selectOption('branch-1');
   await page.getByRole('button', { name: 'Children' }).click();
@@ -320,13 +319,14 @@ test('organization owner can enter the tenant workspace and register a child in 
 
   await page.locator('input[name="firstName"]').fill('Aarav');
   await page.locator('input[name="lastName"]').fill('Patel');
+  await page.locator('select[name="className"] option[value="Play Group"]').waitFor({ state: 'attached' });
   await page.locator('select[name="className"]').selectOption('Play Group');
   await page.locator('input[name="guardianName"]').fill('Disha Patel');
   await page.locator('input[name="guardianPhone"]').fill('+91 98765 43210');
   await page.locator('input[name="guardianEmail"]').fill('disha@example.com');
   await page.getByRole('button', { name: 'Save child record' }).click();
 
-  await page.getByRole('status').getByText('Child registered successfully.').waitFor();
+  await page.getByText('Child registered successfully.', { exact: true }).waitFor();
   await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
   assert.equal(tenantApi.hasScopedChildCreate(), true, 'Child creation must send both the organization and selected branch IDs.');
   await page.close();
