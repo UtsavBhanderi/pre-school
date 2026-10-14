@@ -2,27 +2,25 @@
 
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
-function isReadOnlyMaintenanceRequest({ method, baseUrl, path, body }) {
+function isReadOnlyMaintenanceRequest({ method, originalUrl, body }) {
   const requestMethod = String(method || '').toUpperCase();
-  const mount = String(baseUrl || '').replace(/\/+$/, '');
-  const routePath = String(path || '');
+  // Match the complete canonical path, not Express router-relative properties.
+  // Query strings and alternate/trailing paths deliberately fail closed.
+  const requestPath = typeof originalUrl === 'string' ? originalUrl : '';
   const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
 
-  // An ownership handover is a tightly validated security operation rather
-  // than a normal school-data write. Its route performs password, slug,
-  // successor, membership and audit checks in a single transaction.
+  // The route itself still requires password verification, exact organization
+  // slug, an eligible successor and a transactionally written audit event.
   if (
     requestMethod === 'POST' &&
-    mount === '/api/saas/ownership' &&
-    routePath === '/transfer-owner'
+    requestPath === '/api/saas/ownership/transfer-owner'
   ) {
     return true;
   }
 
   // Only a dedicated suspension-only request can bypass subscription read-only
-  // mode. Do not allow a role, branch, class or access-scope change to hide
-  // inside a request that also suspends the account.
-  const memberMatch = routePath.match(/^\/members\/([a-f\d]{24})$/i);
+  // mode. It must not smuggle role, branch, class or access-scope changes.
+  const memberMatch = requestPath.match(/^\/api\/saas\/members\/([a-f\d]{24})$/i);
   const keys = Object.keys(payload).sort();
   const suspensionOnlyPayload =
     payload.status === 'suspended' &&
@@ -34,7 +32,6 @@ function isReadOnlyMaintenanceRequest({ method, baseUrl, path, body }) {
 
   return Boolean(
     requestMethod === 'PATCH' &&
-    mount === '/api/saas' &&
     memberMatch &&
     OBJECT_ID_PATTERN.test(memberMatch[1]) &&
     suspensionOnlyPayload
