@@ -213,7 +213,7 @@ From `frontend/`:
 npm run build
 ```
 
-GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation HTTP integration suite against a disposable MongoDB replica set, the frontend production build, and Chromium browser smoke tests for accessible login controls, login failure/success flows, and mobile-width overflow.
+GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation HTTP integration suite against a disposable MongoDB replica set, the frontend production build, and Chromium browser smoke tests for accessible login controls, login failure/success flows, mobile-width overflow, and an organization owner's branch-scoped child-registration workflow.
 
 ## Important deployment notes
 
