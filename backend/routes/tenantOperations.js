@@ -24,6 +24,7 @@ const { validateReportRange } = require('../utils/reportRange');
 const { evaluateClassEligibility } = require('../utils/classEligibility');
 const { validateChildHealthInput, buildClassroomHealthSummary } = require('../utils/childHealthValidation');
 const { buildOwnerSetupChecklist } = require('../utils/ownerSetupChecklist');
+const { assertQuotaCapacity } = require('../utils/saasQuota');
 const {
   MAX_MONEY_PAISE,
   parseMoneyToPaise,
@@ -908,6 +909,11 @@ router.post('/children', requireBranchContext, async (req, res) => {
     if (!configuredClass) return res.status(400).json({ message: 'Choose an active class configured for this branch.' });
 
     const createdChild = await inTransaction(async (session) => {
+      await assertQuotaCapacity({
+        organizationId: req.tenant.organization._id,
+        resource: 'students',
+        session,
+      });
       // A write lock keeps class archival from racing with a new admission.
       const activeClass = await TenantClass.findOneAndUpdate(
         {
@@ -1009,6 +1015,8 @@ router.post('/children', requireBranchContext, async (req, res) => {
     const result = await serializeChildren([populated], req.tenant.organization._id, req.tenant.branch._id);
     return res.status(201).json({ message: 'Child registered successfully.', child: result[0] });
   } catch (error) {
+    if (error.code === 'PLAN_LIMIT_REACHED') return res.status(409).json({ code: error.code, message: error.message, limit: error.limit, used: error.used, plan: error.plan });
+    if (error.code === 'SUBSCRIPTION_READ_ONLY') return res.status(402).json({ code: error.code, message: error.message });
     if (error.code === 'CLASS_NOT_ACTIVE' || error.code === 'CLASS_DOB_REQUIRED' || error.code === 'CLASS_AGE_LIMIT') return res.status(400).json({ message: error.message });
     if (error.code === 'CLASS_CAPACITY') return res.status(409).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'A conflicting admission identifier already exists. Please try again.' });
