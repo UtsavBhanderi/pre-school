@@ -6,9 +6,9 @@
 .tenant-work-report-form textarea { min-height: 110px; }
 .tenant-work-report-form-note { display: flex; align-items: flex-start; gap: .55rem; padding: .75rem .85rem; border: 1px solid #e0e7f5; border-radius: 8px; color: #64758c; background: #f8faff; font-size: .75rem; line-height: 1.55; }
 .tenant-work-report-form-note svg { flex: 0 0 auto; margin-top: .05rem; color: #465eb3; font-size: 1.15rem; }
-.tenant-work-report-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .65rem; padding: .85rem; border: 1px solid #e0e7f0; border-radius: 10px; background: #fff; }
-.tenant-work-report-filters label { display: grid; gap: .25rem; min-width: 135px; color: #62738b; font-size: .7rem; font-weight: 800; }
-.tenant-work-report-filters input, .tenant-work-report-filters select { min-height: 38px; padding: .45rem .55rem; border: 1px solid #d4deeb; border-radius: 7px; color: #2c405a; background: #fff; font-size: .77rem; }
+.tenant-work-report-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .5rem; padding: .65rem; border: 1px solid #e0e7f0; border-radius: 10px; background: #fff; }
+.tenant-work-report-filters label { display: grid; gap: .2rem; min-width: 125px; color: #62738b; font-size: .68rem; font-weight: 800; }
+.tenant-work-report-filters input, .tenant-work-report-filters select { min-height: 35px; padding: .35rem .5rem; border: 1px solid #d4deeb; border-radius: 7px; color: #2c405a; background: #fff; font-size: .77rem; }
 .tenant-work-report-filters > span { margin-left: auto; padding-bottom: .6rem; color: #7b889b; font-size: .72rem; white-space: nowrap; }
 .tenant-work-report-list { display: grid; gap: .75rem; }
 .tenant-work-report-card { min-width: 0; padding: 1rem; border: 1px solid #dfe6ef; border-radius: 10px; background: #fff; }
