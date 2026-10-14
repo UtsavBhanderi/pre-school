@@ -41,6 +41,112 @@ const TABS = [
   { id: "team", label: "Team & activity", Icon: MdManageAccounts },
 ];
 
+const NAV_GROUPS = [
+  { label: "Home", ids: ["overview", "setup"] },
+  { label: "Children & daily care", ids: ["children", "attendance", "handover"] },
+  { label: "Teaching & communication", ids: ["workreports", "calendar", "notices", "resources"] },
+  { label: "Fees & reports", ids: ["fees", "reports", "classes"] },
+  { label: "Organization", ids: ["branches", "settings", "subscription", "team"] },
+];
+
+const ROLE_HOME_CONFIG = {
+  organization_owner: {
+    portalTitle: "Owner portal",
+    eyebrow: "ORGANIZATION OVERVIEW",
+    description: "See how your preschool is running, manage branches, and keep important decisions in one place.",
+    metrics: ["branches", "children", "attendance", "collected", "outstanding"],
+    actions: [
+      { title: "Finish preschool setup", detail: "Complete essential organization settings", tab: "setup", Icon: MdCheckCircle },
+      { title: "Manage branches", detail: "Open a branch or add another location", tab: "branches", Icon: MdApartment },
+      { title: "Manage staff and parents", detail: "Invite people and control access", tab: "team", Icon: MdManageAccounts },
+      { title: "Review reports", detail: "Export attendance and finance records", tab: "reports", Icon: MdAssessment },
+    ],
+  },
+  head_office_admin: {
+    portalTitle: "Head office portal",
+    eyebrow: "ORGANIZATION OPERATIONS",
+    description: "Coordinate your branches, review school activity, and keep teams working consistently.",
+    metrics: ["branches", "children", "attendance", "collected", "outstanding"],
+    actions: [
+      { title: "Review branch activity", detail: "Choose a branch and check today's work", tab: "branches", Icon: MdApartment },
+      { title: "Manage staff and parents", detail: "Invite people and review access", tab: "team", Icon: MdManageAccounts },
+      { title: "Review reports", detail: "Download branch-scoped records", tab: "reports", Icon: MdAssessment },
+      { title: "School notices", detail: "Share an update with your teams", tab: "notices", Icon: MdCampaign },
+    ],
+  },
+  branch_admin: {
+    portalTitle: "Branch admin portal",
+    eyebrow: "YOUR BRANCH TODAY",
+    description: "Run today's school activities, support teachers, and follow up on anything that needs attention.",
+    metrics: ["children", "attendance", "collected", "outstanding"],
+    actions: [
+      { title: "Register a child", detail: "Record a new admission and guardian", tab: "children", Icon: MdPeople },
+      { title: "Take attendance", detail: "Check every child for today's class", tab: "attendance", Icon: MdFactCheck },
+      { title: "Arrival and pickup", detail: "Confirm safe child handovers", tab: "handover", Icon: MdShield },
+      { title: "School notices", detail: "Publish a reminder for your branch", tab: "notices", Icon: MdCampaign },
+    ],
+  },
+  admissions: {
+    portalTitle: "Admissions portal",
+    eyebrow: "CHILDREN & FAMILIES",
+    description: "Keep admissions and family details up to date, and help the branch maintain accurate child records.",
+    metrics: ["children", "newChildren", "attendance"],
+    actions: [
+      { title: "Register a child", detail: "Start a child admission record", tab: "children", Icon: MdPeople },
+      { title: "Find a child", detail: "Search existing child and family records", tab: "children", Icon: MdSearch },
+      { title: "Arrival and pickup", detail: "Review authorized handovers", tab: "handover", Icon: MdShield },
+      { title: "Review attendance", detail: "Follow up on daily attendance", tab: "attendance", Icon: MdFactCheck },
+    ],
+  },
+  accountant: {
+    portalTitle: "Accounts portal",
+    eyebrow: "FEES & FINANCIAL CONTROL",
+    description: "Record collections carefully, review outstanding balances, and keep a clear transaction history.",
+    metrics: ["collected", "outstanding", "children"],
+    actions: [
+      { title: "Record a payment", detail: "Choose an invoice and issue a receipt", tab: "fees", Icon: MdCurrencyRupee },
+      { title: "Review fee reports", detail: "Export collection and balance records", tab: "reports", Icon: MdAssessment },
+      { title: "Review invoices", detail: "Check amounts paid and still due", tab: "fees", Icon: MdReceiptLong },
+      { title: "Refresh today's figures", detail: "Update collection and outstanding totals", tab: "overview", Icon: MdRefresh },
+    ],
+  },
+  teacher: {
+    portalTitle: "Teacher portal",
+    eyebrow: "YOUR CLASSROOM",
+    description: "Complete daily classroom work, take attendance for your assigned classes, and keep children safe.",
+    metrics: ["children", "attendance"],
+    actions: [
+      { title: "Take attendance", detail: "Mark every child in your assigned class", tab: "attendance", Icon: MdFactCheck },
+      { title: "Submit daily work report", detail: "Record learning activities and class time", tab: "workreports", Icon: MdAssignment },
+      { title: "Arrival and pickup", detail: "Check authorized child handovers", tab: "handover", Icon: MdShield },
+      { title: "School calendar", detail: "Check holidays and upcoming events", tab: "calendar", Icon: MdCalendarMonth },
+    ],
+  },
+  transport_staff: {
+    portalTitle: "Transport & handover portal",
+    eyebrow: "SAFE ARRIVAL & PICKUP",
+    description: "Keep handover records accurate and check school notices and upcoming events.",
+    metrics: ["children", "attendance"],
+    actions: [
+      { title: "Record arrival or pickup", detail: "Verify who is collecting the child", tab: "handover", Icon: MdShield },
+      { title: "Read school notices", detail: "Check operational reminders", tab: "notices", Icon: MdCampaign },
+      { title: "School calendar", detail: "Review upcoming events and closures", tab: "calendar", Icon: MdCalendarMonth },
+      { title: "Refresh today's overview", detail: "Reload current school figures", tab: "overview", Icon: MdRefresh },
+    ],
+  },
+  hr_manager: {
+    portalTitle: "HR workspace",
+    eyebrow: "STAFF OPERATIONS",
+    description: "Review school-wide activity and notices. Dedicated employee and payroll tools will be enabled only when their workflows are available.",
+    metrics: ["branches", "children"],
+    actions: [
+      { title: "Read school notices", detail: "Check important staff updates", tab: "notices", Icon: MdCampaign },
+      { title: "School calendar", detail: "Check events, holidays and dates", tab: "calendar", Icon: MdCalendarMonth },
+      { title: "Refresh overview", detail: "Review the latest available school totals", tab: "overview", Icon: MdRefresh },
+    ],
+  },
+};
+
 const todayLocal = () => {
   const now = new Date();
   return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
@@ -188,6 +294,7 @@ export default function TenantWorkspace() {
   const canViewFeeReports = ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant'].includes(role);
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'subscription') return canManageOrganization;
+    if (item.id === 'settings') return canManageOrganization;
     if (item.id === 'setup') return canManageOrganization;
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
@@ -204,6 +311,53 @@ export default function TenantWorkspace() {
     if (item.id === 'team') return canManagePeople;
     return false;
   });
+  const roleHome = ROLE_HOME_CONFIG[role] || ROLE_HOME_CONFIG.teacher;
+  const visibleTabIds = new Set(visibleTabs.map((item) => item.id));
+  const homeActions = roleHome.actions.filter((action) => visibleTabIds.has(action.tab));
+  const homeMetrics = [
+    {
+      key: "branches",
+      label: "Active branches",
+      value: summary?.branchCount ?? "—",
+      detail: "Within your authorized scope",
+      Icon: MdApartment,
+    },
+    {
+      key: "children",
+      label: "Children in your scope",
+      value: summary?.children?.total ?? "—",
+      detail: "Registered in the selected view",
+      Icon: MdPeople,
+    },
+    {
+      key: "newChildren",
+      label: "New admissions today",
+      value: summary?.children?.addedToday ?? "—",
+      detail: "Added today",
+      Icon: MdAdd,
+    },
+    {
+      key: "attendance",
+      label: "Present today",
+      value: summary?.attendance?.present ?? "—",
+      detail: (summary?.attendance?.absent ?? 0) + " absent · " + (summary?.attendance?.recorded ?? 0) + " marked",
+      Icon: MdFactCheck,
+    },
+    {
+      key: "collected",
+      label: "Collected today",
+      value: summary?.fees ? formatMoney(summary.fees.collectedToday, currency) : "—",
+      detail: "Net of any refunds",
+      Icon: MdCurrencyRupee,
+    },
+    {
+      key: "outstanding",
+      label: "Fees still due",
+      value: summary?.fees ? formatMoney(summary.fees.outstanding, currency) : "—",
+      detail: "On open invoices",
+      Icon: MdReceiptLong,
+    },
+  ].filter((metric) => roleHome.metrics.includes(metric.key));
   const [branchId, setBranchId] = useState(() => activeMembership?.accessAllBranches ? "" : activeMembership?.branchIds?.[0]?.id || "");
   const [branches, setBranches] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
@@ -2082,11 +2236,20 @@ export default function TenantWorkspace() {
         </div>
         <div className="saas-sidebar-label">WORKSPACE</div>
         <nav className="saas-sidebar-nav" aria-label="Preschool workspace">
-          {visibleTabs.map(({ id, label, Icon }) => (
-            <button key={id} type="button" className={"saas-nav-item" + (activeTab === id ? " active" : "")} onClick={() => setActiveTab(id)}>
-              <Icon aria-hidden="true" /><span>{label}</span>
-            </button>
-          ))}
+          {NAV_GROUPS.map((group) => {
+            const groupTabs = visibleTabs.filter((item) => group.ids.includes(item.id));
+            if (!groupTabs.length) return null;
+            return (
+              <div className="saas-sidebar-nav-group" key={group.label}>
+                <div className="saas-sidebar-group-label">{group.label}</div>
+                {groupTabs.map(({ id, label, Icon }) => (
+                  <button key={id} type="button" className={"saas-nav-item" + (activeTab === id ? " active" : "")} onClick={() => setActiveTab(id)} aria-current={activeTab === id ? "page" : undefined}>
+                    <Icon aria-hidden="true" /><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="saas-sidebar-spacer" />
         <div className="saas-secure-note"><MdShield aria-hidden="true" /><span>Organization-scoped workspace</span></div>
@@ -2100,8 +2263,8 @@ export default function TenantWorkspace() {
       <main className="saas-main">
         <header className="saas-topbar">
           <div className="saas-topbar-title">
-            <span className="saas-eyebrow">PRESCHOOL OPERATIONS</span>
-            <h1>{TABS.find((item) => item.id === activeTab)?.label || "Workspace"}</h1>
+            <span className="saas-eyebrow">{roleHome.portalTitle.toUpperCase()} · {roleHome.eyebrow}</span>
+            <h1>{TABS.find((item) => item.id === activeTab)?.label || roleHome.portalTitle}</h1>
           </div>
           <div className="saas-topbar-selectors">
             {memberships.length > 1 && (
@@ -2190,9 +2353,9 @@ export default function TenantWorkspace() {
             <section className="saas-section">
               <div className="saas-welcome-card">
                 <div>
-                  <span className="saas-eyebrow">YOUR SCHOOL AT A GLANCE</span>
-                  <h2>Hello{user?.username ? ", " + user.username : ""}.</h2>
-                  <p>Here are the numbers that matter today. Choose a task from the left to get started.</p>
+                  <span className="saas-eyebrow">{roleHome.eyebrow}</span>
+                  <h2>Welcome{user?.username ? ", " + user.username : ""}.</h2>
+                  <p>{roleHome.description}</p>
                 </div>
                 <div className="saas-welcome-date"><MdCalendarMonth aria-hidden="true" /> {formatDate(summary?.date || todayLocal())}</div>
               </div>
@@ -2208,26 +2371,26 @@ export default function TenantWorkspace() {
               )}
               {loading && !summary ? <div className="saas-loading">Loading your school summary…</div> : (
                 <div className="saas-metrics-grid">
-                  <MetricCard label="Active branches" value={summary?.branchCount ?? "—"} detail="Across this organization" Icon={MdApartment} />
-                  <MetricCard label="Children registered" value={summary?.children?.total ?? "—"} detail={(summary?.children?.addedToday ?? 0) + " added today"} Icon={MdPeople} />
-                  <MetricCard label="Present today" value={summary?.attendance?.present ?? "—"} detail={(summary?.attendance?.absent ?? 0) + " absent · " + (summary?.attendance?.recorded ?? 0) + " marked"} Icon={MdFactCheck} />
-                  <MetricCard label="Money collected today" value={summary?.fees ? formatMoney(summary.fees.collectedToday, currency) : role === "teacher" || role === "hr_manager" || role === "transport_staff" ? "Restricted" : "—"} detail={summary?.fees ? "Net of any refunds" : "Finance access is limited by role"} Icon={MdCurrencyRupee} />
-                  <MetricCard label="Fees still due" value={summary?.fees ? formatMoney(summary.fees.outstanding, currency) : role === "teacher" || role === "hr_manager" || role === "transport_staff" ? "Restricted" : "—"} detail={summary?.fees ? "On open invoices" : "Finance access is limited by role"} Icon={MdReceiptLong} />
+                  {homeMetrics.map((metric) => (
+                    <MetricCard key={metric.key} label={metric.label} value={metric.value} detail={metric.detail} Icon={metric.Icon} />
+                  ))}
                 </div>
               )}
               {canSeeAllBranches && !branchId && <div className="saas-hint"><MdApartment /> You are viewing the whole organization. Choose a branch above to work on children, attendance and payments.</div>}
-              <SectionHeading title="What needs doing?" description="The common tasks are ready when you are." />
+              <SectionHeading title="Your most useful tasks" description="Choose a task below. You will only see features your role is allowed to use." />
               <div className="saas-shortcut-grid">
-                {[
-                  { title: "Register a child", detail: "Add a child and parent contact", tab: "children", Icon: MdPeople },
-                  { title: "Take attendance", detail: "Mark children for today", tab: "attendance", Icon: MdFactCheck },
-                  { title: "Record a payment", detail: "Collect a fee and issue a receipt", tab: "fees", Icon: MdCurrencyRupee },
-                ].map(({ title, detail, tab, Icon }) => (
-                  <button type="button" className="saas-shortcut-card" key={tab} onClick={() => setActiveTab(tab)}>
+                {homeActions.map(({ title, detail, tab, Icon }) => (
+                  <button type="button" className="saas-shortcut-card" key={title} onClick={() => setActiveTab(tab)}>
                     <span><Icon aria-hidden="true" /></span><strong>{title}</strong><small>{detail}</small><MdArrowForward className="saas-shortcut-arrow" />
                   </button>
                 ))}
               </div>
+              {role === "hr_manager" && (
+                <div className="saas-hint">
+                  <MdShield aria-hidden="true" />
+                  <span>Employee records, leave approvals and payroll are not enabled in this release. No sample staff or salary data is shown.</span>
+                </div>
+              )}
               <div className="saas-trust-note"><MdShield aria-hidden="true" /><div><strong>Data stays within your organization.</strong><p>Access is checked on the server for every organization and branch request. Sensitive child documents are not available in this workspace yet.</p></div></div>
             </section>
           )}
