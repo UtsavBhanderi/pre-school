@@ -490,6 +490,177 @@ router.put('/classes/:id', requireBranchContext, async (req, res) => {
 
 
 
+router.get('/onboarding', async (req, res) => {
+  if (!allowed(req, ['organization_owner', 'head_office_admin'], res)) return;
+
+  const branchFilter = {
+    organizationId: req.tenant.organization._id,
+    status: 'active',
+  };
+  if (req.tenant.branch) {
+    branchFilter._id = req.tenant.branch._id;
+  } else if (!req.tenant.membership.accessAllBranches) {
+    branchFilter._id = { $in: req.tenant.membership.branchIds || [] };
+  }
+
+  try {
+    const scopedBranches = await Branch.find(branchFilter)
+      .select('_id name code phone email address timezone')
+      .lean();
+    const scopedBranchIds = scopedBranches.map((branch) => branch._id);
+    const branchScope = { organizationId: req.tenant.organization._id, branchId: { $in: scopedBranchIds } };
+
+    const [activeClasses, childCount, attendanceCount, invoiceCount, paymentCount, staffCount, parentCount] = await Promise.all([
+      TenantClass.countDocuments({ ...branchScope, status: 'active' }),
+      Student.countDocuments(branchScope),
+      Attendance.countDocuments(branchScope),
+      FeeInvoice.countDocuments(branchScope),
+      FeeTransaction.countDocuments({ ...branchScope, type: 'payment' }),
+      OrganizationMembership.countDocuments({
+        organizationId: req.tenant.organization._id,
+        status: 'active',
+        role: { $in: ['head_office_admin', 'branch_admin', 'admissions', 'teacher', 'accountant', 'hr_manager', 'transport_staff'] },
+        ...(req.tenant.membership.accessAllBranches ? {} : { branchIds: { $in: scopedBranchIds } }),
+      }),
+      OrganizationMembership.countDocuments({
+        organizationId: req.tenant.organization._id,
+        status: 'active',
+        role: 'parent',
+        guardianIds: { $exists: true, $ne: [] },
+        ...(req.tenant.membership.accessAllBranches ? {} : { branchIds: { $in: scopedBranchIds } }),
+      }),
+    ]);
+
+    const contact = req.tenant.organization.contact || {};
+    const address = contact.address || {};
+    const organizationProfileComplete = Boolean(
+      String(contact.email || '').trim() &&
+      String(contact.phone || '').trim() &&
+      String(address.city || '').trim()
+    );
+    const branchProfilesComplete = scopedBranches.length > 0 && scopedBranches.every((branch) =>
+      Boolean(
+        String(branch.phone || '').trim() &&
+        String(branch.address?.city || '').trim()
+      )
+    );
+
+    const steps = [
+      {
+        id: 'organization-profile',
+        title: 'Add your school contact details',
+        description: 'Enter a contact email, phone number and city so your organization is clearly identified.',
+        completed: organizationProfileComplete,
+        required: true,
+        tab: 'settings',
+        buttonLabel: 'Edit organization details',
+      },
+      {
+        id: 'branch-profile',
+        title: 'Complete branch contact details',
+        description: 'Add a local contact phone and city for each active branch.',
+        completed: branchProfilesComplete,
+        required: false,
+        tab: 'settings',
+        buttonLabel: 'Review branch details',
+      },
+      {
+        id: 'classes',
+        title: 'Set up at least one class',
+        description: 'Create your class list, then set age rules, capacity and the default fee for each class.',
+        completed: activeClasses > 0,
+        required: true,
+        tab: 'classes',
+        buttonLabel: 'Set up classes',
+        count: activeClasses,
+      },
+      {
+        id: 'children',
+        title: 'Register your first child',
+        description: 'Add a child and link the correct parent or guardian contact.',
+        completed: childCount > 0,
+        required: true,
+        tab: 'children',
+        buttonLabel: 'Register a child',
+        count: childCount,
+      },
+      {
+        id: 'attendance',
+        title: 'Save a day of attendance',
+        description: 'Choose a date and class, mark every child present or absent, and save.',
+        completed: attendanceCount > 0,
+        required: true,
+        tab: 'attendance',
+        buttonLabel: 'Take attendance',
+        count: attendanceCount,
+      },
+      {
+        id: 'fees',
+        title: 'Create your first fee invoice',
+        description: 'Create a fee invoice for a child; the balance is calculated from recorded payments and refunds.',
+        completed: invoiceCount > 0,
+        required: true,
+        tab: 'fees',
+        buttonLabel: 'Set up fees',
+        count: invoiceCount,
+      },
+      {
+        id: 'team',
+        title: 'Invite your team',
+        description: 'Invite staff with only the branches, classes and responsibilities they need.',
+        completed: staffCount > 0,
+        required: false,
+        tab: 'team',
+        buttonLabel: 'Manage staff access',
+        count: staffCount,
+      },
+      {
+        id: 'payment',
+        title: 'Record your first payment',
+        description: 'Record a payment only after money has actually been received, then give the family a receipt.',
+        completed: paymentCount > 0,
+        required: false,
+        tab: 'fees',
+        buttonLabel: 'Record a payment',
+        count: paymentCount,
+      },
+      {
+        id: 'parent-portal',
+        title: 'Connect a parent portal account',
+        description: 'Invite a verified guardian so they can see only their linked child and permitted billing records.',
+        completed: parentCount > 0,
+        required: false,
+        tab: 'team',
+        buttonLabel: 'Invite a parent',
+        count: parentCount,
+      },
+    ];
+    const requiredSteps = steps.filter((step) => step.required);
+    const requiredCompleted = requiredSteps.filter((step) => step.completed).length;
+
+    return res.json({
+      organization: {
+        id: String(req.tenant.organization._id),
+        name: req.tenant.organization.name,
+      },
+      branchScope: req.tenant.branch
+        ? { id: String(req.tenant.branch._id), name: req.tenant.branch.name }
+        : { id: null, name: 'All permitted branches' },
+      progress: {
+        completedRequired: requiredCompleted,
+        totalRequired: requiredSteps.length,
+        percent: Math.round((requiredCompleted / requiredSteps.length) * 100),
+        isReady: requiredCompleted === requiredSteps.length,
+      },
+      steps,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Unable to build the owner setup checklist:', error);
+    return res.status(503).json({ message: 'The setup checklist could not be loaded. Please refresh and try again.' });
+  }
+});
+
 router.get('/summary', async (req, res) => {
   if (!allowed(req, ['organization_owner', 'head_office_admin', 'branch_admin', 'accountant', 'admissions', 'teacher', 'hr_manager', 'transport_staff'], res)) return;
   const canViewFees = MONEY_READ_ROLES.includes(req.tenant.membership.role);
