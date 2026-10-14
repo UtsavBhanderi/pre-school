@@ -1,0 +1,69 @@
+.saas-child-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.saas-health-action { color: #425aa9; }
+.saas-health-backdrop { z-index: 1550; }
+.saas-health-modal { width: min(900px, 100%); }
+.saas-health-modal-body { display: grid; gap: .85rem; padding: 1rem; }
+.saas-health-privacy-note {
+  display: flex; align-items: flex-start; gap: .65rem; padding: .8rem .9rem;
+  border: 1px solid #d9e4f6; border-radius: 9px; color: #65758e; background: #f6f9ff;
+  font-size: .76rem; line-height: 1.55;
+}
+.saas-health-privacy-note > svg { flex: 0 0 auto; color: #4f66b7; font-size: 1.2rem; margin-top: .05rem; }
+.saas-health-privacy-note strong { display: block; margin-bottom: .18rem; color: #30466e; font-size: .8rem; }
+.saas-health-privacy-note p { margin: 0; }
+.saas-health-form { display: grid; gap: .9rem; }
+.saas-health-section { display: grid; gap: .7rem; min-width: 0; }
+.saas-health-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.saas-health-section-heading h3 { margin: 0 0 .18rem; color: #293d57; font-family: 'DM Sans', sans-serif; font-size: .94rem; font-weight: 850; }
+.saas-health-section-heading p { margin: 0; color: #758399; font-size: .74rem; line-height: 1.5; }
+.saas-health-entry { display: grid; gap: .7rem; padding: .85rem; border: 1px solid #e0e7f0; border-radius: 9px; background: #fff; }
+.saas-health-entry-top { display: flex; align-items: center; justify-content: space-between; gap: .65rem; }
+.saas-health-entry-top strong { color: #455976; font-size: .75rem; font-weight: 850; }
+.saas-health-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; align-items: start; }
+.saas-health-grid > label, .saas-health-field {
+  display: grid; gap: .3rem; min-width: 0; color: #4d5f78; font-size: .73rem; font-weight: 750; line-height: 1.4;
+}
+.saas-health-grid input, .saas-health-grid select, .saas-health-grid textarea, .saas-health-field input {
+  display: block; width: 100%; min-width: 0; min-height: 40px; padding: .52rem .62rem;
+  border: 1px solid #d5deea; border-radius: 7px; color: #23364f; background: #fff;
+  font-size: .8rem; font-weight: 500;
+}
+.saas-health-grid textarea { min-height: 72px; resize: vertical; }
+.saas-health-grid input:focus, .saas-health-grid select:focus, .saas-health-grid textarea:focus, .saas-health-field input:focus {
+  outline: 0; border-color: #8ba0e8; box-shadow: 0 0 0 .18rem rgba(54,85,206,.1);
+}
+.saas-health-full { grid-column: 1 / -1; }
+.saas-health-caution {
+  padding: .75rem .85rem; border-left: 3px solid #c38a38; border-radius: 0 8px 8px 0;
+  color: #796346; background: #fff9ef; font-size: .74rem; line-height: 1.55;
+}
+.saas-health-caution strong { color: #815b27; }
+.saas-health-checks { display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; padding: .7rem .75rem; border: 1px solid #e6ebf3; border-radius: 8px; background: #fafcff; }
+.saas-health-checks label { display: flex; align-items: flex-start; gap: .45rem; color: #5c6c83; font-size: .73rem; line-height: 1.45; }
+.saas-health-checks input { flex: 0 0 auto; width: 16px; height: 16px; margin-top: .07rem; accent-color: #3655ce; }
+.saas-health-form-actions { display: flex; align-items: center; justify-content: space-between; gap: .9rem; padding-top: .8rem; border-top: 1px solid #edf1f6; }
+.saas-health-form-actions > span { max-width: 420px; color: #7b8799; font-size: .7rem; line-height: 1.5; }
+.saas-health-form-actions > div { display: flex; flex: 0 0 auto; gap: .55rem; }
+.saas-classroom-health {
+  grid-column: 2 / -1; min-width: 0; padding: .65rem .75rem; border: 1px solid #ead9b8;
+  border-radius: 8px; color: #6d5b3d; background: #fffaf1; font-size: .72rem; line-height: 1.5;
+}
+.saas-classroom-health > summary { display: flex; align-items: center; gap: .4rem; color: #765927; cursor: pointer; list-style: none; font-weight: 850; }
+.saas-classroom-health > summary::-webkit-details-marker { display: none; }
+.saas-classroom-health > summary svg { color: #997036; font-size: 1rem; }
+.saas-classroom-health > div { margin-top: .5rem; }
+.saas-classroom-health > div strong { display: block; margin-bottom: .15rem; color: #68502a; font-size: .7rem; }
+.saas-classroom-health ul { margin: 0; padding-left: 1.1rem; }
+.saas-classroom-health li { margin: .15rem 0; overflow-wrap: anywhere; }
+.saas-classroom-health p { margin: .2rem 0; color: #6d5b3d; font-size: .72rem; white-space: pre-wrap; }
+.saas-classroom-health > small { display: block; margin-top: .6rem; padding-top: .45rem; border-top: 1px solid #eedfc2; color: #8b7a5e; font-size: .65rem; }
+@media (max-width: 760px) {
+  .saas-health-grid { grid-template-columns: 1fr; }
+  .saas-health-full { grid-column: auto; }
+  .saas-health-form-actions { align-items: stretch; flex-direction: column; }
+  .saas-health-form-actions > div { width: 100%; }
+  .saas-health-form-actions > div > button { flex: 1; }
+  .saas-health-section-heading { align-items: flex-start; }
+  .saas-health-section-heading .saas-secondary-button { flex: 0 0 auto; }
+  .saas-classroom-health { grid-column: 2; }
+}
