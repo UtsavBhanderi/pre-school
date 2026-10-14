@@ -7,10 +7,13 @@ const Student = require('../models/Student');
 const Attendance = require('../models/Attendance');
 const FeeInvoice = require('../models/FeeInvoice');
 const FeeTransaction = require('../models/FeeTransaction');
+const FamilyDataRequest = require('../models/FamilyDataRequest');
+const AuditEvent = require('../models/AuditEvent');
 const { tenantContext } = require('../middleware/tenantContext');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { calculateInvoiceBalance, calculateInvoiceBalanceForStatus, formatPaise } = require('../utils/tenantMoney');
 const { getTodayInTimeZone } = require('../utils/zonedDate');
+const { validateFamilyDataRequestInput } = require('../utils/familyDataRequestRules');
 
 const router = express.Router();
 router.use(tenantContext);
@@ -296,6 +299,158 @@ router.get('/fees', async (req, res) => {
   } catch (error) {
     console.error('Unable to load parent fee information:', error.message);
     return res.status(503).json({ message: 'Fee information could not be loaded.' });
+  }
+});
+
+
+function serializeFamilyDataRequest(request, child) {
+  return {
+    id: String(request._id),
+    child: child ? { id: String(child._id), name: childName(child), className: child.standard || '' } : null,
+    requestType: request.requestType,
+    description: request.description,
+    contactPreference: request.contactPreference,
+    status: request.status,
+    submittedAt: request.submittedAt,
+    lastActionAt: request.lastActionAt,
+    publicResponse: request.publicResponse || '',
+    history: (request.publicHistory || []).map((event) => ({
+      status: event.status,
+      publicMessage: event.publicMessage || '',
+      createdAt: event.createdAt,
+    })),
+  };
+}
+
+async function withParentRequestTransaction(work) {
+  let session;
+  try {
+    session = await mongoose.startSession();
+    let result;
+    await session.withTransaction(async () => {
+      result = await work(session);
+    });
+    return result;
+  } finally {
+    if (session) await session.endSession();
+  }
+}
+
+router.get('/data-requests', async (req, res) => {
+  if (!requireParent(req, res)) return;
+  const branchIds = authorizedBranchIds(req);
+  try {
+    const requests = await FamilyDataRequest.find({
+      organizationId: req.tenant.organization._id,
+      branchId: { $in: branchIds },
+      requesterUserId: req.user._id,
+      requesterGuardianIds: { $in: req.tenant.membership.guardianIds },
+    }).sort({ submittedAt: -1 }).limit(100).lean();
+
+    const childIds = [...new Set(requests.map((request) => String(request.childId)))];
+    const children = childIds.length ? await Student.find({
+      _id: { $in: childIds },
+      organizationId: req.tenant.organization._id,
+      branchId: { $in: branchIds },
+    }).select('_id firstName middleName lastName standard').lean() : [];
+    const childById = new Map(children.map((child) => [String(child._id), child]));
+
+    return res.json({
+      total: requests.length,
+      requests: requests.map((request) => serializeFamilyDataRequest(request, childById.get(String(request.childId)) || null)),
+    });
+  } catch (error) {
+    console.error('Unable to load family data requests:', error.message);
+    return res.status(503).json({ message: 'Your privacy requests could not be loaded.' });
+  }
+});
+
+router.post('/data-requests', async (req, res) => {
+  if (!requireParent(req, res)) return;
+  const validation = validateFamilyDataRequestInput(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({
+      message: 'Please correct the request details.',
+      errors: validation.errors,
+    });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(validation.value.childId)) {
+    return res.status(400).json({ message: 'Choose a valid child linked to your family account.' });
+  }
+
+  const allowedBranches = authorizedBranchIds(req);
+  if (!allowedBranches.length) {
+    return res.status(403).json({ message: 'No active branch is connected to this parent account.' });
+  }
+
+  try {
+    const child = await Student.findOne({
+      _id: validation.value.childId,
+      organizationId: req.tenant.organization._id,
+      branchId: { $in: allowedBranches },
+    }).select('_id firstName middleName lastName standard branchId').lean();
+    if (!child) {
+      return res.status(404).json({ message: 'This child is not connected to your parent account.' });
+    }
+
+    const linkedContacts = await ChildGuardian.find({
+      organizationId: req.tenant.organization._id,
+      branchId: child.branchId,
+      childId: child._id,
+      guardianId: { $in: req.tenant.membership.guardianIds },
+    }).select('guardianId').lean();
+    const guardianIds = [...new Set(linkedContacts.map((link) => String(link.guardianId)))];
+    if (!guardianIds.length) {
+      return res.status(404).json({ message: 'This child is not connected to your parent account.' });
+    }
+
+    const receivedMessage = 'Your request has been received. The preschool office will review it and update the status here.';
+    const created = await withParentRequestTransaction(async (session) => {
+      const [request] = await FamilyDataRequest.create([{
+        organizationId: req.tenant.organization._id,
+        branchId: child.branchId,
+        childId: child._id,
+        requesterUserId: req.user._id,
+        requesterGuardianIds: guardianIds,
+        requestType: validation.value.requestType,
+        description: validation.value.description,
+        contactPreference: validation.value.contactPreference,
+        status: 'submitted',
+        submittedAt: new Date(),
+        lastActionAt: new Date(),
+        publicResponse: receivedMessage,
+        publicHistory: [{
+          status: 'submitted',
+          publicMessage: receivedMessage,
+          actorUserId: req.user._id,
+          createdAt: new Date(),
+        }],
+        createdBy: req.user._id,
+      }], { session });
+
+      await AuditEvent.create([{
+        organizationId: req.tenant.organization._id,
+        branchId: child.branchId,
+        actorUserId: req.user._id,
+        action: 'family.data_request_submitted',
+        resourceType: 'family_data_request',
+        resourceId: String(request._id),
+        summary: 'Family data-rights request submitted.',
+        changedFields: ['childId', 'requestType', 'contactPreference'],
+        ipAddress: String(req.ip || '').slice(0, 64),
+        userAgent: String(req.get('user-agent') || '').slice(0, 300),
+      }], { session });
+      return request;
+    });
+
+    return res.status(201).json({
+      message: 'Your request has been submitted.',
+      request: serializeFamilyDataRequest(created.toObject ? created.toObject() : created, child),
+    });
+  } catch (error) {
+    console.error('Unable to submit family data request:', error.message);
+    return res.status(503).json({ message: 'Your request could not be submitted safely. Please try again.' });
   }
 });
 
