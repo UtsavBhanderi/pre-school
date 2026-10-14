@@ -28,7 +28,7 @@ const TenantMediaAssetSchema = new mongoose.Schema({
   audience: { type: String, enum: ['staff_only', 'parent_with_photo_consent'], default: 'staff_only', immutable: true },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, immutable: true },
   migrationSourceCollection: { type: String, enum: ['students', 'teachers', 'photos', 'pdfs', 'videos'], default: undefined, immutable: true },
-  migrationSourceDocumentId: { type: String, trim: true, maxlength: 24, match: /^[a-f\\d]{24}$/i, default: undefined, immutable: true },
+  migrationSourceDocumentId: { type: String, trim: true, maxlength: 24, match: /^[a-f\d]{24}$/i, default: undefined, immutable: true },
   migrationSourceField: { type: String, trim: true, maxlength: 40, default: undefined, immutable: true },
   migrationBatchId: { type: String, trim: true, maxlength: 80, default: undefined, immutable: true },
   archivedAt: { type: Date, default: null },
