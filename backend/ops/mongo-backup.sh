@@ -38,6 +38,20 @@ except Exception as error:
 PY
 )" || exit 1
 
+# Store only a hash of the host/seed-list authority in the sidecar so a restore
+# script can reject a same-deployment target without exposing hosts or credentials.
+source_endpoint_sha256="$(python3 - "$MONGO_URI" <<'PY'
+import hashlib
+import sys
+from urllib.parse import urlsplit
+
+parsed = urlsplit(sys.argv[1])
+authority = parsed.netloc.rsplit('@', 1)[-1].lower()
+endpoint = ','.join(sorted(authority.split(',')))
+print(hashlib.sha256(endpoint.encode('utf-8')).hexdigest())
+PY
+)" || exit 1
+
 if ! [[ "$BACKUP_SOURCE_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$ ]]; then
   printf 'BACKUP_SOURCE_LABEL must be 1–80 safe letters, numbers, dots, underscores or hyphens.\n' >&2
   exit 1
@@ -93,16 +107,17 @@ archive_sha256="$(sha256sum "$encrypted_archive" | awk '{print $1}')"
 archive_size="$(stat -c '%s' "$encrypted_archive" 2>/dev/null || stat -f '%z' "$encrypted_archive")"
 created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-python3 - "$metadata_tmp" "$archive_name" "$database_name" "$archive_sha256" "$archive_size" "$created_at" "$tool_version" "$BACKUP_SOURCE_LABEL" <<'PY'
+python3 - "$metadata_tmp" "$archive_name" "$database_name" "$archive_sha256" "$archive_size" "$created_at" "$tool_version" "$BACKUP_SOURCE_LABEL" "$source_endpoint_sha256" <<'PY'
 import json
 import os
 import sys
 
-path, archive, database, digest, size, created, tool_version, source_label = sys.argv[1:]
+path, archive, database, digest, size, created, tool_version, source_label, endpoint_sha256 = sys.argv[1:]
 metadata = {
     'format': 'preschool-mongodb-backup-v1',
     'archive': archive,
     'database': database,
+    'sourceEndpointSha256': endpoint_sha256,
     'createdAtUtc': created,
     'sourceLabel': source_label,
     'encryption': 'age',
