@@ -22,7 +22,6 @@ export default function VerifyOrganizationSignup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +75,6 @@ export default function VerifyOrganizationSignup() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Your preschool workspace could not be created.");
       if (!data.token) throw new Error("The server did not return a valid sign-in session.");
-      setCompleted(true);
       const activeUser = await setSession(data.token);
       if (activeUser) navigate("/dashboard", { replace: true });
     } catch (error) {
