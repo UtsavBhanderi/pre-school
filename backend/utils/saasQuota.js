@@ -82,6 +82,10 @@ async function lockOrganizationForQuotaCheck(organizationId, session) {
   return organization;
 }
 
+async function assertOrganizationWritable({ organizationId, session }) {
+  return lockOrganizationForQuotaCheck(organizationId, session);
+}
+
 async function assertQuotaCapacity({
   organizationId,
   resource,
@@ -150,6 +154,7 @@ async function getSubscriptionSummary(organization) {
 module.exports = {
   SubscriptionPolicyError,
   countOrganizationUsage,
+  assertOrganizationWritable,
   assertQuotaCapacity,
   getSubscriptionSummary,
 };
