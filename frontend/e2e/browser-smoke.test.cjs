@@ -105,7 +105,7 @@ test('login form exposes labels and the password visibility control works', asyn
   await page.goto(BASE_URL + '/login');
 
   const email = page.getByRole('textbox', { name: 'Email address' });
-  const password = page.getByRole('textbox', { name: 'Password' });
+  const password = page.locator('#login-password');
   const toggle = page.getByRole('button', { name: 'Show password' });
 
   assert.equal(await email.count(), 1);
@@ -132,7 +132,7 @@ test('invalid credentials show a readable error and keep the user on login', asy
   await mockSchoolApi(page, { rejectLogin: true });
   await page.goto(BASE_URL + '/login');
   await page.getByRole('textbox', { name: 'Email address' }).fill('wrong@school.com');
-  await page.getByRole('textbox', { name: 'Password' }).fill('incorrect-password');
+  await page.locator('#login-password').fill('incorrect-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
   await page.getByRole('alert').getByText('Invalid email or password.').waitFor();
@@ -145,7 +145,7 @@ test('successful administrator login reaches the task-first dashboard', async ()
   await mockSchoolApi(page);
   await page.goto(BASE_URL + '/login');
   await page.getByRole('textbox', { name: 'Email address' }).fill('admin@example.com');
-  await page.getByRole('textbox', { name: 'Password' }).fill('test-password');
+  await page.locator('#login-password').fill('test-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
   await page.waitForURL(/\/dashboard\/home$/);
