@@ -17,6 +17,21 @@ The Express API applies the following headers to responses:
 
 The frontend is deployed separately in some environments; these headers are for the Express API and do not configure the frontend host's CSP.
 
+## Production startup validation
+
+When `NODE_ENV=production`, the backend validates critical settings before connecting to MongoDB. Startup stops with configuration errors when the application has missing/weak placeholder JWT or media secrets, reuses the same secret for both purposes, allows wildcard or non-HTTPS frontend origins, uses loopback service URLs, omits the canonical public API/frontend origins, or lacks SMTP sender/credentials needed for password recovery and invitations.
+
+The checked settings are:
+
+- `MONGO_URI`: a MongoDB URI that does not point to localhost/loopback.
+- `JWT_SECRET`: a non-placeholder secret at least 32 characters long.
+- `PRIVATE_MEDIA_SECRET`: a different, non-placeholder secret at least 32 characters long.
+- `FRONTEND_ORIGIN`: one or more explicit HTTPS origins, comma-separated, without wildcard CORS.
+- `FRONTEND_URL` and `API_PUBLIC_URL`: canonical HTTPS origins.
+- `SMTP_HOST`, `SMTP_PORT`, `EMAIL_USER`, `EMAIL_PASS` and a valid `EMAIL_FROM`.
+
+The example values in `backend/.env.example` are for local development only. Replace every placeholder before deploying. This validation does not prove that the database is a replica set, that backups restore correctly, or that tenant data is safe to onboard.
+
 ## Public endpoint request limits
 
 The process includes bounded fixed-window limits for sensitive unauthenticated endpoints:
