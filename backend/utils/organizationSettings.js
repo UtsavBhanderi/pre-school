@@ -1,6 +1,7 @@
 'use strict';
 
 const SUPPORTED_LOCALES = ['en-IN', 'en-GB', 'en-US', 'hi-IN', 'gu-IN'];
+const SUPPORTED_CURRENCIES = ['INR', 'USD', 'GBP', 'AED', 'EUR', 'AUD', 'CAD', 'SGD'];
 const SUPPORTED_LANGUAGES = ['en', 'hi', 'gu'];
 const SUPPORTED_DATE_FORMATS = ['DD-MM-YYYY', 'MM-DD-YYYY', 'YYYY-MM-DD'];
 const ADDRESS_FIELDS = ['line1', 'line2', 'city', 'state', 'postalCode', 'country'];
@@ -19,7 +20,7 @@ function validTimezone(value) {
 }
 
 function validCurrency(value) {
-  if (typeof value !== 'string' || !/^[A-Z]{3}$/.test(value)) return false;
+  if (typeof value !== 'string' || !SUPPORTED_CURRENCIES.includes(value)) return false;
   try {
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: value }).format(1);
     return true;
@@ -74,8 +75,9 @@ function validateOrganizationProfile(input = {}, current = {}) {
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'currency')) {
-    const currency = cleanText(input.currency, 3).toUpperCase();
-    if (!validCurrency(currency)) errors.currency = 'Choose a valid three-letter currency code.';
+    const currency = typeof input.currency === 'string' ? input.currency.trim().toUpperCase() : '';
+    const unchangedExistingCurrency = currency && currency === current.currency;
+    if (!unchangedExistingCurrency && !validCurrency(currency)) errors.currency = 'Choose a supported currency: INR, USD, GBP, AED, EUR, AUD, CAD or SGD.';
     else if (currency !== current.currency) value.currency = currency;
   }
 
@@ -220,6 +222,7 @@ function validateBranchProfile(input = {}) {
 
 module.exports = {
   SUPPORTED_LOCALES,
+  SUPPORTED_CURRENCIES,
   SUPPORTED_LANGUAGES,
   SUPPORTED_DATE_FORMATS,
   validTimezone,
