@@ -158,3 +158,23 @@
   font-weight: 750;
 }
 .login-footer-note p { margin: 0; }
+
+
+/* Small, readable self-service onboarding form. */
+.organization-signup-card .parent-entry-intro { margin-bottom: .7rem; }
+.organization-signup-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, .65fr); gap: .75rem; }
+.organization-signup-grid > label { display: grid; gap: .35rem; min-width: 0; color: #455771; font-size: .77rem; font-weight: 750; }
+.organization-signup-grid input {
+  width: 100%; min-width: 0; min-height: 42px; padding: .56rem .65rem;
+  border: 1px solid #d4deeb; border-radius: 7px; color: #21344d; background: #fff;
+  font-size: .83rem; font-weight: 500;
+}
+.organization-signup-privacy {
+  padding: .75rem .8rem; border-left: 3px solid #536cc0; border-radius: 0 7px 7px 0;
+  color: #687891; background: #f7f9ff; font-size: .74rem; line-height: 1.55;
+}
+.login-help-links { display: flex; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+@media (max-width: 520px) {
+  .organization-signup-grid { grid-template-columns: 1fr; }
+  .login-help-links { flex-direction: column; gap: .2rem; }
+}
