@@ -8,6 +8,10 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, minlength: 8 },
   role: { type: String, enum: ['teacher', 'admin', 'student'], default: 'teacher' },
+  // Incrementing authVersion invalidates tokens issued before a password reset.
+  authVersion: { type: Number, min: 0, default: 0 },
+  passwordResetTokenHash: { type: String, default: null, select: false },
+  passwordResetExpiresAt: { type: Date, default: null, select: false },
 }, { timestamps: true });
 
 UserSchema.pre('save', async function () {
