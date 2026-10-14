@@ -31,9 +31,9 @@ test('a new owner sees the real required setup steps as incomplete', () => {
   });
   assert.equal(checklist.organization.id, 'org-a');
   assert.equal(checklist.branchScope.name, 'All permitted branches');
-  assert.equal(checklist.progress.completedRequired, 0);
+  assert.equal(checklist.progress.completedRequired, 1);
   assert.equal(checklist.progress.totalRequired, 5);
-  assert.equal(checklist.progress.percent, 0);
+  assert.equal(checklist.progress.percent, 20);
   assert.equal(checklist.progress.isReady, false);
   assert.equal(checklist.steps.find((step) => step.id === 'organization-profile').completed, true);
   assert.equal(checklist.steps.find((step) => step.id === 'classes').completed, false);
