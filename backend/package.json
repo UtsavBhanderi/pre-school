@@ -9,7 +9,8 @@
     "test:integration": "node --test integration-tests/*.integration.test.js",
     "migration:preflight": "node legacyMigrationPreflight.js",
     "migration:tenant": "node legacyTenantMigration.js",
-    "migration:staff": "node legacyStaffMigration.js"
+    "migration:staff": "node legacyStaffMigration.js",
+    "subscription:manage": "node scripts/manageSaasSubscription.js"
   },
   "keywords": [],
   "author": "",
