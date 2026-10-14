@@ -89,3 +89,26 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+  browser-smoke:
+    name: Browser smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/playwright" --no-save --no-package-lock playwright@1.55.1
+          "$RUNNER_TEMP/playwright/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Run browser smoke tests
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/playwright/node_modules/playwright
+        run: node --test e2e/browser-smoke.test.cjs
