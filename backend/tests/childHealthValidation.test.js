@@ -101,12 +101,16 @@ test('classroom summary returns safety details but omits private medical notes, 
     updatedAt: new Date('2026-10-14T00:00:00.000Z'),
   });
   assert.equal(summary.hasAlerts, true);
+  assert.equal(summary.schoolMedicationRequired, false);
   assert.equal(summary.allergies[0].name, 'Peanuts');
   assert.equal(summary.dietaryRestrictions[0].name, 'Dairy');
   assert.equal(summary.specialCareInstructions, 'Use the approved plan.');
   assert.equal(Object.hasOwn(summary, 'medications'), false);
   assert.equal(Object.hasOwn(summary, 'medicalNotes'), false);
   assert.equal(Object.hasOwn(summary, 'physicianPhone'), false);
+  const safeMedicationFlag = buildClassroomHealthSummary({ medications: [{ administerAtSchool: true, parentAuthorizationRecorded: true }] });
+  assert.equal(safeMedicationFlag.schoolMedicationRequired, true);
+  assert.equal(Object.hasOwn(safeMedicationFlag, 'medications'), false);
 });
 
 test('a missing health record produces a safe empty classroom summary', () => {
@@ -116,6 +120,7 @@ test('a missing health record produces a safe empty classroom summary', () => {
     dietaryRestrictions: [],
     specialCareInstructions: '',
     emergencyInstructions: '',
+    schoolMedicationRequired: false,
     lastUpdatedAt: null,
   });
 });
