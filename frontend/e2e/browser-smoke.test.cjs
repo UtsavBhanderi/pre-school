@@ -313,7 +313,7 @@ test('organization owner can enter the tenant workspace and register a child in 
   await page.locator('#login-password').fill('a-test-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
-  await page.waitForURL((url) => url.pathname.endsWith("/dashboard/home"), { timeout: 10000 });
+  // Tenant members render the SaaS workspace from LayoutAdmin at /dashboard.
   try {
     await page.locator('.saas-workspace').waitFor({ state: 'attached', timeout: 15000 });
   } catch (error) {
