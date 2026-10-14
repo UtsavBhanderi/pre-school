@@ -469,7 +469,16 @@ test('organization owner can enter the tenant workspace and register a child in 
       '; browser errors=' + JSON.stringify(browserErrors) +
       '; cause=' + error.message);
   }
-  await page.locator('.saas-topbar-selectors select').selectOption('branch-1');
+  // The workspace loads branch options asynchronously after membership has been
+  // verified. Wait for the selector to be enabled and populated before using it.
+  await page.waitForFunction(() => {
+    const selectors = Array.from(document.querySelectorAll('.saas-topbar-selectors select'));
+    const branchSelect = selectors[selectors.length - 1];
+    return branchSelect &&
+      !branchSelect.disabled &&
+      Array.from(branchSelect.options).some((option) => option.value === 'branch-1');
+  }, { timeout: 15000 });
+  await page.locator('.saas-topbar-selectors select').last().selectOption('branch-1');
   await page.getByRole('button', { name: 'Children', exact: true }).click();
   await page.getByRole('heading', { name: 'Children and families' }).waitFor();
   await page.getByRole('button', { name: 'Register a child' }).first().click();
