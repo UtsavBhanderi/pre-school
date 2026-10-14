@@ -92,14 +92,19 @@ async function safeSourceFile(relativePath, expectedFolder) {
   }
 
   let stat;
+  let realUploadsRoot;
   let realRoot;
   let realCandidate;
   try {
-    stat = await fs.lstat(candidate);
+    realUploadsRoot = await fs.realpath(UPLOAD_ROOT);
     realRoot = await fs.realpath(expectedRoot);
+    stat = await fs.lstat(candidate);
     realCandidate = await fs.realpath(candidate);
   } catch {
     return { ok: false, reason: 'source_file_missing_or_unreadable' };
+  }
+  if (!realRoot.startsWith(realUploadsRoot + path.sep)) {
+    return { ok: false, reason: 'source_folder_resolves_outside_upload_root' };
   }
   if (stat.isSymbolicLink() || !stat.isFile()) {
     return { ok: false, reason: 'source_must_be_a_regular_non_symlink_file' };
@@ -130,7 +135,12 @@ async function loadSourceRecord(item) {
 }
 
 async function ensureMigrationIndex() {
-  const indexes = await TenantMediaAsset.collection.indexes();
+  let indexes = [];
+  try {
+    indexes = await TenantMediaAsset.collection.indexes();
+  } catch (error) {
+    if (error.code !== 26 && error.codeName !== 'NamespaceNotFound') throw error;
+  }
   const keys = {
     organizationId: 1,
     branchId: 1,
@@ -269,7 +279,17 @@ async function copyPlanItem(planItem, manifest, approvedBy, batchId, changeTicke
   if (!directory.startsWith(TENANT_MEDIA_ROOT + path.sep)) throw new Error('Tenant media destination escaped its storage root.');
   const destination = path.resolve(directory, storageName);
   if (!destination.startsWith(directory + path.sep)) throw new Error('Private media filename escaped its branch folder.');
+  await fs.mkdir(TENANT_MEDIA_ROOT, { recursive: true, mode: 0o750 });
+  const realUploadsRoot = await fs.realpath(UPLOAD_ROOT);
+  const realTenantRoot = await fs.realpath(TENANT_MEDIA_ROOT);
+  if (!realTenantRoot.startsWith(realUploadsRoot + path.sep)) {
+    throw new Error('Tenant private-media root resolves outside the upload root.');
+  }
   await fs.mkdir(directory, { recursive: true, mode: 0o750 });
+  const realDirectory = await fs.realpath(directory);
+  if (!realDirectory.startsWith(realTenantRoot + path.sep)) {
+    throw new Error('Tenant branch media directory resolves outside the private-media root.');
+  }
 
   const existingFile = await fs.lstat(destination).catch(() => null);
   let destinationValid = false;
@@ -374,7 +394,7 @@ async function run() {
       status: 'invalid_manifest',
       applyRequested,
       writesPerformed: false,
-      organizationId: cleanText(parsedManifest?.organizationId, 24) || 'not provided',
+      organizationId: typeof parsedManifest?.organizationId === 'string' ? parsedManifest.organizationId.slice(0, 24) : 'not provided',
       summary: { ready: 0, alreadyMigrated: 0, skipped: 0, blocked: Object.keys(validation.errors).length },
       items: Object.entries(validation.errors).map(([key, reason]) => ({
         status: 'blocked', sourceCollection: key, sourceDocumentIdPrefix: '', sourceField: '', category: 'unknown', reason,
