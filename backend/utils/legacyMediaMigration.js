@@ -185,7 +185,7 @@ function parseLegacyUploadReference(value, expectedFolder, apiPublicUrl = '') {
     status: 'local',
     folder,
     filename,
-    relativePath: path.posix.join('uploads', folder, filename),
+    relativePath: path.posix.join(folder, filename),
     mimeType: inferLegacyMimeType(filename),
   };
 }
