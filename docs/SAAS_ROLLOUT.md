@@ -245,6 +245,20 @@ npm run migration:media -- --manifest ../legacy-media-manifest.json --json
 
 Apply is intentionally separate and staging-only. Keep the copy of the manifest secured: it contains internal record IDs. The command does not change the source record values and does not make legacy screens use the migrated assets automatically. The existing tenant media library is the inspection path for migrated content; legacy student/staff/resource screen integration, a restored-staging rehearsal, and acceptance tests are still required release gates.
 
+### Read-only verification of a migrated media batch
+
+After a staging apply has printed its batch ID, verify the resulting files and links using the read-only command:
+
+~~~bash
+cd backend
+NODE_ENV=staging SAAS_MIGRATION_ENV=staging \
+  npm run migration:media-verify -- --batch media-REPLACE_WITH_24_HEX_BATCH_ID --json
+~~~
+
+The command accepts one batch ID and a bounded \`--limit\` from 1 to 5000 (default 1000). It is restricted to a database whose name contains \`staging\`, reads but never inserts/updates/deletes database records, and does not create indexes or copy files. It checks source-record links, target organization/branch ownership, expected media category, source/destination file presence and safety, file signatures, size and SHA-256 equality. It also flags stale class visibility, incomplete target staff/child linkage, pending assets, archived assets and parent-photo consent that is no longer recorded.
+
+Output intentionally uses only short ID prefixes, source collection/field and reason codes; it does not print names, emails, phone numbers, full source paths, signed download links or file contents. A truncated report is not a pass. Resolve all blocked items and review warnings; then repeat from a fresh staging restore before any production migration approval. A clean integrity report does not prove that legacy screens have been integrated, that source ownership was initially correct, or that the broader release checklist is satisfied.
+
 ## Organization and branch settings
 
 The SaaS workspace now includes a role-gated profile editor for organization owners and head-office administrators:
