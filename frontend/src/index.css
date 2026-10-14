@@ -700,3 +700,28 @@ img { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .sidebar-group-chevron { transition: none; }
 }
+
+
+/* Search-only controls use the compact filter rhythm, not form-entry sizing. */
+.admin-main-content [aria-label="Search user accounts"] {
+  width: min(100%, 320px);
+  min-height: 36px;
+  height: 36px;
+  padding: .35rem .55rem;
+  font-size: .82rem;
+}
+.birthday-page .birthday-advanced-filters .form-control,
+.birthday-page .birthday-advanced-filters .form-select {
+  min-height: 36px;
+  height: 36px;
+  padding: .35rem .5rem;
+  border-radius: 7px;
+  font-size: .79rem;
+}
+.birthday-page .birthday-advanced-filters .input-group-text {
+  padding: .35rem .55rem;
+  border-radius: 7px 0 0 7px;
+}
+.birthday-page .birthday-advanced-filters .input-group > .form-control {
+  border-radius: 0 7px 7px 0;
+}
