@@ -228,7 +228,7 @@ GitHub Actions runs backend syntax checks and unit tests, the tenant-isolation H
 
 ## Guarded legacy data migration (staging only)
 
-The new \`npm run migration:tenant\` command defaults to a **dry run**. It reads an explicit JSON manifest, audits the current source and target, and prints bounded counts/blocker codes. It never creates collections/indexes in dry-run mode. The first supported write migration is intentionally limited to the selected legacy-unscoped student, attendance and fee collections; staff identity, guardians, report cards, calendar events and uploaded media remain out of scope.
+The new \`npm run migration:tenant\` command defaults to a **dry run**. It reads an explicit JSON manifest, audits the current source and target, and prints bounded counts/blocker codes. It never creates collections/indexes in dry-run mode. The first supported write migration is intentionally limited to selected legacy-unscoped student, attendance and fee collections. Staff identity has a separate explicit migration command; legacy media has a separate staging-only copy prototype. Guardians, report cards, calendar events and source-screen media integration still require their own reviewed mapping and acceptance process.
 
 The write path is deliberately unavailable in development/production. It requires all of the following in a **disposable, restored staging environment**:
 
