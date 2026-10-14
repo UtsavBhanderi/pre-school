@@ -11,6 +11,7 @@ const OrganizationInvitation = require('../models/OrganizationInvitation');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const AuditEvent = require('../models/AuditEvent');
 const { hashInvitationToken, isInvitationLive } = require('../utils/invitationTokens');
+const { assertOrganizationWritable, assertQuotaCapacity } = require('../utils/saasQuota');
 
 const router = express.Router();
 
@@ -148,6 +149,17 @@ router.post('/accept', async (req, res) => {
             }
           }
 
+          if (invitation.role === 'parent') {
+            await assertOrganizationWritable({ organizationId: organization._id, session });
+          } else {
+            await assertQuotaCapacity({
+              organizationId: organization._id,
+              resource: 'staff',
+              session,
+              excludeInvitationId: invitation._id,
+            });
+          }
+
           const [membership] = await OrganizationMembership.create([{
             organizationId: organization._id,
             userId: user._id,
@@ -224,6 +236,9 @@ router.post('/accept', async (req, res) => {
       EXISTING_ACCOUNT_PASSWORD: 401,
       MEMBERSHIP_EXISTS: 409,
       GUARDIAN_MISMATCH: 409,
+      PLAN_LIMIT_REACHED: 409,
+      SUBSCRIPTION_READ_ONLY: 402,
+      ORGANIZATION_UNAVAILABLE: 410,
     };
     if (statuses[error.code]) return res.status(statuses[error.code]).json({ message: error.message });
     if (error.code === 11000) return res.status(409).json({ message: 'This invitation has already been used or a conflicting account was created. Try signing in or contact your administrator.' });
