@@ -315,6 +315,13 @@ router.patch('/members/:id', async (req, res) => {
       const requestedStatus = Object.prototype.hasOwnProperty.call(body, 'status')
         ? clean(body.status, 20)
         : membership.status;
+      const suspensionOnlyChange =
+        requestedStatus === 'suspended' &&
+        requestedRole === membership.role &&
+        !Object.prototype.hasOwnProperty.call(body, 'role') &&
+        !Object.prototype.hasOwnProperty.call(body, 'branchIds') &&
+        !Object.prototype.hasOwnProperty.call(body, 'accessAllBranches') &&
+        !Object.prototype.hasOwnProperty.call(body, 'classNames');
 
       const rolePolicy = evaluateMembershipRoleTransition({
         managerRole: manager.role,
@@ -385,12 +392,12 @@ router.patch('/members/:id', async (req, res) => {
         }
         accessAllBranches = body.accessAllBranches;
       }
-      if (accessAllBranches && requestedRole !== 'head_office_admin') {
+      if (!suspensionOnlyChange && accessAllBranches && requestedRole !== 'head_office_admin') {
         const invalidScope = new Error('Only a head-office administrator may have organization-wide branch access.');
         invalidScope.code = 'INVALID_BRANCH_SCOPE';
         throw invalidScope;
       }
-      if (branchManager && accessAllBranches) {
+      if (!suspensionOnlyChange && branchManager && accessAllBranches) {
         const invalidScope = new Error('Branch administrators cannot grant all-branch access.');
         invalidScope.code = 'INVALID_BRANCH_SCOPE';
         throw invalidScope;
@@ -412,7 +419,10 @@ router.patch('/members/:id', async (req, res) => {
         branchIds = values;
       }
 
-      if (accessAllBranches) {
+      if (suspensionOnlyChange) {
+        // Preserve existing branch and class scope: suspending access must not
+        // depend on whether every previously assigned branch/class is still active.
+      } else if (accessAllBranches) {
         branchIds = [];
       } else if (membership.role !== 'parent') {
         if (!branchIds.length) {
@@ -438,7 +448,7 @@ router.patch('/members/:id', async (req, res) => {
       }
 
       let classNames = Array.isArray(membership.classNames) ? [...membership.classNames] : [];
-      if (requestedRole === 'teacher') {
+      if (requestedRole === 'teacher' && !suspensionOnlyChange) {
         if (Object.prototype.hasOwnProperty.call(body, 'classNames')) {
           if (!Array.isArray(body.classNames) || body.classNames.length > 100) {
             const badClasses = new Error('Provide a valid list of up to 100 class names.');
@@ -465,7 +475,7 @@ router.patch('/members/:id', async (req, res) => {
             throw missingClasses;
           }
         }
-      } else {
+      } else if (!suspensionOnlyChange) {
         if (Object.prototype.hasOwnProperty.call(body, 'classNames') &&
             (!Array.isArray(body.classNames) || body.classNames.length > 0)) {
           const badClasses = new Error('Class assignments are only available for teacher accounts.');
