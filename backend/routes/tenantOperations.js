@@ -168,7 +168,7 @@ async function serializeChildren(children, organizationId, branchId, includeGuar
       organizationId,
       branchId,
       childId: { $in: children.map((child) => child._id) },
-    }).select('childId allergies dietaryRestrictions specialCareInstructions emergencyInstructions updatedAt').lean();
+    }).select('childId allergies medications dietaryRestrictions specialCareInstructions emergencyInstructions updatedAt').lean();
     for (const record of healthRecords) healthByChild.set(String(record.childId), buildClassroomHealthSummary(record));
   }
   const guardiansByChild = new Map();
@@ -762,7 +762,7 @@ router.get('/children/:id/health/classroom', requireBranchContext, async (req, r
       organizationId: req.tenant.organization._id,
       branchId: req.tenant.branch._id,
       childId: child._id,
-    }).select('childId allergies dietaryRestrictions specialCareInstructions emergencyInstructions updatedAt').lean();
+    }).select('childId allergies medications dietaryRestrictions specialCareInstructions emergencyInstructions updatedAt').lean();
 
     return res.json({
       child: {
