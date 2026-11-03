@@ -33,6 +33,7 @@ import HelpCenter from "./components/HelpCenter.jsx";
 import AnnouncementsPage from "./components/AnnouncementsPage.jsx";
 import AcceptInvitation from "./components/AcceptInvitation.jsx";
 import ParentPortal from "./components/ParentPortal.jsx";
+import ParentAccess from "./components/ParentAccess.jsx";
 import ForgotPassword from "./components/ForgotPassword.jsx";
 import ResetPassword from "./components/ResetPassword.jsx";
 import CreateOrganization from "./components/CreateOrganization.jsx";
@@ -72,6 +73,8 @@ const App = () => (
           <Route index element={<Login />} />
           <Route path="login" element={<Login />} />
           <Route path="accept-invitation" element={<AcceptInvitation />} />
+          <Route path="parent-access" element={<ParentAccess />} />
+          <Route path="parent-access/:schoolSlug" element={<ParentAccess />} />
           <Route path="forgot-password" element={<ForgotPassword />} />
           <Route path="reset-password" element={<ResetPassword />} />
           <Route path="signup" element={<CreateOrganization />} />

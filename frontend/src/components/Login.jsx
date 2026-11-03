@@ -26,7 +26,9 @@ const Login = () => {
         setErrorMessage("Your school workspace access is inactive. Contact your preschool administrator to restore access.");
         return;
       }
-      if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
+      if (loggedInUser?.parentAccount?.mode === "legacy_single_school" && loggedInUser.parentAccount.status === "active") {
+        navigate("/parent-portal", { replace: true });
+      } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
           loggedInUser.memberships.every((membership) => membership.role === "parent")) {
         navigate("/parent-portal", { replace: true });
       } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.some((membership) => membership.role !== "parent")) {
@@ -141,6 +143,7 @@ const Login = () => {
             <div className="login-footer-note">
               <div className="login-help-links">
                 <Link to="/forgot-password" className="login-recovery-link">Forgot your password?</Link>
+                <Link to="/parent-access" className="login-recovery-link">Parent? Activate your family access</Link>
                 <Link to="/signup" className="login-recovery-link">Create a preschool account</Link>
               </div>
               <p>Having trouble signing in? Please contact your school administrator.</p>

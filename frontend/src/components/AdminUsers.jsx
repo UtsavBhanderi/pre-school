@@ -4,7 +4,7 @@ import { API_BASE_URL } from "../api.js";
 import { AuthContext } from "../context/AuthContext";
 import {
   MdPersonAddAlt1, MdManageAccounts, MdEdit, MdSave, MdClose,
-  MdRefresh, MdHistory, MdShield, MdCheckCircle, MdBlock,
+  MdRefresh, MdHistory, MdShield, MdCheckCircle, MdBlock, MdFamilyRestroom, MdContentCopy,
 } from "react-icons/md";
 
 const EMPTY_FORM = { username: "", email: "", password: "", role: "teacher" };
@@ -14,6 +14,7 @@ const roleLabel = (role) => ({
   admin: "Administrator",
   teacher: "Teacher",
   student: "Student (legacy)",
+  parent: "Parent / guardian",
 }[role] || role || "Unknown");
 const statusLabel = (status) => status === "suspended" ? "Suspended" : "Active";
 
@@ -53,6 +54,9 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [parentAccessUrl, setParentAccessUrl] = useState("");
+  const [parentAccessError, setParentAccessError] = useState("");
+  const [parentAccessCopied, setParentAccessCopied] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -88,6 +92,30 @@ export default function AdminUsers() {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+
+  useEffect(() => {
+    let active = true;
+    axios.get(API_BASE_URL + "/api/parent-access/config")
+      .then((response) => {
+        if (active) setParentAccessUrl(response.data?.parentAccessUrl || "");
+      })
+      .catch((error) => {
+        if (active) setParentAccessError(error.response?.data?.message || "The parent access link is not configured yet.");
+      });
+    return () => { active = false; };
+  }, []);
+
+  const copyParentAccessLink = async () => {
+    if (!parentAccessUrl) return;
+    try {
+      await navigator.clipboard.writeText(parentAccessUrl);
+      setParentAccessCopied(true);
+      setParentAccessError("");
+    } catch {
+      setParentAccessCopied(false);
+      setParentAccessError("Copy was blocked by your browser. Select the link and copy it manually.");
+    }
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -125,7 +153,7 @@ export default function AdminUsers() {
   const beginEdit = (account) => {
     setEditingUserId(account._id);
     setEditDraft({
-      role: account.role === "admin" ? "admin" : "teacher",
+      role: account.role === "parent" ? "parent" : account.role === "admin" ? "admin" : "teacher",
       status: account.status === "suspended" ? "suspended" : "active",
       reason: "",
     });
@@ -202,6 +230,24 @@ export default function AdminUsers() {
           </button>
         </div>
       </div>
+
+      <section className="page-card mb-4" aria-labelledby="parent-access-link-heading">
+        <div className="d-flex align-items-start justify-content-between flex-wrap gap-3">
+          <div className="d-flex align-items-start gap-3">
+            <span className="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary p-3"><MdFamilyRestroom size={23} aria-hidden="true" /></span>
+            <div>
+              <h3 id="parent-access-link-heading" className="h6 fw-bold mb-1">Parent portal access link</h3>
+              <p className="page-subtitle mb-0">Share one permanent school link with every family. Parents match their child GR number or registered email and the mobile number saved by the school. No individual invitations are needed.</p>
+            </div>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={copyParentAccessLink} disabled={!parentAccessUrl}>
+            <MdContentCopy className="me-1" aria-hidden="true" /> {parentAccessCopied ? "Copied" : "Copy parent link"}
+          </button>
+        </div>
+        {parentAccessUrl ? <div className="mt-3"><input className="form-control" readOnly aria-label="Permanent parent portal link" value={parentAccessUrl} onFocus={(event) => event.target.select()} /></div>
+          : <div className="small text-danger mt-2" role="status">{parentAccessError || "Loading parent access link…"}</div>}
+        {parentAccessError && parentAccessUrl && <div className="small text-danger mt-2" role="status">{parentAccessError}</div>}
+      </section>
 
       <div className="row g-3 mb-4" aria-label="Account summary">
         <div className="col-12 col-sm-4">
@@ -287,6 +333,7 @@ export default function AdminUsers() {
               <option value="admin">Administrators</option>
               <option value="teacher">Teachers</option>
               <option value="student">Legacy student accounts</option>
+              <option value="parent">Parents / guardians</option>
             </select>
             <select className="form-select" aria-label="Filter by account status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">All statuses</option>
@@ -319,7 +366,7 @@ export default function AdminUsers() {
                         {isCurrentUser ? <span className="small muted">Current account</span>
                           : account.role === "student" ? <span className="small muted">Legacy role</span>
                             : <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => isEditing ? cancelEdit() : beginEdit(account)} aria-expanded={isEditing}>
-                              {isEditing ? <><MdClose className="me-1" aria-hidden="true" />Cancel</> : <><MdEdit className="me-1" aria-hidden="true" />Edit access</>}
+                              {isEditing ? <><MdClose className="me-1" aria-hidden="true" />Cancel</> : <><MdEdit className="me-1" aria-hidden="true" />{account.role === "parent" ? "Manage access" : "Edit access"}</>}
                             </button>}
                       </td>
                     </tr>
@@ -329,11 +376,17 @@ export default function AdminUsers() {
                           <form className="p-2 p-md-3" onSubmit={(event) => saveAccess(event, account)}>
                             <div className="row g-3 align-items-end">
                               <div className="col-12 col-md-3">
-                                <label className="form-label" htmlFor={"edit-role-" + account._id}>Role</label>
-                                <select id={"edit-role-" + account._id} className="form-select" value={editDraft.role}
-                                  onChange={(event) => setEditDraft((draft) => ({ ...draft, role: event.target.value }))} required>
-                                  <option value="teacher">Teacher</option><option value="admin">Administrator</option>
-                                </select>
+                                {account.role === "parent" ? (
+                                  <div className="pt-2"><div className="form-label mb-1">Access role</div><strong>Parent / guardian</strong><small className="d-block muted">Family links cannot be changed here.</small></div>
+                                ) : (
+                                  <>
+                                    <label className="form-label" htmlFor={"edit-role-" + account._id}>Role</label>
+                                    <select id={"edit-role-" + account._id} className="form-select" value={editDraft.role}
+                                      onChange={(event) => setEditDraft((draft) => ({ ...draft, role: event.target.value }))} required>
+                                      <option value="teacher">Teacher</option><option value="admin">Administrator</option>
+                                    </select>
+                                  </>
+                                )}
                               </div>
                               <div className="col-12 col-md-3">
                                 <label className="form-label" htmlFor={"edit-status-" + account._id}>Account status</label>
@@ -346,10 +399,10 @@ export default function AdminUsers() {
                                 <label className="form-label" htmlFor={"edit-reason-" + account._id}>Reason for change *</label>
                                 <input id={"edit-reason-" + account._id} className="form-control" value={editDraft.reason}
                                   onChange={(event) => setEditDraft((draft) => ({ ...draft, reason: event.target.value }))}
-                                  minLength={3} maxLength={500} placeholder="e.g. Role updated for the new term" required />
+                                  minLength={3} maxLength={500} placeholder={account.role === "parent" ? "e.g. Parent requested access suspension" : "e.g. Role updated for the new term"} required />
                               </div>
                               <div className="col-12 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                                <span className="small muted">You cannot edit your own access or remove the last active administrator.</span>
+                                <span className="small muted">{account.role === "parent" ? "Only the parent account status changes. Child/family links remain unchanged." : "You cannot edit your own access or remove the last active administrator."}</span>
                                 <div className="d-flex gap-2">
                                   <button type="button" className="btn btn-outline-secondary" onClick={cancelEdit} disabled={savingAccess}>Cancel</button>
                                   <button type="submit" className="btn btn-primary" disabled={savingAccess}>
@@ -392,8 +445,8 @@ export default function AdminUsers() {
                   <td className="text-nowrap">{formatDateTime(event.createdAt)}</td>
                   <td><div className="fw-semibold">{event.targetName}</div><div className="small muted">{event.targetEmail}</div></td>
                   <td>
-                    <div>{event.action === "user.created" ? "Account created" : "Access updated"}</div>
-                    <div className="small muted">{event.action === "user.created"
+                    <div>{event.action === "user.created" ? "Account created" : event.action === "parent.access_activated" ? "Parent access activated" : "Access updated"}</div>
+                    <div className="small muted">{event.action === "user.created" || event.action === "parent.access_activated"
                       ? roleLabel(event.role) + " · " + statusLabel(event.status)
                       : roleLabel(event.previousRole) + " → " + roleLabel(event.role) + " · " + statusLabel(event.previousStatus) + " → " + statusLabel(event.status)}</div>
                   </td>

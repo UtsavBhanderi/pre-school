@@ -23,10 +23,14 @@ function evaluateUserAccessChange({
   if (String(actorUserId) === String(targetUserId)) {
     return { allowed: false, code: 'SELF_ACCESS_CHANGE', message: 'You cannot change your own role or suspend your own account.' };
   }
-  if (!MANAGEABLE_LEGACY_ROLES.includes(currentRole)) {
+  const isParentAccount = currentRole === 'parent';
+  if (!MANAGEABLE_LEGACY_ROLES.includes(currentRole) && !isParentAccount) {
     return { allowed: false, code: 'UNSUPPORTED_ACCOUNT_ROLE', message: 'This account uses a role that cannot be managed from the legacy school access page.' };
   }
-  if (!MANAGEABLE_LEGACY_ROLES.includes(requestedRole)) {
+  if (isParentAccount && requestedRole !== 'parent') {
+    return { allowed: false, code: 'PARENT_ROLE_LOCKED', message: 'Parent accounts cannot be converted into staff accounts. Change only the parent access status here.' };
+  }
+  if (!MANAGEABLE_LEGACY_ROLES.includes(requestedRole) && !(isParentAccount && requestedRole === 'parent')) {
     return { allowed: false, code: 'INVALID_ROLE', message: 'Choose Administrator or Teacher.' };
   }
   if (!USER_ACCESS_STATUSES.includes(requestedStatus)) {

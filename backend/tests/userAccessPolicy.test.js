@@ -60,3 +60,25 @@ test('blocks accounts whose role is not supported by the legacy access screen', 
   assert.equal(result.allowed, false);
   assert.equal(result.code, 'UNSUPPORTED_ACCOUNT_ROLE');
 });
+
+
+test('allows a parent account status change without changing its family role', () => {
+  const result = evaluate({
+    currentRole: 'parent',
+    requestedRole: 'parent',
+    requestedStatus: 'suspended',
+  });
+  assert.equal(result.allowed, true);
+  assert.deepEqual(result.changedFields, ['status']);
+  assert.equal(result.removesActiveAdministrator, false);
+});
+
+test('prevents a parent account from being converted into a staff role', () => {
+  const result = evaluate({
+    currentRole: 'parent',
+    requestedRole: 'admin',
+    requestedStatus: 'active',
+  });
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'PARENT_ROLE_LOCKED');
+});

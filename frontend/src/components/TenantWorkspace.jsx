@@ -2053,6 +2053,20 @@ export default function TenantWorkspace() {
     }
   };
 
+  const parentAccessUrl = organization?.slug
+    ? window.location.origin + "/parent-access/" + encodeURIComponent(organization.slug)
+    : window.location.origin + "/parent-access";
+
+  const copyParentAccessUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(parentAccessUrl);
+      setSuccessMessage("Parent portal link copied. Share this link with your preschool families.");
+      setErrorMessage("");
+    } catch {
+      setErrorMessage("Copy was blocked by the browser. Select the parent portal link and copy it manually.");
+    }
+  };
+
   const transferOwnership = async (event) => {
     event.preventDefault();
     const successor = members.find((member) => member.id === ownerTransferDraft.targetMembershipId);
@@ -3313,7 +3327,23 @@ export default function TenantWorkspace() {
 
           {activeTab === "team" && (
             <section className="saas-section">
-              <SectionHeading title="Team and family access" description="Invite staff or parents using a one-time link, set their access, and revoke links that should no longer work." />
+              <SectionHeading title="Team and family access" description="Manage staff invitations and permissions. Parents activate their own accounts through the school access link below." />
+
+              <section className="saas-form-card saas-parent-access-card">
+                <div className="saas-form-heading">
+                  <div>
+                    <span className="saas-eyebrow">FAMILY SELF-SERVICE</span>
+                    <h3>Parent portal access link</h3>
+                    <p>Parents do not need an invitation. Share this school link; each family activates access using the child’s GR number or registered parent email and the mobile number saved by the preschool.</p>
+                  </div>
+                  <span className="saas-pill active">Self registration</span>
+                </div>
+                <div className="saas-parent-access-link-row">
+                  <input aria-label="Parent portal access link" readOnly value={parentAccessUrl} onFocus={(event) => event.target.select()} />
+                  <button type="button" className="saas-primary-button" onClick={copyParentAccessUrl}>Copy parent link</button>
+                </div>
+                <p className="saas-plan-disclaimer">After activating once, parents sign in with their own email and password. They can only view family records linked to the matching contact.</p>
+              </section>
 
               {role === "organization_owner" && (
                 <form className="saas-form-card saas-owner-transfer-card" onSubmit={transferOwnership}>
@@ -3365,11 +3395,11 @@ export default function TenantWorkspace() {
                     <label>Access role *
                       <select value={inviteDraft.role} onChange={(event) => changeInvitationRole(event.target.value)} required>
                         {(role === "branch_admin" ? [
-                          ["teacher", "Teacher"], ["admissions", "Admissions staff"], ["transport_staff", "Transport staff"], ["parent", "Parent / guardian"],
+                          ["teacher", "Teacher"], ["admissions", "Admissions staff"], ["transport_staff", "Transport staff"],
                         ] : [
                           ["head_office_admin", "Head-office administrator"], ["branch_admin", "Branch administrator"],
                           ["admissions", "Admissions staff"], ["teacher", "Teacher"], ["accountant", "Accountant"],
-                          ["hr_manager", "HR manager"], ["transport_staff", "Transport staff"], ["parent", "Parent / guardian"],
+                          ["hr_manager", "HR manager"], ["transport_staff", "Transport staff"],
                         ]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </label>
