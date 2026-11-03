@@ -1,0 +1,15 @@
+.school-communication .card { border-radius: 14px; }
+.school-communication-tabs { display: flex; flex-wrap: wrap; gap: .4rem; padding: .3rem; border: 1px solid #e8edf5; border-radius: 12px; background: #fff; }
+.school-communication-tabs button { display: inline-flex; align-items: center; gap: .45rem; padding: .55rem .85rem; border: 0; border-radius: 8px; color: #65748b; background: transparent; font-size: .82rem; font-weight: 700; }
+.school-communication-tabs button svg { font-size: 1.1rem; }
+.school-communication-tabs button.active { color: #284a9d; background: #edf2ff; }
+.school-communication-item { padding: 1rem; border: 1px solid #e8edf4; border-radius: 12px; background: #fff; }
+.school-communication-item h4 { margin: 0 0 .25rem; color: #243852; font-size: .95rem; font-weight: 800; }
+.school-communication-preserve { color: #53647a; font-size: .83rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.school-communication-result { margin: .55rem 0; }
+.school-communication-result > div { display: flex; justify-content: space-between; gap: .75rem; margin-bottom: .25rem; color: #465b77; font-size: .78rem; }
+.school-communication-result strong { color: #2d4774; }
+.school-communication-result i { display: block; height: 7px; overflow: hidden; border-radius: 99px; background: #edf1f7; }
+.school-communication-result i b { display: block; height: 100%; border-radius: inherit; background: #5474d0; }
+.school-communication.embedded { margin-top: .5rem; }
+@media (max-width: 575px) { .school-communication-tabs { width: 100%; } .school-communication-tabs button { flex: 1; justify-content: center; padding-inline: .45rem; font-size: .75rem; } }
