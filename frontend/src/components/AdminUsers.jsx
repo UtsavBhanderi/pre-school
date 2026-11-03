@@ -14,6 +14,7 @@ const roleLabel = (role) => ({
   admin: "Administrator",
   teacher: "Teacher",
   student: "Student (legacy)",
+  parent: "Parent / guardian",
 }[role] || role || "Unknown");
 const statusLabel = (status) => status === "suspended" ? "Suspended" : "Active";
 
@@ -152,7 +153,7 @@ export default function AdminUsers() {
   const beginEdit = (account) => {
     setEditingUserId(account._id);
     setEditDraft({
-      role: account.role === "admin" ? "admin" : "teacher",
+      role: account.role === "parent" ? "parent" : account.role === "admin" ? "admin" : "teacher",
       status: account.status === "suspended" ? "suspended" : "active",
       reason: "",
     });
@@ -332,6 +333,7 @@ export default function AdminUsers() {
               <option value="admin">Administrators</option>
               <option value="teacher">Teachers</option>
               <option value="student">Legacy student accounts</option>
+              <option value="parent">Parents / guardians</option>
             </select>
             <select className="form-select" aria-label="Filter by account status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">All statuses</option>
@@ -374,11 +376,17 @@ export default function AdminUsers() {
                           <form className="p-2 p-md-3" onSubmit={(event) => saveAccess(event, account)}>
                             <div className="row g-3 align-items-end">
                               <div className="col-12 col-md-3">
-                                <label className="form-label" htmlFor={"edit-role-" + account._id}>Role</label>
-                                <select id={"edit-role-" + account._id} className="form-select" value={editDraft.role}
-                                  onChange={(event) => setEditDraft((draft) => ({ ...draft, role: event.target.value }))} required>
-                                  <option value="teacher">Teacher</option><option value="admin">Administrator</option>
-                                </select>
+                                {account.role === "parent" ? (
+                                  <div className="pt-2"><div className="form-label mb-1">Access role</div><strong>Parent / guardian</strong><small className="d-block muted">Family links cannot be changed here.</small></div>
+                                ) : (
+                                  <>
+                                    <label className="form-label" htmlFor={"edit-role-" + account._id}>Role</label>
+                                    <select id={"edit-role-" + account._id} className="form-select" value={editDraft.role}
+                                      onChange={(event) => setEditDraft((draft) => ({ ...draft, role: event.target.value }))} required>
+                                      <option value="teacher">Teacher</option><option value="admin">Administrator</option>
+                                    </select>
+                                  </>
+                                )}
                               </div>
                               <div className="col-12 col-md-3">
                                 <label className="form-label" htmlFor={"edit-status-" + account._id}>Account status</label>
@@ -391,10 +399,10 @@ export default function AdminUsers() {
                                 <label className="form-label" htmlFor={"edit-reason-" + account._id}>Reason for change *</label>
                                 <input id={"edit-reason-" + account._id} className="form-control" value={editDraft.reason}
                                   onChange={(event) => setEditDraft((draft) => ({ ...draft, reason: event.target.value }))}
-                                  minLength={3} maxLength={500} placeholder="e.g. Role updated for the new term" required />
+                                  minLength={3} maxLength={500} placeholder={account.role === "parent" ? "e.g. Parent requested access suspension" : "e.g. Role updated for the new term"} required />
                               </div>
                               <div className="col-12 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                                <span className="small muted">You cannot edit your own access or remove the last active administrator.</span>
+                                <span className="small muted">{account.role === "parent" ? "Only the parent account status changes. Child/family links remain unchanged." : "You cannot edit your own access or remove the last active administrator."}</span>
                                 <div className="d-flex gap-2">
                                   <button type="button" className="btn btn-outline-secondary" onClick={cancelEdit} disabled={savingAccess}>Cancel</button>
                                   <button type="submit" className="btn btn-primary" disabled={savingAccess}>
