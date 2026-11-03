@@ -1,8 +1,6 @@
 'use strict';
 
 const express = require('express');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 const ParentAccount = require('../models/ParentAccount');
 const Student = require('../models/Student');
 const Attendance = require('../models/Attendance');
@@ -10,6 +8,7 @@ const Fees = require('../models/Fee');
 const Announcement = require('../models/Announcement');
 const Calendar = require('../models/Calendar');
 const ReportCard = require('../models/ReportCard');
+const User = require('../models/User');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { isValidNewPassword } = require('../utils/passwordResetTokens');
 
@@ -286,7 +285,7 @@ router.post('/change-password', requireParentAccount, async (req, res) => {
     return res.status(400).json({ message: 'Choose a new password between 12 and 128 characters.' });
   }
   try {
-    const user = await require('../models/User').findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user || !(await user.matchPassword(currentPassword))) {
       return res.status(401).json({ message: 'Your current password is incorrect.' });
     }
