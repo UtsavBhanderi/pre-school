@@ -315,13 +315,58 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
       parentEmail: { $in: siblingEmails },
     }).select('_id parentEmail branchId').limit(100).lean();
     for (const sibling of siblings) {
-      if (!(linksByChild.get(String(sibling._id)) || []).length &&
-          phoneMatches(contactValuesForStudent(sibling), submittedPhone)) {
+      if (phoneMatches(contactValuesForStudent(sibling), submittedPhone)) {
         matchedStudentIds.add(String(sibling._id));
       }
     }
   }
   if (!matchedStudentIds.size) return genericMismatch(res);
+
+  // Reload links for every provisionally matched child (including siblings),
+  // so we never create a second guardian record or trust legacy phone fields
+  // where an authoritative guardian link already exists.
+  const completeFamilyLinks = await ChildGuardian.find({
+    organizationId: organization._id,
+    childId: { $in: [...matchedStudentIds] },
+  }).select('childId guardianId branchId')
+    .populate({ path: 'guardianId', select: 'fullName email phone alternatePhone portalUserId' })
+    .lean();
+  const childLinkMap = new Map();
+  const verifiedLinkedChildren = new Set();
+  for (const link of completeFamilyLinks) {
+    const childId = String(link.childId);
+    if (!childLinkMap.has(childId)) childLinkMap.set(childId, []);
+    childLinkMap.get(childId).push(link);
+    const guardian = link.guardianId;
+    if (guardian && phoneMatches([guardian.phone, guardian.alternatePhone], submittedPhone)) {
+      matchedGuardianIds.add(String(guardian._id));
+      verifiedLinkedChildren.add(childId);
+    }
+  }
+  const directVerifiedChildren = new Set();
+  const allProvisionalStudents = await Student.find({
+    _id: { $in: [...matchedStudentIds] },
+    organizationId: organization._id,
+  }).select('_id parentEmail branchId').lean();
+  for (const student of allProvisionalStudents) {
+    const id = String(student._id);
+    if ((childLinkMap.get(id) || []).length) continue;
+    const original = candidateStudents.find((item) => String(item._id) === id) ||
+      await Student.findById(id).select('FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber phoneNumber').lean();
+    if (original && phoneMatches(contactValuesForStudent(original), submittedPhone)) directVerifiedChildren.add(id);
+  }
+  for (const id of [...matchedStudentIds]) {
+    if (!verifiedLinkedChildren.has(id) && !directVerifiedChildren.has(id)) matchedStudentIds.delete(id);
+  }
+  if (!matchedStudentIds.size) return genericMismatch(res);
+
+  if (matchedGuardianIds.size) {
+    const expandedLinks = await ChildGuardian.find({
+      organizationId: organization._id,
+      guardianId: { $in: [...matchedGuardianIds] },
+    }).select('childId').lean();
+    for (const link of expandedLinks) matchedStudentIds.add(String(link.childId));
+  }
 
   const students = await Student.find({
     _id: { $in: [...matchedStudentIds] },
@@ -330,7 +375,7 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
   if (!students.length || students.some((student) => !student.branchId)) return genericMismatch(res);
 
   const directStudentIds = students
-    .filter((student) => !(linksByChild.get(String(student._id)) || []).length)
+    .filter((student) => !(childLinkMap.get(String(student._id)) || []).length)
     .map((student) => String(student._id));
   const branchIdsForDirectStudents = students
     .filter((student) => directStudentIds.includes(String(student._id)))
@@ -467,7 +512,7 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
       const familyLinks = await ChildGuardian.find({
         organizationId: organization._id,
         guardianId: { $in: allGuardianIds },
-      }).session(session).select('branchId').lean();
+      }).session(session).select('branchId guardianId').lean();
       const branchIds = [...new Set(familyLinks.map((item) => String(item.branchId)))];
       const activeBranches = await Branch.find({
         _id: { $in: branchIds },
@@ -476,7 +521,9 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
       }).session(session).select('_id').lean();
       const activeBranchIds = new Set(activeBranches.map((item) => String(item._id)));
       const allowedGuardianIds = allGuardianIds.filter((guardianId) =>
-        familyLinks.some((link) => String(link.branchId) && activeBranchIds.has(String(link.branchId)))
+        familyLinks.some((link) =>
+          String(link.guardianId) === guardianId && activeBranchIds.has(String(link.branchId))
+        )
       );
       const allowedBranchIds = branchIds.filter((id) => activeBranchIds.has(id));
       if (!allowedGuardianIds.length || !allowedBranchIds.length) {
