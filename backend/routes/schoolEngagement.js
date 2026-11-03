@@ -64,7 +64,7 @@ function serializePoll(poll, parentUserId, includeVoterCounts = true) {
     startsAt: poll.startsAt,
     endsAt: poll.endsAt,
     isActive: open,
-    status: open ? 'open' : (poll.endsAt <= now ? 'closed' : 'scheduled'),
+    status: open ? 'open' : ((!poll.isActive || poll.endsAt <= now) ? 'closed' : 'scheduled'),
     hasVoted: Boolean(ownVote),
     votedOption: ownVote ? ownVote.optionIndex : null,
     totalVotes: (poll.votes || []).length,
@@ -127,6 +127,7 @@ router.post('/parent/homework/:id/submissions', async (req, res) => {
     const assignment = await HomeworkAssignment.findOne({
       _id: req.params.id,
       isActive: true,
+      publishAt: { $lte: new Date() },
       $or: [{ standard: 'all' }, { standard: String(child.standard || '').trim() }],
     });
     if (!assignment) return res.status(404).json({ message: 'This homework is unavailable for the selected child.' });
