@@ -141,6 +141,7 @@ const Login = () => {
             <div className="login-footer-note">
               <div className="login-help-links">
                 <Link to="/forgot-password" className="login-recovery-link">Forgot your password?</Link>
+                <Link to="/parent-access" className="login-recovery-link">Parent? Activate your family access</Link>
                 <Link to="/signup" className="login-recovery-link">Create a preschool account</Link>
               </div>
               <p>Having trouble signing in? Please contact your school administrator.</p>
