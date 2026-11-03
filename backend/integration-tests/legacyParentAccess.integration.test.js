@@ -197,14 +197,15 @@ test('single-school parents can self-activate and only see their linked children
     assert.equal(attendance.status, 200);
     assert.equal(attendance.data.children.length, 2);
 
-    await Fees.create({
-      stuNo: students[0].stuNo,
-      studentName: 'Aarav Family Child',
-      totalStandardFees: 12000,
-      totalFeesPaid: 5000,
-      totalFeesRemaining: 7000,
-      paymentDetails: [{ date: day.toISOString().slice(0, 10), amount: 5000 }],
-    });
+    await Fees.findOneAndUpdate({ stuNo: students[0].stuNo }, {
+      $set: {
+        studentName: 'Aarav Family Child',
+        totalStandardFees: 12000,
+        totalFeesPaid: 5000,
+        totalFeesRemaining: 7000,
+        paymentDetails: [{ date: day.toISOString().slice(0, 10), amount: 5000 }],
+      },
+    }, { upsert: true, new: true, setDefaultsOnInsert: true });
     const fees = await api('/api/parent-portal/fees', { token: parentToken });
     assert.equal(fees.status, 200);
     assert.equal(fees.data.fees.length, 1);
@@ -229,7 +230,13 @@ test('single-school parents can self-activate and only see their linked children
       color: '#4567aa',
     });
     createdCalendarIds.push(event._id);
-    const calendar = await api('/api/parent-portal/calendar', { token: parentToken });
+    const calendar = await api('/api/parent-portal/calendar', {
+      token: parentToken,
+      params: {
+        from: new Date().toISOString().slice(0, 10),
+        to: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
+      },
+    });
     assert.equal(calendar.status, 200);
     assert.ok(calendar.data.events.some((item) => item.title === event.title));
 
