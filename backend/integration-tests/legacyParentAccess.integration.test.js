@@ -208,8 +208,9 @@ test('single-school parents can self-activate and only see their linked children
     }, { upsert: true, new: true, setDefaultsOnInsert: true });
     const fees = await api('/api/parent-portal/fees', { token: parentToken });
     assert.equal(fees.status, 200);
-    assert.equal(fees.data.fees.length, 1);
-    assert.equal(fees.data.fees[0].outstanding, 7000);
+    assert.equal(fees.data.fees.length, 2);
+    const firstChildFees = fees.data.fees.find((fee) => fee.child.admissionNumber === students[0].stuNo);
+    assert.equal(firstChildFees.outstanding, 7000);
 
     const announcement = await Announcement.create({
       title: 'Welcome families ' + tag,
@@ -247,12 +248,25 @@ test('single-school parents can self-activate and only see their linked children
       students: [students[0]._id, students[2]._id],
     });
     createdReportIds.push(report._id);
+    await Student.updateOne({ _id: students[0]._id }, {
+      $push: {
+        marks: {
+          reportId: report._id,
+          subjectData: [{ subject: 'Language', mark: 18, date: day.toISOString().slice(0, 10) }],
+          total: 18,
+          percentage: 90,
+          grade: 'A',
+        },
+      },
+    });
     const reports = await api('/api/parent-portal/reports', { token: parentToken });
     assert.equal(reports.status, 200);
     const ownReport = reports.data.reports.find((item) => item.id === String(report._id));
     assert.ok(ownReport);
     assert.equal(ownReport.children.length, 1);
     assert.equal(ownReport.children[0].admissionNumber, students[0].stuNo);
+    assert.equal(ownReport.children[0].result.percentage, 90);
+    assert.equal(ownReport.children[0].result.subjects[0].subject, 'Language');
   });
 
   await t.test('parent can change password and prior sessions are revoked', async () => {
@@ -273,4 +287,38 @@ test('single-school parents can self-activate and only see their linked children
     });
     assert.equal(nextLogin.status, 200);
   });
+  await t.test('registered parent email plus mobile also activates, while duplicate same-phone claims are blocked', async () => {
+    const duplicate = await api('/api/parent-access/activate', {
+      method: 'POST',
+      body: {
+        schoolSlug: 'family-access-school',
+        identifier: students[0].stuNo,
+        phone,
+        fullName: 'Another Login',
+        email: 'duplicate-' + tag + '@example.test',
+        password: 'StrongDuplicateFamilyPassword123',
+      },
+    });
+    assert.equal(duplicate.status, 409);
+    assert.equal(await User.countDocuments({ email: 'duplicate-' + tag + '@example.test' }), 0);
+
+    const emailActivation = await api('/api/parent-access/activate', {
+      method: 'POST',
+      body: {
+        schoolSlug: 'family-access-school',
+        identifier: 'other-' + tag + '@example.test',
+        phone: '9123456789',
+        fullName: 'Other Parent',
+        email: 'other-' + tag + '@example.test',
+        password: 'StrongOtherFamilyPassword123',
+      },
+    });
+    assert.equal(emailActivation.status, 201);
+    assert.equal(emailActivation.data.user.role, 'parent');
+    createdUserIds.push(new mongoose.Types.ObjectId(emailActivation.data.user.id));
+    const otherAccount = await ParentAccount.findOne({ userId: emailActivation.data.user.id }).lean();
+    assert.equal(otherAccount.studentIds.length, 1);
+    assert.equal(String(otherAccount.studentIds[0]), String(students[2]._id));
+  });
+
 });
