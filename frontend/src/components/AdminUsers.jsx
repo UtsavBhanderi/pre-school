@@ -366,7 +366,7 @@ export default function AdminUsers() {
                         {isCurrentUser ? <span className="small muted">Current account</span>
                           : account.role === "student" ? <span className="small muted">Legacy role</span>
                             : <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => isEditing ? cancelEdit() : beginEdit(account)} aria-expanded={isEditing}>
-                              {isEditing ? <><MdClose className="me-1" aria-hidden="true" />Cancel</> : <><MdEdit className="me-1" aria-hidden="true" />Edit access</>}
+                              {isEditing ? <><MdClose className="me-1" aria-hidden="true" />Cancel</> : <><MdEdit className="me-1" aria-hidden="true" />{account.role === "parent" ? "Manage access" : "Edit access"}</>}
                             </button>}
                       </td>
                     </tr>
