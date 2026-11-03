@@ -7,6 +7,7 @@ const Organization = require('../models/Organization');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const OrganizationMembership = require('../models/OrganizationMembership');
+const ParentAccount = require('../models/ParentAccount');
 const bcrypt = require('bcryptjs');
 const { createPasswordResetToken, hashPasswordResetToken, passwordResetExpiry, isValidNewPassword } = require('../utils/passwordResetTokens');
 const { createPasswordResetUrl, sendPasswordResetEmail } = require('../utils/passwordResetEmail');
@@ -154,6 +155,10 @@ router.post('/login', async (req, res) => {
     if (user.status === 'suspended') {
       return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: 'This account is suspended. Contact your school administrator.' });
     }
+    const parentAccount = await ParentAccount.findOne({ userId: user._id }).select('status').lean();
+    if (parentAccount && parentAccount.status !== 'active') {
+      return res.status(403).json({ code: 'PARENT_ACCESS_INACTIVE', message: 'Parent portal access is inactive. Contact your preschool office.' });
+    }
 
     return res.json({ token: signToken(user) });
   } catch (error) {
@@ -262,10 +267,19 @@ router.get('/me', auth, async (req, res) => {
       .lean();
 
     const { memberships, hasInactiveWorkspaceMemberships } = resolveWorkspaceMembershipState(allMemberships);
+    const parentAccount = await ParentAccount.findOne({ userId: req.user._id })
+      .select('studentIds status activatedAt')
+      .lean();
 
     return res.json({
       user: {
         hasInactiveWorkspaceMemberships,
+        parentAccount: parentAccount ? {
+          mode: 'legacy_single_school',
+          status: parentAccount.status,
+          studentCount: (parentAccount.studentIds || []).length,
+          activatedAt: parentAccount.activatedAt || null,
+        } : null,
         id: String(req.user._id),
         username: req.user.username,
         email: req.user.email,
