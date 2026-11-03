@@ -20,7 +20,7 @@ const router = express.Router();
 router.use(tenantContext);
 
 const ORG_ADMINS = ['organization_owner', 'head_office_admin'];
-const BRANCH_INVITE_ROLES = ['teacher', 'admissions', 'transport_staff', 'parent'];
+const BRANCH_INVITE_ROLES = ['teacher', 'admissions', 'transport_staff'];
 
 function clean(value, max = 200) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -86,6 +86,12 @@ router.post('/', async (req, res) => {
   const email = clean(req.body?.email, 254).toLowerCase();
   const fullName = clean(req.body?.fullName, 120);
   const role = clean(req.body?.role, 40);
+  if (role === 'parent') {
+    return res.status(410).json({
+      code: 'PARENT_SELF_SERVICE',
+      message: 'Parent invitations are disabled. Share the preschool Parent access link; parents can activate their own account using their child GR number or registered email and registered mobile number.',
+    });
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' });
   if (fullName.length < 2) return res.status(400).json({ message: 'Enter the invitee’s full name.' });
   if (!INVITABLE_ROLES.includes(role)) return res.status(400).json({ message: 'Choose a valid access role.' });
