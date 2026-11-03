@@ -509,6 +509,16 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
         throw linked;
       }
 
+      // Bind verified guardian contacts to the parent account so another login
+      // cannot later claim the same family record through the setup page.
+      await Guardian.updateMany({
+        _id: { $in: allGuardianIds },
+        organizationId: organization._id,
+        $or: [{ portalUserId: null }, { portalUserId: user._id }],
+      }, {
+        $set: { portalUserId: user._id },
+      }, { session });
+
       const familyLinks = await ChildGuardian.find({
         organizationId: organization._id,
         guardianId: { $in: allGuardianIds },
