@@ -77,11 +77,17 @@ test('tenant notices, calendar, handover and teacher work reports remain branch-
       ...(branchId ? { 'x-branch-id': String(branchId) } : {}),
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
     };
-    const response = await fetch(url, {
-      method,
-      headers,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (error) {
+      throw new Error('Integration API request failed for ' + url.pathname + ': ' + error.message);
+    }
     const text = await response.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = text; }

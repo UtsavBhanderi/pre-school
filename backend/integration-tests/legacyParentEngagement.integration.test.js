@@ -54,11 +54,18 @@ test('single-school parent engagement supports homework, private messages and po
   const outsiderToken = tokenFor(outsider);
   const teacherToken = tokenFor(teacher);
   async function api(path, { token, method = 'GET', body } = {}) {
-    const response = await fetch(new URL(path, 'http://127.0.0.1:' + server.address().port), {
-      method,
-      headers: { ...(token ? { 'x-auth-token': token } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    const url = new URL(path, 'http://127.0.0.1:' + server.address().port);
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: { ...(token ? { 'x-auth-token': token } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (error) {
+      throw new Error('Integration API request failed for ' + url.pathname + ': ' + error.message);
+    }
     const text = await response.text();
     return { status: response.status, data: text ? JSON.parse(text) : null };
   }
