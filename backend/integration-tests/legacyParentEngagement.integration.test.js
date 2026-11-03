@@ -35,6 +35,7 @@ test('single-school parent engagement supports homework, private messages and po
   const admin = await User.create({ username: 'School Admin ' + tag, email: 'admin-' + tag + '@example.test', password: 'admin-test-password-123', role: 'admin' });
   const parent = await User.create({ username: 'Family Parent ' + tag, email: 'parent-' + tag + '@example.test', password: 'parent-test-password-123', role: 'parent' });
   const outsider = await User.create({ username: 'Other Parent ' + tag, email: 'other-' + tag + '@example.test', password: 'other-test-password-123', role: 'parent' });
+  const teacher = await User.create({ username: 'Class Teacher ' + tag, email: 'teacher-' + tag + '@example.test', password: 'teacher-test-password-123', role: 'teacher' });
   const student = await Student.create({
     stuNo: 'GR-' + tag, firstName: 'Aarav', middleName: 'Family', lastName: 'Child',
     standard: 'Nursery', batchYear: '2026-2027', parentEmail: parent.email,
