@@ -4,7 +4,7 @@ import { API_BASE_URL } from "../api.js";
 import { AuthContext } from "../context/AuthContext";
 import {
   MdPersonAddAlt1, MdManageAccounts, MdEdit, MdSave, MdClose,
-  MdRefresh, MdHistory, MdShield, MdCheckCircle, MdBlock,
+  MdRefresh, MdHistory, MdShield, MdCheckCircle, MdBlock, MdFamilyRestroom, MdContentCopy,
 } from "react-icons/md";
 
 const EMPTY_FORM = { username: "", email: "", password: "", role: "teacher" };
@@ -53,6 +53,9 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [parentAccessUrl, setParentAccessUrl] = useState("");
+  const [parentAccessError, setParentAccessError] = useState("");
+  const [parentAccessCopied, setParentAccessCopied] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -88,6 +91,30 @@ export default function AdminUsers() {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+
+  useEffect(() => {
+    let active = true;
+    axios.get(API_BASE_URL + "/api/parent-access/config")
+      .then((response) => {
+        if (active) setParentAccessUrl(response.data?.parentAccessUrl || "");
+      })
+      .catch((error) => {
+        if (active) setParentAccessError(error.response?.data?.message || "The parent access link is not configured yet.");
+      });
+    return () => { active = false; };
+  }, []);
+
+  const copyParentAccessLink = async () => {
+    if (!parentAccessUrl) return;
+    try {
+      await navigator.clipboard.writeText(parentAccessUrl);
+      setParentAccessCopied(true);
+      setParentAccessError("");
+    } catch {
+      setParentAccessCopied(false);
+      setParentAccessError("Copy was blocked by your browser. Select the link and copy it manually.");
+    }
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -202,6 +229,24 @@ export default function AdminUsers() {
           </button>
         </div>
       </div>
+
+      <section className="page-card mb-4" aria-labelledby="parent-access-link-heading">
+        <div className="d-flex align-items-start justify-content-between flex-wrap gap-3">
+          <div className="d-flex align-items-start gap-3">
+            <span className="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary p-3"><MdFamilyRestroom size={23} aria-hidden="true" /></span>
+            <div>
+              <h3 id="parent-access-link-heading" className="h6 fw-bold mb-1">Parent portal access link</h3>
+              <p className="page-subtitle mb-0">Share one permanent school link with every family. Parents match their child GR number or registered email and the mobile number saved by the school. No individual invitations are needed.</p>
+            </div>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={copyParentAccessLink} disabled={!parentAccessUrl}>
+            <MdContentCopy className="me-1" aria-hidden="true" /> {parentAccessCopied ? "Copied" : "Copy parent link"}
+          </button>
+        </div>
+        {parentAccessUrl ? <div className="mt-3"><input className="form-control" readOnly aria-label="Permanent parent portal link" value={parentAccessUrl} onFocus={(event) => event.target.select()} /></div>
+          : <div className="small text-danger mt-2" role="status">{parentAccessError || "Loading parent access link…"}</div>}
+        {parentAccessError && parentAccessUrl && <div className="small text-danger mt-2" role="status">{parentAccessError}</div>}
+      </section>
 
       <div className="row g-3 mb-4" aria-label="Account summary">
         <div className="col-12 col-sm-4">
