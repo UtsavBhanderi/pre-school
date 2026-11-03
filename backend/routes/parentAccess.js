@@ -192,6 +192,18 @@ async function activateLegacyParent({ req, res, school, identifier, submittedPho
         throw phoneMismatch;
       }
 
+      const familyAlreadyActivated = await ParentAccount.findOne({
+        userId: { $ne: user._id },
+        studentIds: { $in: uniqueStudents.map((student) => student._id) },
+        registeredPhone: normalizedPhone,
+        status: 'active',
+      }).session(session).select('userId').lean();
+      if (familyAlreadyActivated) {
+        const duplicate = new Error('This child and mobile number are already linked to another parent login. Use that login or contact the school office if you need account recovery.');
+        duplicate.code = 'FAMILY_ALREADY_ACTIVATED';
+        throw duplicate;
+      }
+
       const studentIds = [...new Set([
         ...(parentAccount?.studentIds || []).map(String),
         ...uniqueStudents.map((student) => String(student._id)),
@@ -229,7 +241,8 @@ async function activateLegacyParent({ req, res, school, identifier, submittedPho
   } catch (error) {
     if (error.code === 'EXISTING_ACCOUNT_PASSWORD') return res.status(401).json({ code: error.code, message: error.message });
     if (error.code === 'NEW_PASSWORD_TOO_SHORT') return res.status(400).json({ code: error.code, message: error.message });
-    if (error.code === 'PARENT_ACCOUNT_INACTIVE' || error.code === 'PARENT_PHONE_CHANGE_REQUIRED') {
+    if (error.code === 'PARENT_ACCOUNT_INACTIVE' || error.code === 'PARENT_PHONE_CHANGE_REQUIRED' ||
+        error.code === 'FAMILY_ALREADY_ACTIVATED') {
       return res.status(409).json({ code: error.code, message: error.message });
     }
     if (error.code === 11000) return res.status(409).json({ message: 'This parent login was created in another request. Please sign in with your email and password.' });
