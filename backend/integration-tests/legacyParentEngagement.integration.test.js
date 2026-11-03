@@ -26,6 +26,7 @@ test('single-school parent engagement supports homework, private messages and po
   const HomeworkAssignment = require('../models/HomeworkAssignment');
   const ParentComplaint = require('../models/ParentComplaint');
   const ParentPoll = require('../models/ParentPoll');
+  const SchoolMessage = require('../models/SchoolMessage');
 
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
   const server = app.listen(0);
@@ -34,6 +35,7 @@ test('single-school parent engagement supports homework, private messages and po
   const admin = await User.create({ username: 'School Admin ' + tag, email: 'admin-' + tag + '@example.test', password: 'admin-test-password-123', role: 'admin' });
   const parent = await User.create({ username: 'Family Parent ' + tag, email: 'parent-' + tag + '@example.test', password: 'parent-test-password-123', role: 'parent' });
   const outsider = await User.create({ username: 'Other Parent ' + tag, email: 'other-' + tag + '@example.test', password: 'other-test-password-123', role: 'parent' });
+  const teacher = await User.create({ username: 'Class Teacher ' + tag, email: 'teacher-' + tag + '@example.test', password: 'teacher-test-password-123', role: 'teacher' });
   const student = await Student.create({
     stuNo: 'GR-' + tag, firstName: 'Aarav', middleName: 'Family', lastName: 'Child',
     standard: 'Nursery', batchYear: '2026-2027', parentEmail: parent.email,
@@ -51,21 +53,29 @@ test('single-school parent engagement supports homework, private messages and po
   const adminToken = tokenFor(admin);
   const parentToken = tokenFor(parent);
   const outsiderToken = tokenFor(outsider);
+  const teacherToken = tokenFor(teacher);
   async function api(path, { token, method = 'GET', body } = {}) {
-    const response = await fetch(new URL(path, 'http://127.0.0.1:' + server.address().port), {
-      method,
-      headers: { ...(token ? { 'x-auth-token': token } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    const url = new URL(path, 'http://127.0.0.1:' + server.address().port);
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: { ...(token ? { 'x-auth-token': token } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (error) {
+      throw new Error('Integration API request failed for ' + url.pathname + ': ' + error.message);
+    }
     const text = await response.text();
     return { status: response.status, data: text ? JSON.parse(text) : null };
   }
 
   t.after(async () => {
     await Promise.allSettled([
-      HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}),
+      HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}), SchoolMessage.deleteMany({}),
       ParentAccount.deleteMany({}), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id] } }),
-      User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id] } }),
+      User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id] } }),
       mongoose.connection.dropDatabase(),
     ]);
     await new Promise((resolve) => server.close(resolve));
@@ -139,6 +149,72 @@ test('single-school parent engagement supports homework, private messages and po
     const staffPolls = await api('/api/school-engagement/staff/polls', { token: adminToken });
     assert.equal(staffPolls.data.polls[0].totalVotes, 1);
     assert.equal(JSON.stringify(staffPolls.data.polls[0]).includes(String(parent._id)), false);
+  });
+
+  await t.test('admin messages and teacher polls are delivered only to their selected audiences', async () => {
+    const teachersOnly = await api('/api/school-engagement/staff/messages', {
+      token: adminToken, method: 'POST',
+      body: { title: 'Teacher briefing', message: 'Staff meeting at 8:30 AM.', audience: 'teachers', priority: 'important' },
+    });
+    assert.equal(teachersOnly.status, 201);
+    const teacherList = await api('/api/school-engagement/staff/messages', { token: teacherToken });
+    assert.equal(teacherList.status, 200);
+    assert.ok(teacherList.data.messages.some((item) => item.id === teachersOnly.data.item.id));
+    const parentList = await api('/api/school-engagement/parent/messages', { token: parentToken });
+    assert.equal(parentList.status, 200);
+    assert.ok(parentList.data.messages.every((item) => item.id !== teachersOnly.data.item.id));
+
+    const read = await api('/api/school-engagement/staff/messages/' + teachersOnly.data.item.id + '/read', {
+      token: teacherToken, method: 'POST',
+    });
+    assert.equal(read.status, 200);
+    const teacherAfterRead = await api('/api/school-engagement/staff/messages', { token: teacherToken });
+    assert.equal(teacherAfterRead.data.messages.find((item) => item.id === teachersOnly.data.item.id).hasRead, true);
+
+    const everyone = await api('/api/school-engagement/staff/messages', {
+      token: adminToken, method: 'POST',
+      body: { title: 'School holiday update', message: 'The school will remain closed tomorrow.', audience: 'all' },
+    });
+    assert.equal(everyone.status, 201);
+    const parentUpdates = await api('/api/school-engagement/parent/messages', { token: parentToken });
+    const teacherUpdates = await api('/api/school-engagement/staff/messages', { token: teacherToken });
+    assert.ok(parentUpdates.data.messages.some((item) => item.id === everyone.data.item.id));
+    assert.ok(teacherUpdates.data.messages.some((item) => item.id === everyone.data.item.id));
+
+    const teacherBroadcastDenied = await api('/api/school-engagement/staff/messages', {
+      token: teacherToken, method: 'POST',
+      body: { title: 'Not permitted', message: 'Teachers cannot send school-wide notices.', audience: 'all' },
+    });
+    assert.equal(teacherBroadcastDenied.status, 403);
+
+    const teacherPoll = await api('/api/school-engagement/staff/polls', {
+      token: adminToken, method: 'POST',
+      body: {
+        question: 'Which staff training time works best?',
+        options: ['Before school', 'After school'],
+        standard: 'all',
+        audience: 'teachers',
+        endsAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(teacherPoll.status, 201);
+    const teacherPolls = await api('/api/school-engagement/staff/polls', { token: teacherToken });
+    assert.ok(teacherPolls.data.polls.some((item) => item.id === teacherPoll.data.pollId));
+    const parentPolls = await api('/api/school-engagement/parent/polls', { token: parentToken });
+    assert.ok(parentPolls.data.polls.every((item) => item.id !== teacherPoll.data.pollId));
+
+    const teacherVote = await api('/api/school-engagement/staff/polls/' + teacherPoll.data.pollId + '/votes', {
+      token: teacherToken, method: 'POST', body: { optionIndex: 1 },
+    });
+    assert.equal(teacherVote.status, 200);
+    const repeatTeacherVote = await api('/api/school-engagement/staff/polls/' + teacherPoll.data.pollId + '/votes', {
+      token: teacherToken, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(repeatTeacherVote.status, 409);
+    const parentCannotVote = await api('/api/school-engagement/parent/polls/' + teacherPoll.data.pollId + '/votes', {
+      token: parentToken, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(parentCannotVote.status, 404);
   });
 
   await t.test('parent cannot submit homework for a child outside its saved allow-list', async () => {

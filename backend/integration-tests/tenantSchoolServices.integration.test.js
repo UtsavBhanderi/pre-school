@@ -36,6 +36,7 @@ test('tenant notices, calendar, handover and teacher work reports remain branch-
   const Guardian = require('../models/Guardian');
   const ChildGuardian = require('../models/ChildGuardian');
   const TenantAnnouncement = require('../models/TenantAnnouncement');
+  const TenantCommunication = require('../models/TenantCommunication');
   const TenantCalendarEvent = require('../models/TenantCalendarEvent');
   const ChildHandoverEvent = require('../models/ChildHandoverEvent');
   const ChildHandoverState = require('../models/ChildHandoverState');
@@ -76,11 +77,17 @@ test('tenant notices, calendar, handover and teacher work reports remain branch-
       ...(branchId ? { 'x-branch-id': String(branchId) } : {}),
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
     };
-    const response = await fetch(url, {
-      method,
-      headers,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (error) {
+      throw new Error('Integration API request failed for ' + url.pathname + ': ' + error.message);
+    }
     const text = await response.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = text; }
@@ -140,6 +147,7 @@ test('tenant notices, calendar, handover and teacher work reports remain branch-
       const organizationFilter = { organizationId: { $in: organizationIds } };
       await Promise.allSettled([
         TenantAnnouncement.deleteMany(organizationFilter),
+        TenantCommunication.deleteMany(organizationFilter),
         TenantCalendarEvent.deleteMany(organizationFilter),
         ChildHandoverEvent.deleteMany(organizationFilter),
         ChildHandoverState.deleteMany(organizationFilter),
@@ -273,6 +281,99 @@ test('tenant notices, calendar, handover and teacher work reports remain branch-
       body: { title: 'Changed across organizations', message: 'This must be denied.', audience: 'all', priority: 'normal' },
     });
     assert.equal(crossTenantEdit.status, 404);
+  });
+
+  await t.test('messages and polls are targeted by role and isolated by organization and branch', async () => {
+    const message = await api('/api/saas/communications/messages', {
+      ...a,
+      method: 'POST',
+      body: {
+        title: 'School update ' + tag,
+        message: 'Please read the updated school information.',
+        audience: 'all',
+        priority: 'important',
+      },
+    });
+    assert.equal(message.status, 201, JSON.stringify(message.data));
+    const messageId = message.data.item.id;
+
+    const staffOnly = await api('/api/saas/communications/messages', {
+      ...a,
+      method: 'POST',
+      body: {
+        title: 'Staff briefing ' + tag,
+        message: 'Internal teacher briefing.',
+        audience: 'staff',
+      },
+    });
+    assert.equal(staffOnly.status, 201, JSON.stringify(staffOnly.data));
+    const staffOnlyId = staffOnly.data.item.id;
+
+    const teacherMessages = await api('/api/saas/communications', teacher);
+    assert.equal(teacherMessages.status, 200);
+    assert.ok(teacherMessages.data.items.some((item) => item.id === messageId));
+    assert.ok(teacherMessages.data.items.some((item) => item.id === staffOnlyId));
+
+    const parentMessages = await api('/api/saas/communications', parent);
+    assert.equal(parentMessages.status, 200);
+    assert.ok(parentMessages.data.items.some((item) => item.id === messageId));
+    assert.ok(parentMessages.data.items.every((item) => item.id !== staffOnlyId));
+
+    const markedRead = await api('/api/saas/communications/' + messageId + '/read', {
+      ...parent, method: 'POST',
+    });
+    assert.equal(markedRead.status, 200);
+    const parentAfterRead = await api('/api/saas/communications', parent);
+    assert.equal(parentAfterRead.data.items.find((item) => item.id === messageId).hasRead, true);
+
+    const teacherCannotBroadcast = await api('/api/saas/communications/messages', {
+      ...teacher, method: 'POST',
+      body: { title: 'Unauthorized message', message: 'Teachers cannot broadcast messages.', audience: 'all' },
+    });
+    assert.equal(teacherCannotBroadcast.status, 403);
+
+    const otherTenantMessages = await api('/api/saas/communications/manage', b);
+    assert.equal(otherTenantMessages.status, 200);
+    assert.ok(otherTenantMessages.data.items.every((item) => item.id !== messageId && item.id !== staffOnlyId));
+
+    const poll = await api('/api/saas/communications/polls', {
+      ...a, method: 'POST',
+      body: {
+        title: 'Which event should we arrange? ' + tag,
+        message: 'Choose the option you prefer.',
+        audience: 'all',
+        options: ['Sports day', 'Family picnic'],
+        endsAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(poll.status, 201, JSON.stringify(poll.data));
+    const pollId = poll.data.item.id;
+
+    const teacherPolls = await api('/api/saas/communications?type=poll', teacher);
+    assert.ok(teacherPolls.data.items.some((item) => item.id === pollId));
+    const parentPolls = await api('/api/saas/communications?type=poll', parent);
+    assert.ok(parentPolls.data.items.some((item) => item.id === pollId));
+
+    const teacherVote = await api('/api/saas/communications/' + pollId + '/vote', {
+      ...teacher, method: 'POST', body: { optionIndex: 1 },
+    });
+    assert.equal(teacherVote.status, 200);
+    const duplicateTeacherVote = await api('/api/saas/communications/' + pollId + '/vote', {
+      ...teacher, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(duplicateTeacherVote.status, 409);
+
+    const parentVote = await api('/api/saas/communications/' + pollId + '/vote', {
+      ...parent, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(parentVote.status, 200);
+    assert.equal(parentVote.data.item.totalVotes, 2);
+    assert.equal(JSON.stringify(parentVote.data.item).includes(String(parentA._id)), false);
+
+    const crossTenantVote = await api('/api/saas/communications/' + pollId + '/vote', {
+      ...b, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(crossTenantVote.status, 404);
   });
 
   await t.test('calendar events are branch-scoped, audience-filtered and audited', async () => {

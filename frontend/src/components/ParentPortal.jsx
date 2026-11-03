@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee, MdRefresh, MdShield, MdCalendarMonth, MdArrowForward, MdErrorOutline, MdCheckCircle, MdCampaign, MdHistory } from "react-icons/md";
+import { MdSchool, MdLogout, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee, MdRefresh, MdShield, MdCalendarMonth, MdArrowForward, MdErrorOutline, MdCheckCircle, MdCampaign, MdHistory, MdForum } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../saas-workspace.css";
@@ -10,12 +10,14 @@ import "../tenant-notices.css";
 import "../tenant-calendar.css";
 import "../tenant-handover.css";
 import LegacyParentPortal from "./LegacyParentPortal.jsx";
+import TenantCommunicationPanel from "./TenantCommunicationPanel.jsx";
 
 const PARENT_TABS = [
   { id: "overview", label: "Family overview", Icon: MdDashboard },
   { id: "calendar", label: "School calendar", Icon: MdCalendarMonth },
   { id: "handover", label: "Arrival & pickup", Icon: MdShield },
   { id: "notices", label: "School notices", Icon: MdCampaign },
+  { id: "communications", label: "Messages & polls", Icon: MdForum },
   { id: "children", label: "My children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
   { id: "fees", label: "Fee status", Icon: MdCurrencyRupee },
@@ -275,6 +277,15 @@ function TenantParentPortal() {
             ) : <div className="saas-loading" role="status">Loading school notices…</div>}
             <div className="parent-privacy-card"><MdShield aria-hidden="true" /><div><strong>Branch-aware updates</strong><p>These notices are limited to branches connected to the family records linked to your account.</p></div></div>
           </section>
+        )}
+
+        {tab === "communications" && (
+          <TenantCommunicationPanel
+            organizationId={organizationId}
+            branchId={branchId}
+            role="parent"
+            canManage={false}
+          />
         )}
 
         {tab === "calendar" && (

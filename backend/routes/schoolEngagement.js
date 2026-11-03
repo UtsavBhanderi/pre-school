@@ -8,6 +8,7 @@ const User = require('../models/User');
 const HomeworkAssignment = require('../models/HomeworkAssignment');
 const ParentComplaint = require('../models/ParentComplaint');
 const ParentPoll = require('../models/ParentPoll');
+const SchoolMessage = require('../models/SchoolMessage');
 
 const router = express.Router();
 const COMPLAINT_CATEGORIES = ['general', 'fees', 'classroom', 'transport', 'food', 'health', 'safety', 'staff', 'other'];
@@ -42,6 +43,31 @@ async function getParentChildren(req, res) {
   return children;
 }
 
+const isAdmin = (req, res) => {
+  if (req.user?.role === 'admin') return true;
+  res.status(403).json({ message: 'Only an administrator can send school-wide messages.' });
+  return false;
+};
+
+function serializeMessage(message, userId, includeReadCount = false) {
+  const receipts = message.readBy || [];
+  const result = {
+    id: String(message._id),
+    title: message.title,
+    message: message.message,
+    audience: message.audience,
+    priority: message.priority || 'normal',
+    startsAt: message.startsAt,
+    expiresAt: message.expiresAt,
+    isActive: message.isActive,
+    createdAt: message.createdAt,
+    createdByName: message.createdByName || '',
+    hasRead: receipts.some((item) => String(item.userId) === String(userId)),
+  };
+  if (includeReadCount) result.readCount = receipts.length;
+  return result;
+}
+
 function pollCounts(poll) {
   const counts = (poll.options || []).map(() => 0);
   for (const vote of poll.votes || []) {
@@ -50,9 +76,10 @@ function pollCounts(poll) {
   return counts;
 }
 
-function serializePoll(poll, parentUserId, includeVoterCounts = true) {
+function serializePoll(poll, userId, includeVoterCounts = true, role = 'parent') {
   const counts = pollCounts(poll);
-  const ownVote = (poll.votes || []).find((vote) => String(vote.parentUserId) === String(parentUserId));
+  const voteField = role === 'teacher' ? 'teacherUserId' : 'parentUserId';
+  const ownVote = (poll.votes || []).find((vote) => String(vote[voteField] || '') === String(userId));
   const now = new Date();
   const open = Boolean(poll.isActive && poll.startsAt <= now && poll.endsAt > now);
   return {
@@ -60,6 +87,7 @@ function serializePoll(poll, parentUserId, includeVoterCounts = true) {
     question: poll.question,
     description: poll.description || '',
     standard: poll.standard,
+    audience: poll.audience || 'parents',
     options: poll.options,
     startsAt: poll.startsAt,
     endsAt: poll.endsAt,
@@ -208,6 +236,51 @@ router.post('/parent/complaints', async (req, res) => {
   }
 });
 
+router.get('/parent/messages', async (req, res) => {
+  try {
+    const children = await getParentChildren(req, res);
+    if (!children) return;
+    const now = new Date();
+    const messages = await SchoolMessage.find({
+      isActive: true,
+      startsAt: { $lte: now },
+      audience: { $in: ['all', 'parents'] },
+      $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
+    }).sort({ createdAt: -1 }).limit(100).lean();
+    return res.json({ messages: messages.map((item) => serializeMessage(item, req.user._id)) });
+  } catch (error) {
+    console.error('Unable to load parent school messages:', error?.name || 'parent_message_list_error');
+    return res.status(503).json({ message: 'Messages from the preschool could not be loaded.' });
+  }
+});
+
+router.post('/parent/messages/:id/read', async (req, res) => {
+  if (!idIsValid(req.params.id)) return res.status(400).json({ message: 'Invalid school message.' });
+  try {
+    const children = await getParentChildren(req, res);
+    if (!children) return;
+    const now = new Date();
+    const updated = await SchoolMessage.updateOne({
+      _id: req.params.id,
+      isActive: true,
+      audience: { $in: ['all', 'parents'] },
+      startsAt: { $lte: now },
+      $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
+      readBy: { $not: { $elemMatch: { userId: req.user._id } } },
+    }, {
+      $push: { readBy: { userId: req.user._id, role: 'parent', readAt: now } },
+    });
+    if (!updated.matchedCount) {
+      const visible = await SchoolMessage.exists({ _id: req.params.id, isActive: true, audience: { $in: ['all', 'parents'] } });
+      return res.status(visible ? 200 : 404).json({ message: visible ? 'Message already marked as read.' : 'School message not found.' });
+    }
+    return res.json({ message: 'Message marked as read.' });
+  } catch (error) {
+    console.error('Unable to mark parent school message as read:', error?.name || 'parent_message_read_error');
+    return res.status(503).json({ message: 'The message could not be updated.' });
+  }
+});
+
 router.get('/parent/polls', async (req, res) => {
   try {
     const children = await getParentChildren(req, res);
@@ -218,6 +291,7 @@ router.get('/parent/polls', async (req, res) => {
     recentCutoff.setDate(recentCutoff.getDate() - 30);
     const polls = await ParentPoll.find({
       startsAt: { $lte: now },
+      audience: { $in: ['all', 'parents', null] },
       $or: [{ standard: 'all' }, { standard: { $in: standards } }],
       $and: [{ $or: [{ endsAt: { $gte: now } }, { endsAt: { $gte: recentCutoff } }] }],
     }).sort({ endsAt: -1, createdAt: -1 }).limit(50).lean();
@@ -242,6 +316,7 @@ router.post('/parent/polls/:id/votes', async (req, res) => {
       isActive: true,
       startsAt: { $lte: now },
       endsAt: { $gt: now },
+      audience: { $in: ['all', 'parents', null] },
       $or: [{ standard: 'all' }, { standard: { $in: standards } }],
     });
     if (!poll) return res.status(404).json({ message: 'This poll is closed or unavailable for your family.' });
@@ -389,9 +464,10 @@ router.patch('/staff/complaints/:id', async (req, res) => {
 router.get('/staff/polls', async (req, res) => {
   if (!isStaff(req, res)) return;
   try {
-    const polls = await ParentPoll.find().sort({ createdAt: -1 }).limit(150).lean();
+    const audienceFilter = req.user.role === 'admin' ? {} : { audience: { $in: ['all', 'teachers'] } };
+    const polls = await ParentPoll.find(audienceFilter).sort({ createdAt: -1 }).limit(150).lean();
     return res.json({ polls: polls.map((poll) => ({
-      ...serializePoll(poll, req.user._id),
+      ...serializePoll(poll, req.user._id, true, req.user.role),
       createdAt: poll.createdAt,
     })) });
   } catch (error) {
@@ -404,10 +480,14 @@ router.post('/staff/polls', async (req, res) => {
   const question = String(req.body?.question || '').trim();
   const description = String(req.body?.description || '').trim();
   const standard = String(req.body?.standard || 'all').trim();
+  const audience = String(req.body?.audience || 'parents');
   const options = Array.isArray(req.body?.options) ? req.body.options.map((option) => String(option || '').trim()).filter(Boolean) : [];
   const startsAt = req.body?.startsAt ? validDate(req.body.startsAt) : new Date();
   const endsAt = validDate(req.body?.endsAt);
   const normalizedOptions = [...new Set(options)];
+  if (!['parents', 'teachers', 'all'].includes(audience)) return res.status(400).json({ message: 'Choose Parents, Teachers or Both as the poll audience.' });
+  if (req.user.role !== 'admin' && audience !== 'parents') return res.status(403).json({ message: 'Teachers can create parent polls only.' });
+  if (audience !== 'parents' && standard !== 'all') return res.status(400).json({ message: 'Class targeting is available for parent polls only.' });
   if (question.length < 5 || question.length > 240 || description.length > 1200 || standard.length > 80 ||
       normalizedOptions.length < 2 || normalizedOptions.length > 6 || normalizedOptions.some((option) => option.length > 80) ||
       !startsAt || !endsAt || endsAt <= startsAt) {
@@ -419,12 +499,121 @@ router.post('/staff/polls', async (req, res) => {
       if (!classes.map((item) => String(item).trim()).includes(standard)) return res.status(400).json({ message: 'Choose a class that exists in the student records.' });
     }
     const poll = await ParentPoll.create({
-      question, description, options: normalizedOptions, standard, startsAt, endsAt,
+      question, description, options: normalizedOptions, standard, audience, startsAt, endsAt,
       createdBy: req.user._id, createdByName: req.user.username || '',
     });
-    return res.status(201).json({ message: 'Poll published to the selected families.', pollId: String(poll._id) });
+    return res.status(201).json({ message: audience === 'all' ? 'Poll published to parents and teachers.' : 'Poll published to ' + audience + '.', pollId: String(poll._id) });
   } catch (error) {
     return res.status(503).json({ message: 'Poll could not be published.' });
+  }
+});
+
+router.post('/staff/polls/:id/votes', async (req, res) => {
+  if (req.user?.role !== 'teacher') return res.status(403).json({ message: 'Only teachers can vote in staff polls.' });
+  if (!idIsValid(req.params.id)) return res.status(400).json({ message: 'Invalid poll.' });
+  const optionIndex = Number(req.body?.optionIndex);
+  if (!Number.isInteger(optionIndex) || optionIndex < 0) return res.status(400).json({ message: 'Choose one poll option.' });
+  try {
+    const now = new Date();
+    const poll = await ParentPoll.findOne({
+      _id: req.params.id,
+      audience: { $in: ['all', 'teachers'] },
+      isActive: true,
+      startsAt: { $lte: now },
+      endsAt: { $gt: now },
+    });
+    if (!poll) return res.status(404).json({ message: 'This poll is closed or unavailable for teachers.' });
+    if (optionIndex >= poll.options.length) return res.status(400).json({ message: 'Choose a valid poll option.' });
+    const updated = await ParentPoll.findOneAndUpdate({
+      _id: poll._id,
+      isActive: true,
+      endsAt: { $gt: now },
+      votes: { $not: { $elemMatch: { teacherUserId: req.user._id } } },
+    }, {
+      $push: { votes: { teacherUserId: req.user._id, optionIndex, votedAt: now } },
+    }, { new: true });
+    if (!updated) return res.status(409).json({ message: 'You have already voted in this poll.' });
+    return res.json({ message: 'Your vote has been recorded.', poll: serializePoll(updated.toObject(), req.user._id, true, 'teacher') });
+  } catch (error) {
+    console.error('Unable to save teacher poll vote:', error?.name || 'teacher_poll_vote_error');
+    return res.status(503).json({ message: 'Your vote could not be saved.' });
+  }
+});
+
+router.get('/staff/messages', async (req, res) => {
+  if (!isStaff(req, res)) return;
+  try {
+    const now = new Date();
+    const audienceFilter = req.user.role === 'admin' ? {} : { audience: { $in: ['all', 'teachers'] } };
+    const messages = await SchoolMessage.find({
+      ...audienceFilter,
+      startsAt: { $lte: now },
+      $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
+    }).sort({ createdAt: -1 }).limit(150).lean();
+    return res.json({ messages: messages.map((item) => serializeMessage(item, req.user._id, req.user.role === 'admin')) });
+  } catch (error) {
+    return res.status(503).json({ message: 'School messages could not be loaded.' });
+  }
+});
+
+router.post('/staff/messages', async (req, res) => {
+  if (!isAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim();
+  const message = String(req.body?.message || '').trim();
+  const audience = String(req.body?.audience || 'all');
+  const priority = String(req.body?.priority || 'normal');
+  const startsAt = req.body?.startsAt ? validDate(req.body.startsAt) : new Date();
+  const expiresAt = req.body?.expiresAt ? validDate(req.body.expiresAt) : null;
+  if (title.length < 3 || title.length > 120 || !message || message.length > 3000 ||
+      !['all', 'parents', 'teachers'].includes(audience) || !['normal', 'important', 'urgent'].includes(priority) ||
+      !startsAt || (req.body?.expiresAt && !expiresAt) || (expiresAt && expiresAt <= startsAt)) {
+    return res.status(400).json({ message: 'Enter a title, message, audience, priority and valid dates.' });
+  }
+  try {
+    const created = await SchoolMessage.create({
+      title, message, audience, priority, startsAt, expiresAt,
+      createdBy: req.user._id, createdByName: req.user.username || '',
+    });
+    return res.status(201).json({ message: 'School message sent to the selected audience.', item: serializeMessage(created, req.user._id, true) });
+  } catch (error) {
+    return res.status(503).json({ message: 'School message could not be sent.' });
+  }
+});
+
+router.post('/staff/messages/:id/read', async (req, res) => {
+  if (req.user?.role !== 'teacher') return res.status(403).json({ message: 'Only teachers can mark school messages as read.' });
+  if (!idIsValid(req.params.id)) return res.status(400).json({ message: 'Invalid school message.' });
+  try {
+    const now = new Date();
+    const updated = await SchoolMessage.updateOne({
+      _id: req.params.id,
+      isActive: true,
+      audience: { $in: ['all', 'teachers'] },
+      startsAt: { $lte: now },
+      $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
+      readBy: { $not: { $elemMatch: { userId: req.user._id } } },
+    }, {
+      $push: { readBy: { userId: req.user._id, role: 'teacher', readAt: now } },
+    });
+    if (!updated.matchedCount) {
+      const visible = await SchoolMessage.exists({ _id: req.params.id, isActive: true, audience: { $in: ['all', 'teachers'] } });
+      return res.status(visible ? 200 : 404).json({ message: visible ? 'Message already marked as read.' : 'School message not found.' });
+    }
+    return res.json({ message: 'Message marked as read.' });
+  } catch (error) {
+    return res.status(503).json({ message: 'The message could not be updated.' });
+  }
+});
+
+router.patch('/staff/messages/:id/status', async (req, res) => {
+  if (!isAdmin(req, res)) return;
+  if (!idIsValid(req.params.id) || typeof req.body?.isActive !== 'boolean') return res.status(400).json({ message: 'Choose a valid message and status.' });
+  try {
+    const item = await SchoolMessage.findByIdAndUpdate(req.params.id, { $set: { isActive: req.body.isActive } }, { new: true, runValidators: true });
+    if (!item) return res.status(404).json({ message: 'School message not found.' });
+    return res.json({ message: item.isActive ? 'School message reactivated.' : 'School message archived.' });
+  } catch (error) {
+    return res.status(503).json({ message: 'School message status could not be updated.' });
   }
 });
 

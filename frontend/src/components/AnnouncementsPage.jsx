@@ -164,7 +164,7 @@ export default function AnnouncementsPage({ readOnly = false }) {
           <h2>{readOnly ? "School notices" : "Keep everyone informed."}</h2>
           <p>{readOnly
             ? "Read important reminders, event details and updates shared by your school administrator."
-            : "Publish one clear message for staff. Notices can be scheduled, targeted to teachers or everyone, then archived without losing their history."}</p>
+            : "Publish a school update for parents, teachers or everyone. Notices can be scheduled and archived without losing their history."}</p>
         </div>
       </section>
 
@@ -203,8 +203,9 @@ export default function AnnouncementsPage({ readOnly = false }) {
                 <div className="ops-notice-field">
                   <label htmlFor="notice-audience" className="form-label">Who should see this?</label>
                   <select id="notice-audience" className="form-select" value={form.audience} onChange={(event) => setForm((prev) => ({ ...prev, audience: event.target.value }))}>
-                    <option value="all">All staff</option>
-                    <option value="teachers">Teachers</option>
+                    <option value="all">Parents &amp; teachers</option>
+                    <option value="parents">Parents only</option>
+                    <option value="teachers">Teachers only</option>
                   </select>
                 </div>
                 <div className="ops-notice-field">
@@ -271,7 +272,7 @@ export default function AnnouncementsPage({ readOnly = false }) {
                 </div>
                 <p className="ops-notice-message">{notice.message}</p>
                 <div className="ops-notice-meta">
-                  <span><MdPeopleAlt aria-hidden="true" /> {notice.audience === "teachers" ? "Teachers" : "All staff"}</span>
+                  <span><MdPeopleAlt aria-hidden="true" /> {notice.audience === "teachers" ? "Teachers only" : notice.audience === "parents" ? "Parents only" : "Parents & teachers"}</span>
                   <span><MdSchedule aria-hidden="true" /> From {formatDateTime(notice.startsAt)}</span>
                   <span>Until {formatDateTime(notice.expiresAt)}</span>
                   {notice.createdByName && <span>By {notice.createdByName}</span>}
@@ -283,7 +284,7 @@ export default function AnnouncementsPage({ readOnly = false }) {
           <div className="ops-no-results">
             <MdCampaign aria-hidden="true" />
             <strong>{query ? "No matching notice" : readOnly ? "No current notices" : "No notices yet"}</strong>
-            <span>{query ? "Try another word or clear your search." : readOnly ? "When the administrator shares an update, it will appear here." : "Create a notice to keep staff informed about activities, changes and reminders."}</span>
+            <span>{query ? "Try another word or clear your search." : readOnly ? "When the administrator shares an update, it will appear here." : "Create a notice for parents, teachers or both. Keep everyone informed about activities, changes and reminders."}</span>
             {query && <button type="button" className="btn btn-outline-primary btn-sm mt-2" onClick={() => setQuery("")}>Clear search</button>}
           </div>
         )}
