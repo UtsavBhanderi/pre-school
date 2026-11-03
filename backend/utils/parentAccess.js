@@ -40,6 +40,17 @@ function phoneMatches(recordValues, submittedPhone) {
     .some((value) => normalizePhone(value) === expected);
 }
 
+function slugifySchoolName(value) {
+  const slug = cleanText(value, 120)
+    .normalize('NFKD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+  return slug || 'pre-school';
+}
+
 function safeSchoolSlug(value) {
   return typeof value === 'string' &&
     value.length <= 140 &&
@@ -55,4 +66,5 @@ module.exports = {
   isValidParentPassword,
   phoneMatches,
   safeSchoolSlug,
+  slugifySchoolName,
 };
