@@ -22,6 +22,7 @@ import "../tenant-calendar.css";
 import "../tenant-handover.css";
 import "../tenant-work-reports.css";
 import TenantMediaLibrary from "./TenantMediaLibrary.jsx";
+import TenantCommunicationPanel from "./TenantCommunicationPanel.jsx";
 
 const TABS = [
   { id: "overview", label: "Overview", Icon: MdDashboard },
@@ -30,6 +31,7 @@ const TABS = [
   { id: "workreports", label: "Teacher work reports", Icon: MdAssignment },
   { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
+  { id: "communications", label: "Messages & polls", Icon: MdPoll },
   { id: "resources", label: "Media library", Icon: MdFolderOpen },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
@@ -45,7 +47,7 @@ const TABS = [
 const NAV_GROUPS = [
   { label: "Home", ids: ["overview", "setup"] },
   { label: "Children & daily care", ids: ["children", "attendance", "handover"] },
-  { label: "Teaching & communication", ids: ["workreports", "calendar", "notices", "resources"] },
+  { label: "Teaching & communication", ids: ["workreports", "calendar", "notices", "communications", "resources"] },
   { label: "Fees & reports", ids: ["fees", "reports", "classes"] },
   { label: "Organization", ids: ["branches", "settings", "subscription", "team"] },
 ];
@@ -302,6 +304,7 @@ export default function TenantWorkspace() {
     if (item.id === 'overview') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'calendar') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'notices') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
+    if (item.id === 'communications') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher', 'hr_manager', 'transport_staff'].includes(role);
     if (item.id === 'resources') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'teacher', 'transport_staff'].includes(role);
     if (item.id === 'reports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'admissions', 'accountant', 'teacher'].includes(role);
     if (item.id === 'workreports') return ['organization_owner', 'head_office_admin', 'branch_admin', 'teacher'].includes(role);
@@ -3250,6 +3253,15 @@ export default function TenantWorkspace() {
                 />
               ) : <div className="saas-loading" role="status">Loading school notices…</div>}
             </section>
+          )}
+
+          {activeTab === "communications" && (
+            <TenantCommunicationPanel
+              organizationId={organizationId}
+              branchId={branchId}
+              role={role}
+              canManage={canManageNotices}
+            />
           )}
 
           {activeTab === "settings" && (
