@@ -31,7 +31,7 @@ const TABS = [
   { id: "workreports", label: "Teacher work reports", Icon: MdAssignment },
   { id: "calendar", label: "Calendar & holidays", Icon: MdCalendarMonth },
   { id: "notices", label: "School notices", Icon: MdCampaign },
-  { id: "communications", label: "Messages & polls", Icon: MdPoll },
+  { id: "communications", label: "Messages & polls", Icon: MdCampaign },
   { id: "resources", label: "Media library", Icon: MdFolderOpen },
   { id: "children", label: "Children", Icon: MdPeople },
   { id: "attendance", label: "Attendance", Icon: MdFactCheck },
