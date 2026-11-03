@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const AnnouncementSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 120 },
   message: { type: String, required: true, trim: true, maxlength: 3000 },
-  audience: { type: String, enum: ['all', 'teachers'], default: 'all', required: true },
+  audience: { type: String, enum: ['all', 'teachers', 'parents'], default: 'all', required: true },
   priority: { type: String, enum: ['normal', 'important', 'urgent'], default: 'normal', required: true },
   startsAt: { type: Date, default: Date.now, required: true },
   expiresAt: { type: Date, default: null },

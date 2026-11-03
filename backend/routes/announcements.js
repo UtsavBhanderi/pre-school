@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
       isActive: true,
       startsAt: { $lte: now },
       $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
-      audience: { $in: ['all', 'teachers'] },
+      audience: req.user?.role === 'teacher' ? { $in: ['all', 'teachers'] } : { $in: ['all', 'parents'] },
     }).sort({ createdAt: -1 }).lean();
     return res.json(notices);
   } catch (error) {
@@ -38,7 +38,7 @@ router.post('/', adminOnly, async (req, res) => {
   const expiresAt = req.body?.expiresAt ? new Date(req.body.expiresAt) : null;
   if (title.length < 3 || title.length > 120) return res.status(400).json({ message: 'Title must contain 3 to 120 characters.' });
   if (!message || message.length > 3000) return res.status(400).json({ message: 'Message must contain 1 to 3000 characters.' });
-  if (!['all', 'teachers'].includes(audience)) return res.status(400).json({ message: 'Choose a valid audience.' });
+  if (!['all', 'teachers', 'parents'].includes(audience)) return res.status(400).json({ message: 'Choose a valid audience.' });
   if (!['normal', 'important', 'urgent'].includes(priority)) return res.status(400).json({ message: 'Choose a valid priority.' });
   if (Number.isNaN(startsAt.getTime()) || (expiresAt && Number.isNaN(expiresAt.getTime())) || (expiresAt && expiresAt <= startsAt)) return res.status(400).json({ message: 'Check the notice dates.' });
   try {

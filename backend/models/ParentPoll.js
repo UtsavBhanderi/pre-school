@@ -3,7 +3,8 @@
 const mongoose = require('mongoose');
 
 const PollVoteSchema = new mongoose.Schema({
-  parentUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  parentUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  teacherUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   optionIndex: { type: Number, required: true, min: 0 },
   votedAt: { type: Date, default: Date.now },
 }, { _id: false });
@@ -19,6 +20,7 @@ const ParentPollSchema = new mongoose.Schema({
     },
   },
   standard: { type: String, required: true, trim: true, default: 'all', maxlength: 80 },
+  audience: { type: String, enum: ['all', 'parents', 'teachers'], default: 'parents', required: true },
   startsAt: { type: Date, default: Date.now, required: true },
   endsAt: { type: Date, required: true },
   isActive: { type: Boolean, default: true, required: true },
