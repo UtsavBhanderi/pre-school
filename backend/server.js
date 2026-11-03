@@ -150,7 +150,9 @@ app.use('/api/invitations/accept', invitationAcceptRateLimit);
 app.use('/api/invitations', publicInvitationsRoutes);
 app.use('/api/saas/invitations', auth, invitationsRoutes);
 app.use('/api/saas/parent', auth, parentPortalRoutes);
-app.use('/api/parent-portal', auth, legacySingleTenantOnly, legacyParentPortalRoutes);
+// ParentAccount is an explicit per-user allow-list of child IDs, so this route
+// remains scoped even if an organization workspace is added later.
+app.use('/api/parent-portal', auth, legacyParentPortalRoutes);
 app.use('/api/saas/notices', auth, tenantAnnouncementRoutes);
 app.use('/api/saas/calendar', auth, tenantCalendarRoutes);
 app.use('/api/saas/handover', auth, tenantHandoverRoutes);
