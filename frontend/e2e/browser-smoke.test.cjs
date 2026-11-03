@@ -143,12 +143,18 @@ test('manually-created teacher signs in with email and password and gets a mobil
 
   await page.waitForURL(/\/teacher-dashboard$/);
   await page.getByRole('heading', { name: 'Your teaching day' }).waitFor();
-  await page.locator('.teacher-menu-button').click();
-  await page.locator('.teacher-navigation').getByRole('button', { name: 'Take attendance' }).click();
-  await page.getByRole('heading', { name: 'Take attendance' }).first().waitFor();
+  const menuButton = page.locator('.teacher-menu-button');
+  await menuButton.click();
+  await page.locator('.teacher-sidebar.is-open').waitFor();
+  assert.equal(await menuButton.getAttribute('aria-expanded'), 'true');
+  await page.getByRole('button', { name: 'Close navigation' }).click();
+  assert.equal(await menuButton.getAttribute('aria-expanded'), 'false');
 
-  await page.locator('.teacher-menu-button').click();
-  await page.locator('.teacher-navigation').getByRole('button', { name: 'Parent communication' }).click();
+  // Use the visible, thumb-friendly dashboard actions to navigate on mobile.
+  await page.locator('.teacher-quick-action.blue').click();
+  await page.getByRole('heading', { name: 'Take attendance' }).first().waitFor();
+  await page.locator('.teacher-page-home-link').click();
+  await page.locator('.teacher-quick-action.violet').click();
   await page.getByRole('heading', { name: 'Parent communication' }).first().waitFor();
 
   const dimensions = await page.evaluate(() => ({
