@@ -206,7 +206,7 @@ export default function AnnouncementsPage({ readOnly = false }) {
                     <option value="both">Parents &amp; teachers</option>
                     <option value="parents">Parents only</option>
                     <option value="teachers">Teachers only</option>
-                    <option value="all">All staff (legacy)</option>
+                    <option value="all">All staff</option>
                   </select>
                 </div>
                 <div className="ops-notice-field">

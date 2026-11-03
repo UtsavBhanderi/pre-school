@@ -209,6 +209,8 @@ router.post('/:id/read', async (req, res) => {
       branchId: { $in: branchIds },
       type: 'message',
       status: 'active',
+      startsAt: { $lte: new Date() },
+      $or: [{ expiresAt: null }, { expiresAt: { $gte: new Date() } }],
       audience: readerAudience(req),
       readBy: { $not: { $elemMatch: { userId: req.user._id } } },
     }, {
