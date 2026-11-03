@@ -102,3 +102,8 @@ The single-school parent portal includes a family engagement area:
 - **Polls:** staff can publish a question with 2–6 options for all families or one class. Each parent account can vote once per poll. The portal shows aggregate counts, not voter identities.
 
 Staff manage these features from **Parent communication** in the administrator or teacher workspace. Content is scoped to legacy single-school student records and is not available to unrelated tenant workspaces.
+
+
+## Manually creating teacher logins
+
+In the single-school workspace, the administrator creates each teacher's login from **User access**. Select the **Teacher** role, enter the teacher's email ID and choose an initial password (12–128 characters). The account is active immediately. There is no teacher invitation, email verification link or OTP step; share the credentials privately with the teacher. The email in **Teacher records** is a staff profile contact field, so use the same email address when creating the login under **User access**. Teachers sign in from the normal login page with that email ID and password.

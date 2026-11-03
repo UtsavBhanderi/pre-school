@@ -1,0 +1,14 @@
+.teacher-profile-access-note {
+  display:flex; align-items:center; justify-content:space-between; gap:1rem;
+  margin:0 0 1rem; padding:.85rem 1rem; border:1px solid #dce5f6;
+  border-radius:10px; background:#f7f9ff;
+}
+.teacher-profile-access-note > div { display:grid; gap:.18rem; min-width:0; }
+.teacher-profile-access-note strong { color:#30477f; font-size:.8rem; font-weight:850; }
+.teacher-profile-access-note span { color:#687895; font-size:.72rem; line-height:1.5; }
+.teacher-profile-access-note a { display:inline-flex; align-items:center; gap:.35rem; flex:0 0 auto; padding:.5rem .7rem; border:1px solid #d4def4; border-radius:8px; color:#3554b3; background:#fff; font-size:.72rem; font-weight:800; }
+.teacher-profile-access-note a:hover { border-color:#b8c7ef; background:#fdfdff; }
+@media(max-width:650px) {
+  .teacher-profile-access-note { align-items:stretch; flex-direction:column; }
+  .teacher-profile-access-note a { align-self:flex-start; }
+}

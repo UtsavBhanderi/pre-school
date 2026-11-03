@@ -56,7 +56,7 @@ after(async () => {
   }
 });
 
-async function mockSchoolApi(page, { rejectLogin = false } = {}) {
+async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin' } = {}) {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -74,10 +74,10 @@ async function mockSchoolApi(page, { rejectLogin = false } = {}) {
     } else if (url.pathname === '/api/auth/me' && request.method() === 'GET') {
       body = {
         user: {
-          id: 'browser-smoke-admin',
-          username: 'Demo Admin',
-          email: 'admin@example.com',
-          role: 'admin',
+          id: 'browser-smoke-' + userRole,
+          username: userRole === 'teacher' ? 'Demo Teacher' : 'Demo Admin',
+          email: userRole === 'teacher' ? 'teacher@example.com' : 'admin@example.com',
+          role: userRole,
           memberships: [],
         },
       };
@@ -129,6 +129,35 @@ test('login form exposes labels and the password visibility control works', asyn
   assert.ok(
     dimensions.document <= dimensions.viewport + 1,
     'Login page should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
+  );
+  await page.close();
+});
+
+test('manually-created teacher signs in with email and password and gets a mobile-friendly workspace', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mockSchoolApi(page, { userRole: 'teacher' });
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
+  await page.locator('#login-password').fill('teacher-initial-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+
+  await page.waitForURL(/\\/teacher-dashboard$/);
+  await page.getByRole('heading', { name: 'Your teaching day' }).waitFor();
+  await page.locator('.teacher-menu-button').click();
+  await page.locator('.teacher-navigation').getByRole('button', { name: 'Take attendance' }).click();
+  await page.getByRole('heading', { name: 'Take attendance' }).first().waitFor();
+
+  await page.locator('.teacher-menu-button').click();
+  await page.locator('.teacher-navigation').getByRole('button', { name: 'Parent communication' }).click();
+  await page.getByRole('heading', { name: 'Parent communication' }).first().waitFor();
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  assert.ok(
+    dimensions.document <= dimensions.viewport + 1,
+    'Teacher workspace should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
   );
   await page.close();
 });

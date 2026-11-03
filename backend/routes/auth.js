@@ -127,7 +127,9 @@ router.post('/register', async (req, res) => {
 
     // Do not return a JWT for the newly created user to the administrator.
     return res.status(201).json({
-      message: 'Account created successfully.',
+      message: requestedRole === 'teacher'
+        ? 'Teacher login created successfully. The teacher can sign in immediately with this email and password.'
+        : 'Account created successfully.',
       auditWarning,
       user: { id: user.id, username: user.username, email: user.email, role: user.role, status: 'active', createdAt: user.createdAt },
     });
