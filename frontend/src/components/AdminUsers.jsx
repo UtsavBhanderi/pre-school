@@ -276,11 +276,12 @@ export default function AdminUsers() {
       <section className="page-card mb-4" aria-labelledby="create-user-heading">
         <div className="section-heading mt-0">
           <div>
-            <h3 id="create-user-heading"><MdPersonAddAlt1 className="me-2" aria-hidden="true" />Create an account</h3>
-            <p className="page-subtitle">Give each person their own sign-in. Share the initial password privately.</p>
+            <h3 id="create-user-heading"><MdPersonAddAlt1 className="me-2" aria-hidden="true" />Create a staff login</h3>
+            <p className="page-subtitle">Manually create a login for a teacher or administrator. Teacher accounts become active as soon as you create them.</p>
           </div>
         </div>
 
+        <div className="alert alert-info py-2 small mb-3" role="note">For a teacher, choose <strong>Teacher</strong>, enter their school email ID and set an initial password of at least 12 characters. Share both privately. They can sign in immediately—no invitation, OTP or email verification is required.</div>
         <form onSubmit={handleSubmit}>
           <div className="row g-3">
             <div className="col-12 col-md-6 col-xl-3">
@@ -309,7 +310,7 @@ export default function AdminUsers() {
           </div>
           <div className="small muted mt-3 d-flex align-items-start gap-2">
             <MdShield size={18} className="flex-shrink-0 mt-1" aria-hidden="true" />
-            <span>Use Teacher as the default least-privilege role. Only give Administrator access to people who need to manage school records and accounts.</span>
+            <span>Use the same email ID as the teacher profile saved under Teacher records. Only give Administrator access to people who need to manage school records and accounts.</span>
           </div>
           <div className="d-flex justify-content-end mt-3">
             <button type="submit" className="btn btn-primary" disabled={savingUser}>

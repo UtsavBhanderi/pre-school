@@ -70,7 +70,7 @@ const Login = () => {
               SECURE SCHOOL ACCESS
             </div>
             <h2>Welcome back</h2>
-            <p className="muted mb-4">Sign in with the account provided by your school administrator.</p>
+            <p className="muted mb-4">Teachers: sign in with the email ID and password your school administrator gave you. Your account is created manually by the school; no invitation or email verification is needed.</p>
 
             <form onSubmit={handleSubmit} noValidate>
               <div className="mb-3">
