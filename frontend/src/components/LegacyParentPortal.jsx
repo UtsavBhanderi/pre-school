@@ -210,6 +210,11 @@ export default function LegacyParentPortal() {
             <p>Welcome back, {accountName}. Your family information is here.</p>
           </div>
           <div className="legacy-parent-top-actions">
+            {(user?.role === "admin" || user?.role === "teacher") && (
+              <button type="button" className="legacy-parent-refresh" onClick={() => window.location.assign(user.role === "admin" ? "/dashboard/home" : "/teacher-dashboard")}>
+                <MdOutlineAccountCircle aria-hidden="true" /> Staff workspace
+              </button>
+            )}
             <button type="button" className="legacy-parent-refresh" onClick={() => loadPortal({ quiet: true })} disabled={refreshing || loading}>
               <MdRefresh aria-hidden="true" /> {refreshing ? "Refreshing…" : "Refresh"}
             </button>
