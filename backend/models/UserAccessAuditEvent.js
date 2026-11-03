@@ -7,7 +7,7 @@ const UserAccessAuditEventSchema = new mongoose.Schema({
   targetUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, immutable: true },
   targetName: { type: String, trim: true, maxlength: 80, default: '', immutable: true },
   targetEmail: { type: String, trim: true, lowercase: true, maxlength: 254, default: '', immutable: true },
-  action: { type: String, enum: ['user.created', 'user.access_updated'], required: true, immutable: true },
+  action: { type: String, enum: ['user.created', 'user.access_updated', 'parent.access_activated'], required: true, immutable: true },
   previousRole: { type: String, trim: true, maxlength: 40, default: '', immutable: true },
   role: { type: String, trim: true, maxlength: 40, required: true, immutable: true },
   previousStatus: { type: String, enum: ['active', 'suspended'], default: 'active', immutable: true },
