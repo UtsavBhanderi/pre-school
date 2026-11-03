@@ -336,7 +336,25 @@ export default function LegacyParentPortal() {
                 {reports.length ? <div className="legacy-parent-card-list">{reports.map((report) => (
                   <article className="legacy-parent-card" key={report.id}>
                     <h3>{report.title}</h3><p>{report.description}</p><small className="d-block mt-2">{report.className} · Published {dateLabel(report.createdAt)}</small>
-                    {report.children?.length > 0 && <small className="d-block mt-1">For: {report.children.map((child) => child.name).join(", ")}</small>}
+                    {report.children?.length > 0 && report.children.map((child) => (
+                      <div className="legacy-parent-report-result mt-3" key={child.id}>
+                        <strong>{child.name} <small>· GR No. {child.admissionNumber || "—"}</small></strong>
+                        {child.result ? (
+                          <>
+                            <div className="legacy-parent-report-metrics">
+                              <span>Total <b>{child.result.total}</b></span>
+                              <span>Percentage <b>{child.result.percentage.toFixed(1)}%</b></span>
+                              {child.result.grade && <span>Grade <b>{child.result.grade}</b></span>}
+                            </div>
+                            {child.result.subjects?.length > 0 && <div className="legacy-parent-table-wrap mt-2">
+                              <table className="legacy-parent-table"><thead><tr><th>Subject</th><th>Marks</th><th>Date</th></tr></thead><tbody>
+                                {child.result.subjects.map((subject, index) => <tr key={subject.subject + index}><td>{subject.subject}</td><td>{subject.mark}</td><td>{subject.date || "—"}</td></tr>)}
+                              </tbody></table>
+                            </div>}
+                          </>
+                        ) : <small className="d-block mt-1">The report summary is available. Detailed marks have not been saved for this child yet.</small>}
+                      </div>
+                    ))}
                   </article>
                 ))}</div> : <EmptyState title="No learning reports yet" detail="Report cards released by the preschool will appear here." />}
               </section>
