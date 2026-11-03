@@ -37,6 +37,12 @@ router.post('/inspect', async (req, res) => {
     if (!invitation || !isInvitationLive(invitation)) {
       return res.status(410).json({ message: 'This invitation is invalid, already used, revoked, or expired. Ask your preschool administrator for a new invitation.' });
     }
+    if (invitation.role === 'parent') {
+      return res.status(410).json({
+        code: 'PARENT_SELF_SERVICE',
+        message: 'Parent invitations are no longer used. Open the preschool Parent access link and activate your family login with your child GR number or registered parent email and mobile number.',
+      });
+    }
 
     const organization = await Organization.findOne({
       _id: invitation.organizationId,
@@ -81,6 +87,11 @@ router.post('/accept', async (req, res) => {
             const expired = new Error('This invitation is invalid, already used, revoked, or expired.');
             expired.code = 'INVITATION_INVALID';
             throw expired;
+          }
+          if (invitation.role === 'parent') {
+            const selfService = new Error('Parent invitations are no longer used. Open the preschool Parent access link to activate your family login.');
+            selfService.code = 'PARENT_SELF_SERVICE';
+            throw selfService;
           }
           const organization = await Organization.findOne({
             _id: invitation.organizationId,
@@ -239,6 +250,7 @@ router.post('/accept', async (req, res) => {
       NEW_PASSWORD_TOO_SHORT: 400,
       MEMBERSHIP_EXISTS: 409,
       GUARDIAN_MISMATCH: 409,
+      PARENT_SELF_SERVICE: 410,
       PLAN_LIMIT_REACHED: 409,
       SUBSCRIPTION_READ_ONLY: 402,
       ORGANIZATION_UNAVAILABLE: 410,
