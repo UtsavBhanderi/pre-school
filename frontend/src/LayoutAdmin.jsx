@@ -10,7 +10,7 @@ import TenantWorkspace from "./components/TenantWorkspace.jsx";
 const PAGE_META = [
   ["/dashboard/home", "Start here", "Choose a common task or search using everyday words."],
   ["/dashboard/help", "Help & guides", "Step-by-step instructions for common school tasks."],
-  ["/dashboard/notices", "Notices for staff", "Share a school reminder with teachers."],
+  ["/dashboard/notices", "Notices for staff", "Share a school notice with parents, teachers or both."],
   ["/dashboard/communications", "Parent communication", "Publish homework and polls, and reply to family messages."],
   ["/dashboard/feesOverview", "Fee summary", "See money collected and fees still due."],
   ["/dashboard/attendanceOverview", "Past attendance", "Review saved attendance and absences."],
@@ -47,8 +47,8 @@ const COMMANDS = [
   { label: "Birthday lists", detail: "Find student and teacher birthdays", to: "/dashboard/studentBirthday", terms: "birthday cake student teacher" },
   { label: "User access", detail: "Manage who can sign in", to: "/dashboard/users", terms: "accounts login permissions" },
   { label: "Help & guides", detail: "Read simple instructions and troubleshoot", to: "/dashboard/help", terms: "support help how to error problem" },
-  { label: "School notices", detail: "Publish reminders, holidays and staff updates", to: "/dashboard/notices", terms: "announcement notice memo communication teachers" },
-  { label: "Parent communication", detail: "Publish homework, answer parent messages and create polls", to: "/dashboard/communications", terms: "homework complaints feedback polls family" },
+  { label: "School notices", detail: "Publish reminders and updates for parents, teachers or everyone", to: "/dashboard/notices", terms: "announcement notice memo communication teachers" },
+  { label: "Parent communication", detail: "Send messages and polls to parents or teachers, publish homework, and answer family messages", to: "/dashboard/communications", terms: "homework complaints feedback polls family" },
 ];
 
 export default function LayoutAdmin() {
