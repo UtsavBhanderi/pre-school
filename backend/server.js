@@ -49,6 +49,8 @@ const tenantOperationsRoutes = require('./routes/tenantOperations');
 const invitationsRoutes = require('./routes/invitations');
 const publicInvitationsRoutes = require('./routes/publicInvitations');
 const parentPortalRoutes = require('./routes/parentPortal');
+const parentAccessRoutes = require('./routes/parentAccess');
+const legacyParentPortalRoutes = require('./routes/legacyParentPortal');
 const tenantAnnouncementRoutes = require('./routes/tenantAnnouncements');
 const tenantCalendarRoutes = require('./routes/tenantCalendar');
 const tenantHandoverRoutes = require('./routes/tenantHandover');
@@ -98,6 +100,11 @@ const invitationAcceptRateLimit = createRateLimiter({
   max: 8,
   message: 'Too many invitation acceptance attempts. Please wait before trying again.',
 });
+const parentAccessRateLimit = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Too many parent access attempts. Please wait before trying again or contact the preschool office.',
+});
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
@@ -129,6 +136,8 @@ app.use('/api/auth/register', accountRegistrationRateLimit);
 app.use('/api/auth/forgot-password', passwordResetRateLimit);
 app.use('/api/auth/reset-password', passwordResetRateLimit);
 app.use('/api/auth', authRoutes);
+app.use('/api/parent-access/activate', parentAccessRateLimit);
+app.use('/api/parent-access', parentAccessRoutes);
 app.use('/api/media', privateMediaRoutes);
 app.use('/api/saas/media', auth, tenantMediaRoutes);
 
@@ -141,6 +150,7 @@ app.use('/api/invitations/accept', invitationAcceptRateLimit);
 app.use('/api/invitations', publicInvitationsRoutes);
 app.use('/api/saas/invitations', auth, invitationsRoutes);
 app.use('/api/saas/parent', auth, parentPortalRoutes);
+app.use('/api/parent-portal', auth, legacySingleTenantOnly, legacyParentPortalRoutes);
 app.use('/api/saas/notices', auth, tenantAnnouncementRoutes);
 app.use('/api/saas/calendar', auth, tenantCalendarRoutes);
 app.use('/api/saas/handover', auth, tenantHandoverRoutes);
