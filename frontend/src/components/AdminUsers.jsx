@@ -445,8 +445,8 @@ export default function AdminUsers() {
                   <td className="text-nowrap">{formatDateTime(event.createdAt)}</td>
                   <td><div className="fw-semibold">{event.targetName}</div><div className="small muted">{event.targetEmail}</div></td>
                   <td>
-                    <div>{event.action === "user.created" ? "Account created" : "Access updated"}</div>
-                    <div className="small muted">{event.action === "user.created"
+                    <div>{event.action === "user.created" ? "Account created" : event.action === "parent.access_activated" ? "Parent access activated" : "Access updated"}</div>
+                    <div className="small muted">{event.action === "user.created" || event.action === "parent.access_activated"
                       ? roleLabel(event.role) + " · " + statusLabel(event.status)
                       : roleLabel(event.previousRole) + " → " + roleLabel(event.role) + " · " + statusLabel(event.previousStatus) + " → " + statusLabel(event.status)}</div>
                   </td>
