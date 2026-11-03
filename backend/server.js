@@ -51,6 +51,7 @@ const publicInvitationsRoutes = require('./routes/publicInvitations');
 const parentPortalRoutes = require('./routes/parentPortal');
 const parentAccessRoutes = require('./routes/parentAccess');
 const legacyParentPortalRoutes = require('./routes/legacyParentPortal');
+const schoolEngagementRoutes = require('./routes/schoolEngagement');
 const tenantAnnouncementRoutes = require('./routes/tenantAnnouncements');
 const tenantCalendarRoutes = require('./routes/tenantCalendar');
 const tenantHandoverRoutes = require('./routes/tenantHandover');
@@ -153,6 +154,7 @@ app.use('/api/saas/parent', auth, parentPortalRoutes);
 // ParentAccount is an explicit per-user allow-list of child IDs, so this route
 // remains scoped even if an organization workspace is added later.
 app.use('/api/parent-portal', auth, legacyParentPortalRoutes);
+app.use('/api/school-engagement', auth, legacySingleTenantOnly, schoolEngagementRoutes);
 app.use('/api/saas/notices', auth, tenantAnnouncementRoutes);
 app.use('/api/saas/calendar', auth, tenantCalendarRoutes);
 app.use('/api/saas/handover', auth, tenantHandoverRoutes);

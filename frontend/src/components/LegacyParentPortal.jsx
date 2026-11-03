@@ -5,11 +5,13 @@ import {
   MdCampaign, MdCalendarMonth, MdAssessment, MdRefresh, MdLogout,
   MdLock, MdShield, MdCheckCircle, MdErrorOutline, MdHistory,
   MdReceiptLong, MdArrowForward, MdEventAvailable, MdMenuBook,
-  MdOutlineAccountCircle,
+  MdOutlineAccountCircle, MdForum,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
 import "../legacy-parent-portal.css";
+import "../parent-engagement.css";
+import ParentEngagement from "./ParentEngagement.jsx";
 
 const PARENT_NAV = [
   { id: "overview", label: "Home", title: "Family overview", Icon: MdDashboard },
@@ -17,6 +19,7 @@ const PARENT_NAV = [
   { id: "attendance", label: "Attendance", title: "Attendance history", Icon: MdFactCheck },
   { id: "fees", label: "Fees", title: "Fee details", Icon: MdCurrencyRupee },
   { id: "notices", label: "Notices", title: "School notices", Icon: MdCampaign },
+  { id: "engagement", label: "Homework & more", title: "Homework and family communication", Icon: MdForum },
   { id: "calendar", label: "Calendar", title: "School calendar", Icon: MdCalendarMonth },
   { id: "reports", label: "Reports", title: "Learning reports", Icon: MdAssessment },
   { id: "security", label: "Security", title: "Account security", Icon: MdLock },
@@ -334,6 +337,8 @@ export default function LegacyParentPortal() {
                 ))}</div> : <EmptyState title="No events in this date range" detail="School calendar events and holidays will appear here." />}
               </section>
             )}
+
+            {activeTab === "engagement" && <ParentEngagement />}
 
             {activeTab === "reports" && (
               <section className="legacy-parent-panel">
