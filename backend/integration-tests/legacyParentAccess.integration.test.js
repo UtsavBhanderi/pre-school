@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 
 const configuredUri = String(process.env.MONGO_INTEGRATION_URI || '').trim();
 
@@ -84,6 +85,11 @@ test('single-school parents can self-activate and only see their linked children
     role: 'admin',
   });
   createdUserIds.push(admin._id);
+  const adminToken = jwt.sign(
+    { user: { id: String(admin._id), role: admin.role, authVersion: 0 } },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' },
+  );
 
   const parentEmail = 'family-' + tag + '@example.test';
   const phone = '9876543210';
@@ -286,6 +292,35 @@ test('single-school parents can self-activate and only see their linked children
       body: { email: parentEmail, password: 'AnotherStrongFamilyPassword456' },
     });
     assert.equal(nextLogin.status, 200);
+
+    const parentUser = await User.findOne({ email: parentEmail });
+    assert.ok(parentUser);
+    const suspended = await api('/api/userDetailsself/' + parentUser._id, {
+      token: adminToken,
+      method: 'PATCH',
+      body: { status: 'suspended', role: 'parent', reason: 'Parent account requested suspension' },
+    });
+    assert.equal(suspended.status, 200);
+    assert.equal(suspended.data.user.status, 'suspended');
+    const suspendedParentAccount = await ParentAccount.findOne({ userId: parentUser._id }).lean();
+    assert.equal(suspendedParentAccount.status, 'suspended');
+    assert.equal((await api('/api/auth/me', { token: nextLogin.data.token })).status, 401);
+    assert.equal((await api('/api/auth/login', {
+      method: 'POST',
+      body: { email: parentEmail, password: 'AnotherStrongFamilyPassword456' },
+    })).status, 403);
+
+    const restored = await api('/api/userDetailsself/' + parentUser._id, {
+      token: adminToken,
+      method: 'PATCH',
+      body: { status: 'active', role: 'parent', reason: 'Parent access restored by school office' },
+    });
+    assert.equal(restored.status, 200);
+    assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'active');
+    assert.equal((await api('/api/auth/login', {
+      method: 'POST',
+      body: { email: parentEmail, password: 'AnotherStrongFamilyPassword456' },
+    })).status, 200);
   });
   await t.test('registered parent email plus mobile also activates, while duplicate same-phone claims are blocked', async () => {
     const duplicate = await api('/api/parent-access/activate', {
