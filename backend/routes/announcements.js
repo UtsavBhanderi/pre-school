@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
       isActive: true,
       startsAt: { $lte: now },
       $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
-      audience: req.user?.role === 'teacher' ? { $in: ['all', 'teachers', 'both'] } : { $in: ['all', 'parents', 'both'] },
+      audience: req.user?.role === 'teacher' ? { $in: ['all', 'teachers', 'both'] } : { $in: ['parents', 'both'] },
     }).sort({ createdAt: -1 }).lean();
     return res.json(notices);
   } catch (error) {
