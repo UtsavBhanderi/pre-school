@@ -43,7 +43,7 @@ function phoneMatches(recordValues, submittedPhone) {
 function slugifySchoolName(value) {
   const slug = cleanText(value, 120)
     .normalize('NFKD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
