@@ -687,24 +687,29 @@ router.post('/activate', async (req, res) => {
     return res.status(404).json({ message: 'This parent portal link is invalid.' });
   }
 
-  if (schoolResult.mode === 'legacy_single_school') {
-    if (schoolSlug && schoolSlug !== schoolResult.slug) {
+  try {
+    if (schoolResult.mode === 'legacy_single_school') {
+      if (schoolSlug && schoolSlug !== schoolResult.slug) {
+        return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
+      }
+      return await activateLegacyParent({
+        req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
+        parentName, loginEmail, password,
+      });
+    }
+
+    const organization = schoolResult.organization;
+    if (schoolSlug && schoolSlug !== organization.slug) {
       return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
     }
-    return activateLegacyParent({
-      req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
-      parentName, loginEmail, password,
+
+    return await activateOrganizationParent({
+      req, res, organization, identifier, submittedPhone, parentName, loginEmail, password,
     });
+  } catch (error) {
+    console.error('Unable to look up parent school records:', error?.name || 'lookup_error');
+    return res.status(503).json({ message: 'Parent access could not be verified. Please try again or contact the school office.' });
   }
-
-  const organization = schoolResult.organization;
-  if (schoolSlug && schoolSlug !== organization.slug) {
-    return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
-  }
-
-  return activateOrganizationParent({
-    req, res, organization, identifier, submittedPhone, parentName, loginEmail, password,
-  });
 });
 
 module.exports = router;
