@@ -81,6 +81,12 @@ async function mockSchoolApi(page, { rejectLogin = false } = {}) {
           memberships: [],
         },
       };
+    } else if (url.pathname === '/api/parent-access/config' && request.method() === 'GET') {
+      body = {
+        school: { name: 'Blooming Buds Preschool', slug: 'blooming-buds' },
+        parentAccessUrl: 'https://school.example.test/parent-access/blooming-buds',
+        mode: 'legacy_single_school',
+      };
     } else if (url.pathname === '/api/students') {
       body = [];
     } else if (url.pathname === '/api/attendance/attendances') {
@@ -698,5 +704,92 @@ test('parent login opens the family portal and shows only linked child and billi
   await page.getByText('REC-MAIN-2026-000001', { exact: true }).waitFor();
   assert.equal(await page.getByText('Riya Sharma', { exact: true }).count(), 0,
     'The parent fee view must not expose another family.');
+  await page.close();
+});
+
+
+test('parent self-activation page is labelled, readable and mobile-friendly', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mockSchoolApi(page);
+  await page.goto(BASE_URL + '/parent-access/blooming-buds');
+
+  await page.getByRole('heading', { name: 'Set up your family login' }).waitFor();
+  assert.equal(await page.getByText('Blooming Buds Preschool').count(), 1);
+  assert.equal(await page.getByLabel(/Student GR number or registered parent email/).count(), 1);
+  assert.equal(await page.getByLabel(/Registered parent mobile number/).count(), 1);
+  assert.equal(await page.getByLabel(/Parent \/ guardian full name/).count(), 1);
+  assert.equal(await page.getByLabel(/Email address for sign-in/).count(), 1);
+  assert.equal(await page.getByRole('button', { name: /Activate parent access/ }).count(), 1);
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  assert.ok(
+    dimensions.document <= dimensions.viewport + 1,
+    'Parent access setup should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
+  );
+  await page.close();
+});
+
+test('single-school parent portal opens with family-scoped child information on mobile', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.addInitScript(() => localStorage.setItem('token', 'parent-browser-smoke-token'));
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    let body = {};
+    if (url.pathname === '/api/auth/me') {
+      body = {
+        user: {
+          id: 'parent-user-1',
+          username: 'Riya Patel',
+          email: 'riya@example.com',
+          role: 'parent',
+          memberships: [],
+          parentAccount: { mode: 'legacy_single_school', status: 'active', studentCount: 1 },
+        },
+      };
+    } else if (url.pathname === '/api/parent-portal/summary') {
+      body = {
+        schoolName: 'Blooming Buds Preschool',
+        date: '2026-11-03',
+        children: 1,
+        attendanceToday: { present: 1, absent: 0 },
+        fees: { outstanding: 1200, currency: 'INR' },
+        childSummaries: [],
+      };
+    } else if (url.pathname === '/api/parent-portal/children') {
+      body = {
+        total: 1,
+        children: [{
+          id: 'child-1',
+          name: 'Aarav Patel',
+          admissionNumber: 'GR-1001',
+          className: 'Nursery',
+          academicYear: '2026-2027',
+          dateOfBirth: '2023-05-10',
+          address: 'Surat',
+        }],
+      };
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
+  });
+  await page.goto(BASE_URL + '/parent-portal');
+
+  await page.getByRole('heading', { name: 'Family overview' }).waitFor();
+  await page.getByRole('heading', { name: 'Good day, Riya Patel.' }).waitFor();
+  await page.getByRole('heading', { name: 'Aarav Patel' }).waitFor();
+  assert.equal(await page.getByRole('button', { name: /Attendance/ }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: /Fees/ }).count(), 1);
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  assert.ok(
+    dimensions.document <= dimensions.viewport + 1,
+    'Parent portal should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
+  );
   await page.close();
 });
