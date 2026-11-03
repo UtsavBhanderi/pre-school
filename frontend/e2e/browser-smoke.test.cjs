@@ -147,7 +147,7 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await menuButton.click();
   await page.locator('.teacher-sidebar.is-open').waitFor();
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'true');
-  await page.getByRole('button', { name: 'Close navigation' }).click();
+  await page.locator('.teacher-sidebar-backdrop').click({ position: { x: 350, y: 420 } });
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'false');
 
   // Use the visible, thumb-friendly dashboard actions to navigate on mobile.
