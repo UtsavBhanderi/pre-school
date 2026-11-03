@@ -9,6 +9,7 @@ import "../parent-portal.css";
 import "../tenant-notices.css";
 import "../tenant-calendar.css";
 import "../tenant-handover.css";
+import LegacyParentPortal from "./LegacyParentPortal.jsx";
 
 const PARENT_TABS = [
   { id: "overview", label: "Family overview", Icon: MdDashboard },
@@ -44,7 +45,7 @@ const dateLabel = (value) => {
   return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 };
 
-export default function ParentPortal() {
+function TenantParentPortal() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const hasStaffMemberships = Array.isArray(user?.memberships) && user.memberships.some((item) => item.role !== "parent" && item.organization?.id);
@@ -372,4 +373,13 @@ export default function ParentPortal() {
       <footer className="parent-portal-footer"><span>{organization?.name || "Your preschool"}{activeBranch ? " · " + activeBranch.name : ""}</span><span>For corrections or help, contact the preschool office.</span></footer>
     </div>
   );
+}
+
+
+export default function ParentPortal() {
+  const { user } = useContext(AuthContext);
+  if (user?.parentAccount?.mode === "legacy_single_school" && user.parentAccount.status === "active") {
+    return <LegacyParentPortal />;
+  }
+  return <TenantParentPortal />;
 }
