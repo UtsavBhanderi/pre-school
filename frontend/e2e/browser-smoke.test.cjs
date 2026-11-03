@@ -141,7 +141,7 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await page.locator('#login-password').fill('teacher-initial-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
-  await page.waitForURL(/\\/teacher-dashboard$/);
+  await page.waitForURL(/\/teacher-dashboard$/);
   await page.getByRole('heading', { name: 'Your teaching day' }).waitFor();
   await page.locator('.teacher-menu-button').click();
   await page.locator('.teacher-navigation').getByRole('button', { name: 'Take attendance' }).click();
