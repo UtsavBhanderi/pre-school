@@ -10,6 +10,7 @@ const {
   isValidParentPassword,
   phoneMatches,
   safeSchoolSlug,
+  slugifySchoolName,
 } = require('../utils/parentAccess');
 
 test('normalizes common Indian mobile number formats consistently', () => {
@@ -47,4 +48,5 @@ test('accepts only safe lowercase school slugs', () => {
   assert.equal(safeSchoolSlug('blooming-buds'), true);
   assert.equal(safeSchoolSlug('BLOOMING BUDS'), false);
   assert.equal(safeSchoolSlug('../school'), false);
+  assert.equal(slugifySchoolName('Māori Preschool'), 'maori-preschool');
 });
