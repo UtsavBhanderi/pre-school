@@ -12,6 +12,7 @@ const ChildGuardian = require('../models/ChildGuardian');
 const OrganizationMembership = require('../models/OrganizationMembership');
 const AuditEvent = require('../models/AuditEvent');
 const ParentAccount = require('../models/ParentAccount');
+const UserAccessAuditEvent = require('../models/UserAccessAuditEvent');
 const {
   cleanText,
   normalizePhone,
@@ -223,6 +224,23 @@ async function activateLegacyParent({ req, res, school, identifier, submittedPho
           lastVerifiedAt: new Date(),
         }], { session });
       }
+
+      await UserAccessAuditEvent.create([{
+        actorUserId: user._id,
+        targetUserId: user._id,
+        targetName: user.username,
+        targetEmail: user.email,
+        action: 'parent.access_activated',
+        previousRole: user.role,
+        role: user.role,
+        previousStatus: 'active',
+        status: 'active',
+        reason: 'Parent self-service access activated after matching the school GR/email and registered mobile number.',
+        changedFields: ['parentAccount', 'linkedChildren'],
+        ipAddress: String(req.ip || '').slice(0, 64),
+        userAgent: String(req.get('user-agent') || '').slice(0, 300),
+      }], { session });
+
       activeUser = user;
     });
 
