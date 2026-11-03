@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
-import { MdAssignment, MdFeedback, MdPoll, MdSend, MdRefresh } from "react-icons/md";
+import { MdAssignment, MdFeedback, MdPoll, MdSend, MdRefresh, MdCampaign } from "react-icons/md";
 import { API_BASE_URL } from "../api.js";
 
 const CATEGORIES = [
@@ -37,6 +37,7 @@ export default function ParentEngagement() {
   const [homework, setHomework] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [polls, setPolls] = useState([]);
+  const [schoolMessages, setSchoolMessages] = useState([]);
   const [form, setForm] = useState({ studentId: "", category: "general", subject: "", message: "" });
   const [notes, setNotes] = useState({});
   const [selections, setSelections] = useState({});
@@ -53,14 +54,16 @@ export default function ParentEngagement() {
       const childRows = Array.isArray(childResult.children) ? childResult.children : [];
       setChildren(childRows);
       setForm((old) => ({ ...old, studentId: old.studentId || childRows[0]?.id || "" }));
-      const [homeworkResult, complaintResult, pollResult] = await Promise.all([
+      const [homeworkResult, complaintResult, pollResult, messageResult] = await Promise.all([
         request("/api/school-engagement/parent/homework"),
         request("/api/school-engagement/parent/complaints"),
         request("/api/school-engagement/parent/polls"),
+        request("/api/school-engagement/parent/messages"),
       ]);
       setHomework(homeworkResult.homework || []);
       setComplaints(complaintResult.complaints || []);
       setPolls(pollResult.polls || []);
+      setSchoolMessages(messageResult.messages || []);
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Parent engagement information could not be loaded.");
     } finally {
@@ -103,6 +106,16 @@ export default function ParentEngagement() {
     }
   };
 
+  const markSchoolMessageRead = async (item) => {
+    setBusy("message:" + item.id); setError(""); setMessage("");
+    try {
+      await request("/api/school-engagement/parent/messages/" + item.id + "/read", "POST");
+      setSchoolMessages((current) => current.map((message) => message.id === item.id ? { ...message, hasRead: true } : message));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "The message could not be updated.");
+    } finally { setBusy(""); }
+  };
+
   const vote = async (pollId) => {
     if (selections[pollId] === undefined) {
       setError("Choose an option before submitting your vote.");
@@ -127,6 +140,7 @@ export default function ParentEngagement() {
     { id: "homework", label: "Homework", icon: MdAssignment },
     { id: "complaints", label: "Messages to school", icon: MdFeedback },
     { id: "polls", label: "Polls", icon: MdPoll },
+    { id: "schoolMessages", label: "From school", icon: MdCampaign },
   ];
 
   return (
@@ -214,6 +228,21 @@ export default function ParentEngagement() {
                 </article>
               ))}</div> : <Empty title="No messages yet" detail="Your private messages and school replies will appear here." />}
             </>
+          )}
+
+          {tab === "schoolMessages" && (
+            <div className="legacy-parent-card-list">
+              {schoolMessages.length ? schoolMessages.map((item) => (
+                <article className="legacy-parent-card" key={item.id}>
+                  <div className="legacy-parent-panel-heading">
+                    <div><h3>{item.title}</h3><small>{item.priority} · {formatDate(item.createdAt)}</small></div>
+                    <span className={"legacy-parent-status " + (item.hasRead ? "paid" : "due")}>{item.hasRead ? "Read" : "New"}</span>
+                  </div>
+                  <p className="parent-engagement-preserve">{item.message}</p>
+                  {!item.hasRead && <button type="button" className="legacy-parent-primary-btn" disabled={busy === "message:" + item.id} onClick={() => markSchoolMessageRead(item)}>{busy === "message:" + item.id ? "Saving…" : "Mark as read"}</button>}
+                </article>
+              )) : <Empty title="No messages from school" detail="Notices and direct updates from your preschool will appear here." />}
+            </div>
           )}
 
           {tab === "polls" && (
