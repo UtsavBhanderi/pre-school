@@ -38,6 +38,7 @@ import ForgotPassword from "./components/ForgotPassword.jsx";
 import ResetPassword from "./components/ResetPassword.jsx";
 import CreateOrganization from "./components/CreateOrganization.jsx";
 import VerifyOrganizationSignup from "./components/VerifyOrganizationSignup.jsx";
+import SchoolCommunication from "./components/SchoolCommunication.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -103,6 +104,7 @@ const App = () => (
           <Route path="home" element={<OperationsHome />} />
           <Route path="help" element={<HelpCenter />} />
           <Route path="notices" element={<AnnouncementsPage />} />
+          <Route path="communications" element={<SchoolCommunication />} />
           <Route path="feesOverview" element={<FeesOverviewPage />} />
           <Route path="attendanceOverview" element={<AttendancePage />} />
           <Route path="fees" element={<Fees />} />

@@ -91,3 +91,14 @@ If a parent's email or phone is incorrect, update the underlying student/family 
 The initial activation checks that the GR/email and phone match the school's stored records and limits repeated attempts. This is a database-record match; it does **not** prove the person currently controls the phone. No SMS one-time password is sent by this implementation. Add an SMS OTP provider before treating mobile possession as independently verified, especially before sharing sensitive child or health information.
 
 The built-in request limiter is process-local. Keep infrastructure-level rate limiting at the CDN, WAF, reverse proxy, or API gateway for public production traffic.
+
+
+## Parent engagement: homework, family messages and polls
+
+The single-school parent portal includes a family engagement area:
+
+- **Homework:** teachers and administrators can publish activities for every class or one class. Parents can read instructions, add an optional note and mark the work complete for each linked child.
+- **Private messages:** parents can send a question or concern linked to one of their children. Only authenticated school staff can read and respond; the family can follow its open, in-progress or resolved status.
+- **Polls:** staff can publish a question with 2–6 options for all families or one class. Each parent account can vote once per poll. The portal shows aggregate counts, not voter identities.
+
+Staff manage these features from **Parent communication** in the administrator or teacher workspace. Content is scoped to legacy single-school student records and is not available to unrelated tenant workspaces.

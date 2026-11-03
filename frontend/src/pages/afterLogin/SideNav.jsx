@@ -5,7 +5,7 @@ import {
   MdCurrencyRupee, MdPeople, MdCake, MdCalendarMonth,
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
-  MdHome, MdHelpOutline, MdCampaign, MdExpandMore, MdDashboard,
+  MdHome, MdHelpOutline, MdCampaign, MdExpandMore, MdDashboard, MdForum,
 } from "react-icons/md";
 
 const navigation = [
@@ -31,6 +31,7 @@ const navigation = [
     items: [
       { to: "/dashboard/calendar", label: "Events and holidays", icon: MdCalendarMonth },
       { to: "/dashboard/notices", label: "Notices for staff", icon: MdCampaign },
+      { to: "/dashboard/communications", label: "Parent communication", icon: MdForum },
       { to: "/dashboard/gallery", label: "School photos", icon: MdPhotoLibrary },
     ],
   },

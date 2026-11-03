@@ -7,7 +7,8 @@ import { IoAnalyticsOutline } from "react-icons/io5";
 import { MdHelpOutline } from "react-icons/md";
 import TeacherHelp from "../../components/TeacherHelp.jsx";
 import AnnouncementsPage from "../../components/AnnouncementsPage.jsx";
-import { MdCampaign } from "react-icons/md";
+import { MdCampaign, MdForum } from "react-icons/md";
+import SchoolCommunication from "../../components/SchoolCommunication.jsx";
 
 const TeacherDashboard = () => {
   const [activeComponent, setActiveComponent] = useState("WorkReport");
@@ -25,6 +26,15 @@ const TeacherDashboard = () => {
         >
           <IoAnalyticsOutline size={21} aria-hidden="true" />
           <span>Daily work report</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveComponent("Communication")}
+          className={"teacher-side-link" + (activeComponent === "Communication" ? " active" : "")}
+          aria-current={activeComponent === "Communication" ? "page" : undefined}
+        >
+          <MdForum size={21} aria-hidden="true" />
+          <span>Parent communication</span>
         </button>
         <button
           type="button"
@@ -67,9 +77,11 @@ const TeacherDashboard = () => {
       <main className="teacher-main">
         <div className="page-header">
           <div>
-            <h2 className="mb-0">{activeComponent === "AttEntry" ? "Attendance entry" : activeComponent === "Help" ? "Teacher quick help" : activeComponent === "Notices" ? "School notices" : "Daily work report"}</h2>
+            <h2 className="mb-0">{activeComponent === "AttEntry" ? "Attendance entry" : activeComponent === "Communication" ? "Parent communication" : activeComponent === "Help" ? "Teacher quick help" : activeComponent === "Notices" ? "School notices" : "Daily work report"}</h2>
             <p className="page-subtitle">
-              {activeComponent === "AttEntry"
+              {activeComponent === "Communication"
+                ? "Publish class homework and polls, and respond to private family messages."
+                : activeComponent === "AttEntry"
                 ? "Choose a class and date, then record each student’s attendance."
                 : activeComponent === "Help"
                   ? "Simple guidance for attendance, daily reports and safe record keeping."
@@ -79,7 +91,7 @@ const TeacherDashboard = () => {
             </p>
           </div>
         </div>
-        {activeComponent === "AttEntry" ? <AttendanceEntryPage /> : activeComponent === "Help" ? <TeacherHelp /> : activeComponent === "Notices" ? <AnnouncementsPage readOnly /> : <WorkReport />}
+        {activeComponent === "AttEntry" ? <AttendanceEntryPage /> : activeComponent === "Communication" ? <SchoolCommunication embedded /> : activeComponent === "Help" ? <TeacherHelp /> : activeComponent === "Notices" ? <AnnouncementsPage readOnly /> : <WorkReport />}
       </main>
     </div>
   );

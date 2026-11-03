@@ -1,0 +1,30 @@
+.parent-engagement-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 1rem; padding:.3rem; border:1px solid #e8edf5; border-radius:11px; background:#fff; }
+.parent-engagement-tabs button { display:inline-flex; align-items:center; gap:.4rem; padding:.55rem .8rem; border:0; border-radius:8px; color:#64748b; background:transparent; font-size:.75rem; font-weight:800; cursor:pointer; }
+.parent-engagement-tabs button svg { font-size:1rem; }
+.parent-engagement-tabs button.active { color:#2e4daf; background:#edf2ff; }
+.parent-engagement-preserve { color:#586982; font-size:.77rem; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.parent-engagement-child-list { display:grid; gap:.6rem; margin-top:.8rem; }
+.parent-engagement-child { display:grid; grid-template-columns:minmax(130px,.65fr) minmax(0,1.35fr); align-items:center; gap:.6rem 1rem; padding:.75rem; border:1px solid #edf0f5; border-radius:9px; background:#fbfcff; }
+.parent-engagement-child > div:first-child { display:grid; gap:.1rem; }
+.parent-engagement-child > div:first-child strong { color:#344967; font-size:.78rem; }
+.parent-engagement-child > div:first-child small { color:#8b98aa; font-size:.65rem; }
+.parent-engagement-homework-action { display:flex; align-items:center; gap:.5rem; }
+.parent-engagement-homework-action textarea { flex:1; min-width:0; padding:.55rem .65rem; border:1px solid #dfe5ef; border-radius:8px; color:#31445f; background:#fff; font-size:.72rem; }
+.parent-engagement-form { display:grid; gap:.65rem; max-width:760px; padding:1rem; border:1px solid #e7ecf3; border-radius:11px; background:#fff; }
+.parent-engagement-form h3 { margin:0; color:#263d5a; font-size:.9rem; font-weight:850; }
+.parent-engagement-form p { margin:-.35rem 0 .2rem; color:#8390a3; font-size:.7rem; }
+.parent-engagement-form label { display:grid; gap:.3rem; color:#52647d; font-size:.7rem; font-weight:750; }
+.parent-engagement-form input, .parent-engagement-form select, .parent-engagement-form textarea { width:100%; padding:.6rem .7rem; border:1px solid #dfe5ef; border-radius:8px; color:#31445f; background:#fff; font-size:.75rem; }
+.parent-engagement-reply { margin-top:.8rem; padding:.75rem .85rem; border-left:3px solid #5c78d7; border-radius:7px; background:#f4f6ff; }
+.parent-engagement-reply strong { color:#354f9f; font-size:.73rem; }
+.parent-engagement-reply p { margin:.3rem 0; color:#4c5e7a; font-size:.75rem; white-space:pre-wrap; }
+.parent-engagement-reply small, .parent-engagement-note { color:#8995a7; font-size:.65rem; }
+.parent-engagement-note { display:block; margin-top:.55rem; }
+.parent-engagement-poll-option { margin-top:.55rem; padding:.65rem .75rem; border:1px solid #edf0f5; border-radius:9px; }
+.parent-engagement-poll-option label { display:flex; align-items:center; gap:.5rem; margin:0; color:#4d5f79; font-size:.75rem; cursor:pointer; }
+.parent-engagement-poll-option input { accent-color:#3659c9; }
+.parent-engagement-poll-result { display:grid; grid-template-columns:1fr auto; gap:.25rem .7rem; color:#50617a; font-size:.72rem; }
+.parent-engagement-poll-result strong { color:#30496e; font-size:.68rem; }
+.parent-engagement-poll-result i { grid-column:1/-1; display:block; height:6px; overflow:hidden; border-radius:99px; background:#edf1f8; }
+.parent-engagement-poll-result i b { display:block; height:100%; border-radius:inherit; background:#5472d0; }
+@media(max-width:680px) { .parent-engagement-tabs button { flex:1; justify-content:center; } .parent-engagement-child { grid-template-columns:1fr; } .parent-engagement-homework-action { align-items:stretch; flex-direction:column; } }
