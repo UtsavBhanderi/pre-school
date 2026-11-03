@@ -26,7 +26,9 @@ const Login = () => {
         setErrorMessage("Your school workspace access is inactive. Contact your preschool administrator to restore access.");
         return;
       }
-      if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
+      if (loggedInUser?.parentAccount?.mode === "legacy_single_school" && loggedInUser.parentAccount.status === "active") {
+        navigate("/parent-portal", { replace: true });
+      } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
           loggedInUser.memberships.every((membership) => membership.role === "parent")) {
         navigate("/parent-portal", { replace: true });
       } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.some((membership) => membership.role !== "parent")) {
