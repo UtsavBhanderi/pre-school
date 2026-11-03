@@ -257,6 +257,10 @@ router.get('/reports', requireParentAccount, async (req, res) => {
       .populate({ path: 'students', select: 'firstName middleName lastName stuNo' })
       .sort({ createdAt: -1 }).limit(100).lean() : [];
     const allowedIds = new Set(children.map((child) => String(child._id)));
+    const progressRows = children.length ? await Student.find({
+      _id: { $in: children.map((child) => child._id) },
+    }).select('_id marks').lean() : [];
+    const progressByChild = new Map(progressRows.map((student) => [String(student._id), student.marks || []]));
     return res.json({
       reports: reports.map((report) => ({
         id: String(report._id),
@@ -265,11 +269,25 @@ router.get('/reports', requireParentAccount, async (req, res) => {
         description: report.description || '',
         createdAt: report.createdAt,
         children: (report.students || []).filter((student) => allowedIds.has(String(student._id)))
-          .map((student) => ({
-            id: String(student._id),
-            name: childName(student),
-            admissionNumber: student.stuNo || '',
-          })),
+          .map((student) => {
+            const result = (progressByChild.get(String(student._id)) || [])
+              .find((entry) => String(entry.reportId) === String(report._id));
+            return {
+              id: String(student._id),
+              name: childName(student),
+              admissionNumber: student.stuNo || '',
+              result: result ? {
+                total: Number(result.total || 0),
+                percentage: Number(result.percentage || 0),
+                grade: result.grade || '',
+                subjects: (result.subjectData || []).map((subject) => ({
+                  subject: subject.subject || 'Subject',
+                  mark: Number(subject.mark || 0),
+                  date: subject.date || '',
+                })),
+              } : null,
+            };
+          }),
       })),
     });
   } catch (error) {
