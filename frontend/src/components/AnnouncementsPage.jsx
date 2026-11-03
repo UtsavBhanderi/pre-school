@@ -16,7 +16,7 @@ const createLocalDateTime = (value = new Date()) => {
 const initialForm = () => ({
   title: "",
   message: "",
-  audience: "both",
+  audience: "all",
   priority: "normal",
   startsAt: createLocalDateTime(),
   expiresAt: "",
@@ -203,10 +203,9 @@ export default function AnnouncementsPage({ readOnly = false }) {
                 <div className="ops-notice-field">
                   <label htmlFor="notice-audience" className="form-label">Who should see this?</label>
                   <select id="notice-audience" className="form-select" value={form.audience} onChange={(event) => setForm((prev) => ({ ...prev, audience: event.target.value }))}>
-                    <option value="both">Parents &amp; teachers</option>
+                    <option value="all">Parents &amp; teachers</option>
                     <option value="parents">Parents only</option>
                     <option value="teachers">Teachers only</option>
-                    <option value="all">All staff</option>
                   </select>
                 </div>
                 <div className="ops-notice-field">
@@ -273,7 +272,7 @@ export default function AnnouncementsPage({ readOnly = false }) {
                 </div>
                 <p className="ops-notice-message">{notice.message}</p>
                 <div className="ops-notice-meta">
-                  <span><MdPeopleAlt aria-hidden="true" /> {notice.audience === "teachers" ? "Teachers only" : notice.audience === "parents" ? "Parents only" : notice.audience === "both" ? "Parents & teachers" : "All staff"}</span>
+                  <span><MdPeopleAlt aria-hidden="true" /> {notice.audience === "teachers" ? "Teachers only" : notice.audience === "parents" ? "Parents only" : "Parents & teachers"}</span>
                   <span><MdSchedule aria-hidden="true" /> From {formatDateTime(notice.startsAt)}</span>
                   <span>Until {formatDateTime(notice.expiresAt)}</span>
                   {notice.createdByName && <span>By {notice.createdByName}</span>}

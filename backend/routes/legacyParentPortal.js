@@ -215,7 +215,7 @@ router.get('/notices', requireParentAccount, async (req, res) => {
     const now = new Date();
     const notices = await Announcement.find({
       isActive: true,
-      audience: { $in: ['both', 'parents'] },
+      audience: { $in: ['all', 'both', 'parents'] },
       startsAt: { $lte: now },
       $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
     }).select('title message priority startsAt expiresAt createdAt createdByName')
