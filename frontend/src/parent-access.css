@@ -1,0 +1,163 @@
+:root {
+  --pa-ink: #182b49;
+  --pa-muted: #74839a;
+  --pa-border: #e3eaf3;
+  --pa-blue: #3659c9;
+  --pa-blue-dark: #243f9d;
+}
+.parent-access-page {
+  min-height: 100vh;
+  padding: clamp(1rem, 3vw, 2.8rem);
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(215, 229, 255, .68), transparent 31rem),
+    radial-gradient(circle at 95% 90%, rgba(222, 240, 235, .7), transparent 28rem),
+    #f4f7fb;
+  color: var(--pa-ink);
+}
+.parent-access-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, .86fr) minmax(420px, 1.14fr);
+  width: min(1120px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(222, 230, 241, .95);
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 30px 90px rgba(33, 54, 91, .12);
+}
+.parent-access-intro {
+  display: flex;
+  min-height: 760px;
+  flex-direction: column;
+  padding: clamp(1.6rem, 3.2vw, 3rem);
+  color: #fff;
+  background: linear-gradient(153deg, #172d55 0%, #244584 58%, #2d65a5 100%);
+}
+.parent-access-brand { display: flex; align-items: center; gap: .8rem; }
+.parent-access-brand-mark {
+  display: grid; width: 48px; height: 48px; place-items: center;
+  border: 1px solid rgba(255,255,255,.23); border-radius: 15px;
+  color: #fff; background: rgba(255,255,255,.12); font-size: 1.55rem;
+}
+.parent-access-brand > span:last-child { display: grid; gap: .12rem; }
+.parent-access-brand strong { font-size: .98rem; font-weight: 850; letter-spacing: -.01em; }
+.parent-access-brand small { color: #c1d3f4; font-size: .75rem; }
+.parent-access-intro-copy { margin-top: auto; padding-top: 4rem; }
+.parent-access-eyebrow {
+  display: inline-block; margin-bottom: 1rem; color: #b8cdf9;
+  font-size: .66rem; font-weight: 850; letter-spacing: .13em;
+}
+.parent-access-intro-copy h1 {
+  max-width: 390px; margin: 0 0 1rem; color: #fff;
+  font-size: clamp(2rem, 3.5vw, 3.15rem); font-weight: 850;
+  letter-spacing: -.055em; line-height: 1.08;
+}
+.parent-access-intro-copy p {
+  max-width: 380px; margin: 0; color: #d0ddf4;
+  font-size: .96rem; line-height: 1.75;
+}
+.parent-access-benefits { display: grid; gap: 1.2rem; margin-top: 2.7rem; }
+.parent-access-benefits > div { display: flex; align-items: flex-start; gap: .85rem; }
+.parent-access-benefits > div > span {
+  display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center;
+  border: 1px solid rgba(255,255,255,.18); border-radius: 12px;
+  color: #d9e8ff; background: rgba(255,255,255,.1); font-size: 1.15rem;
+}
+.parent-access-benefits strong { display: block; margin: .05rem 0 .2rem; color: #fff; font-size: .82rem; font-weight: 800; }
+.parent-access-benefits small { display: block; max-width: 300px; color: #c1d2ed; font-size: .73rem; line-height: 1.55; }
+.parent-access-help {
+  display: grid; gap: .3rem; margin-top: auto; padding-top: 2.5rem;
+  color: #c0d1ec; font-size: .72rem; line-height: 1.6;
+}
+.parent-access-help > span { color: #fff; font-weight: 800; }
+.parent-access-help strong { color: #e6efff; font-size: .76rem; }
+.parent-access-form-panel { padding: clamp(1.4rem, 3.1vw, 3rem); }
+.parent-access-form-heading { margin-bottom: 1.7rem; }
+.parent-access-secure-label {
+  display: inline-flex; align-items: center; gap: .38rem; margin-bottom: .8rem;
+  padding: .4rem .65rem; border-radius: 999px; color: #3155bb;
+  background: #edf2ff; font-size: .65rem; font-weight: 850; letter-spacing: .07em;
+}
+.parent-access-form-heading h2 {
+  margin: 0 0 .45rem; color: var(--pa-ink); font-size: clamp(1.65rem, 2.5vw, 2.1rem);
+  font-weight: 850; letter-spacing: -.045em;
+}
+.parent-access-form-heading p { margin: 0; color: var(--pa-muted); font-size: .84rem; line-height: 1.6; }
+.parent-access-form { display: grid; gap: 1.05rem; }
+.parent-access-form > label { display: grid; gap: .38rem; min-width: 0; color: #384c69; font-size: .75rem; font-weight: 800; }
+.parent-access-form > label > span { display: flex; align-items: center; gap: .42rem; }
+.parent-access-form > label > span svg { color: #6075b7; font-size: 1.05rem; }
+.parent-access-form input {
+  width: 100%; min-width: 0; min-height: 45px; padding: .65rem .8rem;
+  border: 1px solid #dce4ef; border-radius: 10px; outline: none;
+  color: #213653; background: #fff; font: inherit; font-size: .83rem; font-weight: 550;
+  transition: border-color .16s, box-shadow .16s;
+}
+.parent-access-form input:focus {
+  border-color: #6f89df; box-shadow: 0 0 0 3px rgba(78, 108, 207, .12);
+}
+.parent-access-form input::placeholder { color: #a2adbd; font-weight: 450; }
+.parent-access-form > label > small { color: #8491a4; font-size: .68rem; font-weight: 500; line-height: 1.45; }
+.parent-access-password { position: relative; }
+.parent-access-password input { padding-right: 3rem; }
+.parent-access-password button {
+  position: absolute; top: 50%; right: .42rem; transform: translateY(-50%);
+  display: grid; width: 36px; height: 36px; place-items: center;
+  border: 0; border-radius: 8px; color: #7b8aa1; background: transparent;
+  font-size: 1.15rem; cursor: pointer;
+}
+.parent-access-password button:hover { color: #304eab; background: #f1f4fb; }
+.parent-access-form-divider {
+  display: flex; align-items: center; gap: .7rem; margin: .1rem 0 -.05rem;
+  color: #60718a; font-size: .7rem; font-weight: 850;
+}
+.parent-access-form-divider::before, .parent-access-form-divider::after {
+  content: ""; flex: 1; height: 1px; background: #e9edf4;
+}
+.parent-access-consent {
+  padding: .8rem .9rem; border: 1px solid #e2e9f4; border-radius: 10px;
+  color: #64738a; background: #f8faff; font-size: .69rem; line-height: 1.55;
+}
+.parent-access-submit {
+  display: flex; min-height: 48px; align-items: center; justify-content: center; gap: .65rem;
+  border: 0; border-radius: 11px; color: #fff; background: linear-gradient(100deg, #3559c8, #25469f);
+  box-shadow: 0 8px 18px rgba(49, 79, 178, .18); font-size: .85rem; font-weight: 850;
+  cursor: pointer; transition: transform .16s, box-shadow .16s;
+}
+.parent-access-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 11px 22px rgba(49,79,178,.22); }
+.parent-access-submit:disabled { opacity: .62; cursor: wait; }
+.parent-access-alert {
+  display: flex; align-items: flex-start; gap: .55rem; padding: .75rem .85rem;
+  border: 1px solid; border-radius: 10px; font-size: .74rem; line-height: 1.5;
+}
+.parent-access-alert svg { flex: 0 0 auto; margin-top: .08rem; font-size: 1rem; }
+.parent-access-alert.error { border-color: #f0caca; color: #943f48; background: #fff6f6; }
+.parent-access-alert.success { border-color: #bfe4ce; color: #26724b; background: #f1fbf4; }
+.parent-access-status { padding: 1.25rem; border-radius: 10px; color: #66768e; background: #f5f8fc; font-size: .8rem; }
+.parent-access-login-link {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .3rem;
+  margin-top: 1.45rem; color: #7a8799; font-size: .75rem;
+}
+.parent-access-login-link a { display: inline-flex; align-items: center; gap: .15rem; color: #3558bb; font-weight: 850; text-decoration: none; }
+.parent-access-login-link a:hover { text-decoration: underline; }
+.parent-access-url-note { margin-top: .8rem; color: #a0aab8; font-size: .62rem; text-align: center; overflow-wrap: anywhere; }
+@media (max-width: 840px) {
+  .parent-access-shell { grid-template-columns: 1fr; max-width: 620px; }
+  .parent-access-intro { min-height: auto; padding: 1.4rem 1.5rem 1.6rem; }
+  .parent-access-intro-copy { margin-top: 2rem; padding-top: 0; }
+  .parent-access-intro-copy h1 { max-width: 520px; font-size: 2.1rem; }
+  .parent-access-benefits { grid-template-columns: 1fr; gap: .75rem; margin-top: 1.5rem; }
+  .parent-access-help { padding-top: 1.5rem; }
+  .parent-access-form-panel { padding: 1.5rem; }
+}
+@media (max-width: 520px) {
+  .parent-access-page { padding: .5rem; place-items: start center; }
+  .parent-access-shell { border-radius: 18px; }
+  .parent-access-intro { padding: 1.25rem 1.1rem 1.35rem; }
+  .parent-access-intro-copy h1 { font-size: 1.8rem; }
+  .parent-access-intro-copy p { font-size: .85rem; }
+  .parent-access-benefits { gap: .65rem; margin-top: 1.2rem; }
+  .parent-access-benefits > div > span { width: 34px; height: 34px; flex-basis: 34px; }
+  .parent-access-form-panel { padding: 1.2rem 1rem 1.35rem; }
+}
