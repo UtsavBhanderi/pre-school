@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 const configuredUri = String(process.env.MONGO_INTEGRATION_URI || '').trim();
 
 test('legacy parent direct login works without MongoDB transactions and reuses its family account', {
-  skip: !configuredUri ? 'Set MONGO_INTEGRATION_URI to a disposable MongoDB replica set.' : false,
+  skip: !configuredUri ? 'Set MONGO_INTEGRATION_URI to a disposable MongoDB instance.' : false,
 }, async (t) => {
   const parsedUri = new URL(configuredUri);
   parsedUri.pathname = '/preschool_parent_direct_' + crypto.randomBytes(6).toString('hex');
@@ -122,6 +122,19 @@ test('legacy parent direct login works without MongoDB transactions and reuses i
 
     assert.equal(secondLogin.status, 200);
     assert.equal(secondLogin.data.user.id, firstLogin.data.user.id);
+    assert.equal(await ParentAccount.countDocuments({}), 1);
+    assert.equal(await User.countDocuments({ role: 'parent' }), 1);
+  });
+
+  await t.test('legacy activate endpoint is a transaction-free alias and needs no registration fields', async () => {
+    const response = await api('/api/parent-access/activate', {
+      schoolSlug: 'direct-family-login-school',
+      identifier: siblings[0].stuNo,
+      phone: mobile,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.data.user.id, firstLogin.data.user.id);
     assert.equal(await ParentAccount.countDocuments({}), 1);
     assert.equal(await User.countDocuments({ role: 'parent' }), 1);
   });
