@@ -743,18 +743,18 @@ test('parent login opens the family portal and shows only linked child and billi
 });
 
 
-test('parent self-activation page is labelled, readable and mobile-friendly', async () => {
+test('parent direct sign-in page is labelled, readable and mobile-friendly', async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mockSchoolApi(page);
   await page.goto(BASE_URL + '/parent-access/blooming-buds');
 
-  await page.getByRole('heading', { name: 'Set up your family login' }).waitFor();
+  await page.getByRole('heading', { name: 'Welcome to your family portal' }).waitFor();
   assert.equal(await page.getByText('Blooming Buds Preschool').count(), 1);
-  assert.equal(await page.getByLabel(/Student GR number or registered parent email/).count(), 1);
+  assert.equal(await page.getByLabel(/Student GR number or parent email/).count(), 1);
   assert.equal(await page.getByLabel(/Registered parent mobile number/).count(), 1);
-  assert.equal(await page.getByLabel(/Parent \/ guardian full name/).count(), 1);
-  assert.equal(await page.getByLabel(/Email address for sign-in/).count(), 1);
-  assert.equal(await page.getByRole('button', { name: /Activate parent access/ }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: /Sign in to parent dashboard/ }).count(), 1);
+  assert.equal(await page.getByLabel(/password/i).count(), 0);
+  assert.equal(await page.getByLabel(/Parent \/ guardian full name/).count(), 0);
 
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
