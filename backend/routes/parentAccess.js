@@ -122,7 +122,8 @@ async function createAutomaticParentUser({ session, organizationId = null, norma
     throw conflict;
   }
 
-  let user = userIds.length ? await User.findById(userIds[0]).session(session) : null;
+  const withSession = (query) => (session ? query.session(session) : query);
+  let user = userIds.length ? await withSession(User.findById(userIds[0])) : null;
   if (!user) {
     const savedEmail = students
       .map((student) => String(student.parentEmail || '').trim().toLowerCase())
@@ -137,18 +138,23 @@ async function createAutomaticParentUser({ session, organizationId = null, norma
       .digest('hex')
       .slice(0, 40);
     const email = 'parent-' + identityHash + '@parent-login.invalid';
-    user = await User.findOne({ email }).session(session);
+    user = await withSession(User.findOne({ email }));
     if (!user) {
       const nameSource = students.find((student) => student.FatherName || student.MotherName);
       const username = cleanText(nameSource?.FatherName || nameSource?.MotherName || 'Parent / Guardian', 80);
-      const [createdUser] = await User.create([{
+      const userData = {
         username,
         email,
         password: crypto.randomBytes(48).toString('base64url'),
         role: 'parent',
         status: 'active',
-      }], { session });
-      user = createdUser;
+      };
+      if (session) {
+        const [createdUser] = await User.create([userData], { session });
+        user = createdUser;
+      } else {
+        user = await User.create(userData);
+      }
     }
   }
 
@@ -332,11 +338,178 @@ async function activateLegacyParent({ req, res, school, identifier, submittedPho
       return res.status(409).json({ code: error.code, message: error.message });
     }
     if (error.code === 11000) return res.status(409).json({ message: 'This parent login was created in another request. Please sign in with your email and password.' });
-    console.error('Unable to activate standalone parent account:', error?.name || 'activation_error');
+    console.error('Unable to activate standalone parent account:', {
+      name: error?.name || 'activation_error',
+      code: error?.code || null,
+      message: String(error?.message || 'Unknown database error').slice(0, 500),
+    });
     return res.status(503).json({ message: 'Parent access could not be activated safely. Please contact the preschool office.' });
   } finally {
     if (session) await session.endSession();
   }
+}
+
+
+/**
+ * Legacy single-school direct parent sign-in.
+ *
+ * This path intentionally does not use MongoDB transactions because many
+ * single-school/self-hosted MongoDB deployments run as standalone servers.
+ * Every write is idempotent and the parent allow-list is written only after
+ * both the GR/email and saved mobile number have matched.
+ */
+async function loginLegacyParent({ req, res, school, identifier, submittedPhone, normalizedPhone }) {
+  const candidates = await Student.find(isLegacyStudentFilter(identifier))
+    .select('_id stuNo firstName middleName lastName standard parentEmail phoneNumber FatherName MotherName FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber')
+    .limit(100)
+    .lean();
+
+  const directMatches = candidates.filter((student) =>
+    phoneMatches(contactValuesForStudent(student), submittedPhone)
+  );
+  if (!directMatches.length) return genericMismatch(res);
+
+  const siblingEmails = [...new Set(directMatches
+    .map((student) => String(student.parentEmail || '').trim().toLowerCase())
+    .filter(Boolean))];
+  let matchedStudents = [...directMatches];
+
+  if (siblingEmails.length) {
+    const siblings = await Student.find({
+      $and: [
+        { $or: [{ organizationId: null }, { organizationId: { $exists: false } }] },
+        { parentEmail: { $in: siblingEmails } },
+      ],
+    })
+      .select('_id stuNo firstName middleName lastName standard parentEmail phoneNumber FatherName MotherName FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber')
+      .limit(100)
+      .lean();
+
+    const matchedIds = new Set(directMatches.map((student) => String(student._id)));
+    for (const sibling of siblings) {
+      if (phoneMatches(contactValuesForStudent(sibling), submittedPhone)) {
+        matchedIds.add(String(sibling._id));
+      }
+    }
+    matchedStudents = siblings.filter((student) => matchedIds.has(String(student._id)));
+    for (const student of directMatches) {
+      if (!matchedIds.has(String(student._id))) matchedStudents.push(student);
+    }
+  }
+
+  const uniqueStudents = [...new Map(
+    matchedStudents.map((student) => [String(student._id), student])
+  ).values()];
+  const studentIds = uniqueStudents.map((student) => student._id);
+
+  const existingFamilyAccounts = await ParentAccount.find({
+    studentIds: { $in: studentIds },
+  })
+    .select('userId status studentIds')
+    .select('+registeredPhone')
+    .lean();
+
+  const matchingFamilyAccounts = existingFamilyAccounts.filter((account) =>
+    normalizePhone(account.registeredPhone) === normalizedPhone
+  );
+  const linkedUserIds = [...new Set(matchingFamilyAccounts.map((account) => String(account.userId)))];
+
+  if (linkedUserIds.length > 1) {
+    return res.status(409).json({
+      code: 'MULTIPLE_PARENT_ACCOUNTS',
+      message: 'These family records are linked to multiple parent accounts. Contact the preschool office to consolidate them.',
+    });
+  }
+
+  const user = await createAutomaticParentUser({
+    session: null,
+    normalizedPhone,
+    identifier,
+    students: uniqueStudents,
+    preferredUserIds: linkedUserIds,
+  });
+
+  const existingParentAccount = await ParentAccount.findOne({ userId: user._id })
+    .select('studentIds status activatedAt')
+    .select('+registeredPhone');
+
+  if (existingParentAccount && existingParentAccount.status !== 'active') {
+    return res.status(403).json({
+      code: 'PARENT_ACCESS_INACTIVE',
+      message: 'Parent portal access is inactive. Contact the preschool office to restore it.',
+    });
+  }
+
+  if (existingParentAccount &&
+      normalizePhone(existingParentAccount.registeredPhone) !== normalizedPhone) {
+    return res.status(409).json({
+      code: 'PARENT_PHONE_CHANGE_REQUIRED',
+      message: 'This parent account is linked to a different mobile number. Contact the preschool office to update the family record.',
+    });
+  }
+
+  const mergedStudentIds = [...new Set([
+    ...(existingParentAccount?.studentIds || []).map(String),
+    ...studentIds.map(String),
+  ])];
+
+  // The unique userId index makes this upsert safe to retry after a partial
+  // deployment/network failure. Repeated parent sign-ins do not create extras.
+  await ParentAccount.findOneAndUpdate(
+    { userId: user._id },
+    {
+      $set: {
+        studentIds: mergedStudentIds,
+        registeredPhone: normalizedPhone,
+        status: 'active',
+        lastVerifiedAt: new Date(),
+      },
+      $setOnInsert: { activatedAt: new Date() },
+    },
+    {
+      upsert: true,
+      new: true,
+      runValidators: true,
+      setDefaultsOnInsert: true,
+    }
+  );
+
+  try {
+    await UserAccessAuditEvent.create({
+      actorUserId: user._id,
+      targetUserId: user._id,
+      targetName: user.username,
+      targetEmail: user.email,
+      action: 'parent.access_activated',
+      previousRole: user.role,
+      role: user.role,
+      previousStatus: 'active',
+      status: 'active',
+      reason: 'Direct parent sign-in succeeded after matching the school GR/email and registered mobile number.',
+      changedFields: ['parentAccount', 'linkedChildren'],
+      ipAddress: String(req.ip || '').slice(0, 64),
+      userAgent: String(req.get('user-agent') || '').slice(0, 300),
+    });
+  } catch (auditError) {
+    // An audit-store outage must not leave a verified parent unable to sign in.
+    console.error('Unable to record parent sign-in audit event:', {
+      name: auditError?.name || 'audit_error',
+      code: auditError?.code || null,
+    });
+  }
+
+  return res.status(200).json({
+    message: 'You are signed in to your family portal.',
+    token: signToken(user),
+    user: {
+      id: String(user._id),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      parentAccount: { mode: 'legacy_single_school', studentCount: mergedStudentIds.length },
+    },
+    school: { name: school.schoolName, slug: school.slug },
+  });
 }
 
 async function activateOrganizationParent({ req, res, organization, identifier, submittedPhone, parentName, loginEmail, password, automatic = false }) {
@@ -795,9 +968,8 @@ router.post('/login', async (req, res) => {
       if (schoolSlug && schoolSlug !== schoolResult.slug) {
         return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
       }
-      return await activateLegacyParent({
+      return await loginLegacyParent({
         req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
-        parentName: 'Parent / Guardian', loginEmail: '', password: '', automatic: true,
       });
     }
 
