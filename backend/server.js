@@ -140,7 +140,6 @@ app.use('/api/auth/reset-password', passwordResetRateLimit);
 app.use('/api/auth', authRoutes);
 app.use('/api/parent-access/activate', parentAccessRateLimit);
 app.use('/api/parent-access/login', parentAccessRateLimit);
-app.use('/api/parent-access/login', parentAccessRateLimit);
 app.use('/api/parent-access', parentAccessRoutes);
 app.use('/api/media', privateMediaRoutes);
 app.use('/api/saas/media', auth, tenantMediaRoutes);
