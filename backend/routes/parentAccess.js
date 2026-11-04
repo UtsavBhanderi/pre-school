@@ -982,7 +982,11 @@ router.post('/login', async (req, res) => {
       parentName: 'Parent / Guardian', loginEmail: '', password: '', automatic: true,
     });
   } catch (error) {
-    console.error('Unable to complete parent sign-in:', error?.name || 'lookup_error');
+    console.error('Unable to complete parent sign-in:', {
+      name: error?.name || 'lookup_error',
+      code: error?.code || null,
+      message: String(error?.message || 'Unknown parent sign-in error').slice(0, 500),
+    });
     return res.status(503).json({ message: 'Parent sign-in could not be completed. Please try again or contact the school office.' });
   }
 });
