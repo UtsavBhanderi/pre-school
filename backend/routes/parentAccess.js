@@ -106,7 +106,7 @@ function isLegacyStudentFilter(identifier) {
       {
         $or: [
           { stuNo: exactIdentifier },
-          ...(identifierIsEmail ? [{ parentEmail: identifier }] : []),
+          ...(identifierIsEmail ? [{ parentEmail: exactIdentifier }] : []),
         ],
       },
     ],
@@ -223,7 +223,7 @@ async function activateLegacyParent({ req, res, school, identifier, submittedPho
           preferredUserIds: linkedAccounts.map((account) => account.userId),
         });
       } else {
-        let user = await User.findOne({ email: loginEmail }).session(session);
+        user = await User.findOne({ email: loginEmail }).session(session);
         if (user) {
           if (user.status === 'suspended' || !(await user.matchPassword(password))) {
             const error = new Error('This sign-in email already has an account. Enter that account’s current password, or use another email address.');
@@ -346,7 +346,7 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
     organizationId: organization._id,
     $or: [
       { stuNo: exactIdentifier },
-      ...(identifierIsEmail ? [{ parentEmail: identifier }] : []),
+      ...(identifierIsEmail ? [{ parentEmail: exactIdentifier }] : []),
     ],
   })
     .select('_id organizationId branchId stuNo firstName middleName lastName standard parentEmail phoneNumber MotherName FatherName FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber')
@@ -516,7 +516,7 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
           ],
         });
       } else {
-        let user = await User.findOne({ email: loginEmail }).session(session);
+        user = await User.findOne({ email: loginEmail }).session(session);
         if (user) {
           if (user.status === 'suspended' || !(await user.matchPassword(password))) {
             const error = new Error('This sign-in email already has an account. Enter that account’s current password, or use another email address.');
