@@ -843,3 +843,101 @@ test('single-school parent portal opens with family-scoped child information on 
   );
   await page.close();
 });
+
+test('parent can sign in directly with a GR number and registered mobile without registration or a password', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  let submittedCredentials = null;
+
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    let status = 200;
+    let body = {};
+
+    if (url.pathname === '/api/parent-access/config' && request.method() === 'GET') {
+      body = {
+        school: { name: 'Blooming Buds Preschool', slug: 'blooming-buds' },
+        parentAccessUrl: 'https://school.example.test/parent-access/blooming-buds',
+        mode: 'legacy_single_school',
+      };
+    } else if (url.pathname === '/api/parent-access/login' && request.method() === 'POST') {
+      submittedCredentials = request.postDataJSON();
+      body = { token: 'passwordless-parent-smoke-token' };
+    } else if (url.pathname === '/api/auth/me' && request.method() === 'GET') {
+      body = {
+        user: {
+          id: 'parent-smoke-user',
+          username: 'Disha Patel',
+          email: 'disha@example.com',
+          role: 'parent',
+          memberships: [],
+          parentAccount: {
+            mode: 'legacy_single_school',
+            status: 'active',
+            studentCount: 1,
+          },
+        },
+      };
+    } else if (url.pathname === '/api/parent-portal/summary' && request.method() === 'GET') {
+      body = {
+        schoolName: 'Blooming Buds Preschool',
+        date: '2026-11-17',
+        children: 1,
+        attendanceToday: { present: 1, absent: 0 },
+        fees: { outstanding: 1200, currency: 'INR' },
+      };
+    } else if (url.pathname === '/api/parent-portal/children' && request.method() === 'GET') {
+      body = {
+        total: 1,
+        children: [{
+          id: 'parent-smoke-child',
+          name: 'Aarav Patel',
+          admissionNumber: 'GR-1001',
+          className: 'Nursery',
+          academicYear: '2026-2027',
+          dateOfBirth: '2023-05-10',
+        }],
+      };
+    }
+
+    await route.fulfill({
+      status,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto(BASE_URL + '/parent-access/blooming-buds');
+  await page.getByRole('heading', { name: 'Welcome to your family portal' }).waitFor();
+  await page.getByLabel(/Student GR number or parent email/).fill('GR-1001');
+  await page.getByLabel(/Registered parent mobile number/).fill('9876543210');
+  await page.getByRole('button', { name: /Sign in to parent dashboard/ }).click();
+
+  await page.waitForURL((url) => url.pathname === '/parent-portal', { timeout: 10000 });
+  await page.getByRole('heading', { name: 'Family overview' }).waitFor();
+  await page.getByRole('heading', { name: 'Good day, Disha Patel.' }).waitFor();
+  await page.getByRole('heading', { name: 'Aarav Patel' }).waitFor();
+
+  assert.deepEqual(submittedCredentials, {
+    schoolSlug: 'blooming-buds',
+    identifier: 'GR-1001',
+    phone: '9876543210',
+  }, 'Parent login should send only the school slug, GR/email identifier and registered mobile.');
+  assert.equal(await page.getByLabel(/password/i).count(), 0,
+    'Passwordless parent access must not ask for a password.');
+  assert.equal(await page.getByRole('link', { name: /registration/i }).count(), 0,
+    'Parents should not need a separate registration flow.');
+  assert.equal(await page.getByText('Someone Else Child', { exact: true }).count(), 0,
+    'The portal must not show an unrelated child.');
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  assert.ok(
+    dimensions.document <= dimensions.viewport + 1,
+    'Parent sign-in and portal should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
+  );
+
+  await page.close();
+});
