@@ -19,7 +19,7 @@ https://your-school-domain.example/parent-access/your-preschool-name
 
 The slug is generated deterministically from `SINGLE_SCHOOL_NAME`, so it remains the same after restarts. If the school name uses a non-Latin script, set a readable ASCII school name/slug in the deployment configuration.
 
-If the installation already has exactly one active `Organization` record, the portal uses that organization's slug and tenant guardian records. If more than one active organization exists, set `SINGLE_SCHOOL_ORGANIZATION_ID` to the intended organization ID. The parent route refuses to guess between multiple active schools.
+This release uses the original school-wide student records only. It does not use organization, branch or tenant guardian records. If this database already contains organization/branch records from an earlier experiment, parent access is disabled with a setup message. Do not delete those records to bypass the check; take a backup and arrange a reviewed data reconciliation first.
 
 For production, keep the normal secure authentication configuration in place, including a strong `JWT_SECRET`, HTTPS `FRONTEND_URL`, and the existing CORS settings.
 
@@ -30,7 +30,7 @@ For production, keep the normal secure authentication configuration in place, in
 3. Copy the **Parent portal access link**.
 4. Share that same link with all parents through the school's chosen channel.
 
-Parents do not need to be added through the staff account form. Parent invitations are disabled; staff invitations remain a separate workflow.
+Parents do not need to be added through the staff account form. Parent and staff invitations are not available in this single-school release.
 
 ## 3. Parent sign-in (no parent registration required)
 
@@ -62,9 +62,9 @@ The phone comparison accepts a 10-digit Indian mobile number, a leading zero, or
 
 Siblings are linked automatically only when the stored parent email and registered phone match as well. Repeated sign-ins for the same family reuse the existing account. If a linked child's registered mobile changes, sign-in is blocked until the preschool office updates and verifies the family contact record; it does not create a second account for that child.
 
-### One-organization data already migrated to SaaS
+### Records migrated to organization/branch collections
 
-Matching uses the student GR number/email and the linked `Guardian` contact's phone. The resulting `OrganizationMembership` is restricted to those guardian IDs and their active branch links. The family record is not made globally visible.
+Organization/branch-migrated parent data is not supported in this single-school release. Use the original student records and their saved parent contact fields. Do not manually move or delete data to make the parent login work.
 
 ## 5. What parents can use
 
@@ -102,7 +102,7 @@ The single-school parent portal includes a family engagement area:
 - **Private messages:** parents can send a question or concern linked to one of their children. Only authenticated school staff can read and respond; the family can follow its open, in-progress or resolved status.
 - **Polls:** staff can publish a question with 2–6 options for all families or one class. Each parent account can vote once per poll. The portal shows aggregate counts, not voter identities.
 
-Staff manage these features from **Parent communication** in the administrator or teacher workspace. Content is scoped to legacy single-school student records and is not available to unrelated tenant workspaces.
+Staff manage these features from **Parent communication** in the administrator or teacher workspace. Content is scoped to the school's student records.
 
 
 ## Manually creating teacher logins
