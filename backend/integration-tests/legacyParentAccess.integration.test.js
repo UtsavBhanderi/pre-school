@@ -324,9 +324,6 @@ test('single-school parents can sign in with GR/email plus registered mobile and
       assert.equal((await User.findById(parentUser._id)).status, 'active');
       assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'suspended',
         'The old mirror field must not override the restored user account.');
-      const engagementAfterRestore = await api('/api/school-engagement/parent/homework', { token: parentToken });
-      assert.equal(engagementAfterRestore.status, 200,
-        'Restored parents must be able to access family engagement despite a stale legacy status field.');
       // Restoring the account never revives a previously issued token.
       assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
       const freshLogin = await api('/api/parent-access/login', {
@@ -335,6 +332,13 @@ test('single-school parents can sign in with GR/email plus registered mobile and
       });
       assert.equal(freshLogin.status, 200);
       assert.equal(freshLogin.data.user.id, activation.data.user.id);
+      assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'suspended',
+        'Direct sign-in must not rewrite the legacy status mirror.');
+      const engagementAfterRestore = await api('/api/school-engagement/parent/homework', {
+        token: freshLogin.data.token,
+      });
+      assert.equal(engagementAfterRestore.status, 200,
+        'A fresh session for a restored parent must access family engagement despite a stale legacy status field.');
     } finally {
       mongoose.startSession = originalStartSession;
     }

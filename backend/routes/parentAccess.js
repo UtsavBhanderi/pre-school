@@ -313,7 +313,6 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
         $set: {
           studentIds: mergedStudentIds,
           registeredPhone: normalizedPhone,
-          status: 'active',
           lastVerifiedAt: new Date(),
         },
         $setOnInsert: { activatedAt: new Date() },
