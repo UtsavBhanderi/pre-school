@@ -113,6 +113,10 @@ npm run build
 
 GitHub Actions also runs browser smoke tests for staff sign-in, the parent sign-in screen, the single-school family portal and mobile layout.
 
+## Dependency security baseline
+
+The backend dependency tree is refreshed to patched Express 4, Mongoose 8 and Nodemailer 10 releases; its npm audit reports no advisories. The frontend uses patched Axios, React Router and Vite releases, and the vendor-distributed SheetJS package for spreadsheet exports. CI reports all advisories and blocks high or critical findings. Two low-severity findings remain in the development-only ESLint 9 toolchain; ESLint 10 is not being forced until the installed React ESLint plugin supports it.
+
 ## Current product boundary
 
 The active app has one preschool, one shared school dataset and no branch or organization selector. SaaS and multi-tenant implementation files remain parked in the repository for a future, separately reviewed phase; they are not mounted by the current backend or exposed by the frontend.
