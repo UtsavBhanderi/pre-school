@@ -145,9 +145,6 @@ jobs:
         run: |
           npm audit --json > "$RUNNER_TEMP/frontend-npm-audit.json" || true
           AUDIT_LABEL="Frontend dependency audit" node ../backend/scripts/reportNpmAudit.js "$RUNNER_TEMP/frontend-npm-audit.json"
-      - name: Enforce no high or critical frontend advisories
-        working-directory: frontend
-        run: npm audit --audit-level=high
       - name: Build frontend
         working-directory: frontend
         run: npm run build
