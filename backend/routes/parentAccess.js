@@ -75,6 +75,36 @@ function genericMismatch(res) {
   });
 }
 
+function handleParentSignInError(res, error) {
+  if (error?.code === 'PARENT_ACCOUNT_INACTIVE') {
+    return res.status(403).json({
+      code: 'PARENT_ACCESS_INACTIVE',
+      message: 'Parent portal access is suspended. Contact the preschool office.',
+    });
+  }
+  if (error?.code === 'STAFF_MEMBERSHIP_EXISTS') {
+    return res.status(409).json({
+      code: 'PARENT_ACCOUNT_CONFLICT',
+      message: 'These family details are already connected to a staff account. Contact the preschool office.',
+    });
+  }
+  if (error?.code === 'MULTIPLE_PARENT_ACCOUNTS' || error?.code === 11000) {
+    return res.status(409).json({
+      code: 'MULTIPLE_PARENT_ACCOUNTS',
+      message: 'These family details are connected to more than one parent account. Contact the preschool office to resolve the family records.',
+    });
+  }
+
+  console.error('Unable to complete parent sign-in:', {
+    name: error?.name || 'lookup_error',
+    code: error?.code || null,
+    message: String(error?.message || 'Unknown parent sign-in error').slice(0, 500),
+  });
+  return res.status(503).json({
+    message: 'Parent sign-in could not be completed. Please try again or contact the school office.',
+  });
+}
+
 function isLegacyStudentFilter(identifier) {
   const identifierIsEmail = isEmail(identifier);
   const exactIdentifier = new RegExp('^' + escapeRegex(identifier) + '$', 'i');
@@ -807,12 +837,7 @@ router.post('/login', async (req, res) => {
       req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
     });
   } catch (error) {
-    console.error('Unable to complete parent sign-in:', {
-      name: error?.name || 'lookup_error',
-      code: error?.code || null,
-      message: String(error?.message || 'Unknown parent sign-in error').slice(0, 500),
-    });
-    return res.status(503).json({ message: 'Parent sign-in could not be completed. Please try again or contact the school office.' });
+    return handleParentSignInError(res, error);
   }
 });
 
@@ -855,8 +880,7 @@ router.post('/activate', async (req, res) => {
       parentName, loginEmail, password,
     });
   } catch (error) {
-    console.error('Unable to look up parent school records:', error?.name || 'lookup_error');
-    return res.status(503).json({ message: 'Parent access could not be verified. Please try again or contact the school office.' });
+    return handleParentSignInError(res, error);
   }
 });
 
