@@ -16,9 +16,9 @@ const router = express.Router();
 
 function requireParentAccount(req, res, next) {
   if (!req.user?._id) return res.status(401).json({ message: 'Sign in to access your family portal.' });
-  ParentAccount.findOne({ userId: req.user._id }).select('studentIds status').lean()
+  ParentAccount.findOne({ userId: req.user._id }).select('studentIds').lean()
     .then((account) => {
-      if (!account || account.status !== 'active' || !Array.isArray(account.studentIds) || !account.studentIds.length) {
+      if (!account || !Array.isArray(account.studentIds) || !account.studentIds.length) {
         return res.status(403).json({ code: 'PARENT_ACCESS_INACTIVE', message: 'Parent portal access is not active. Contact the preschool office.' });
       }
       req.parentAccount = account;

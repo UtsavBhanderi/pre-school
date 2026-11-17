@@ -93,116 +93,123 @@ router.patch('/:id', async (req, res) => {
     return res.status(400).json({ message: 'Only role, status, and reason may be changed from User access.' });
   }
 
-  let session;
   let targetSnapshot;
   let auditData;
   try {
-    session = await mongoose.startSession();
-    await session.withTransaction(async () => {
-      const target = await User.findById(req.params.id).session(session);
-      if (!target) {
-        const missing = new Error('User account not found.');
-        missing.code = 'USER_NOT_FOUND';
-        throw missing;
-      }
+    // User.status is the single authority for account access and session
+    // revocation. One atomic write keeps this compatible with standalone MongoDB.
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({ code: 'USER_NOT_FOUND', message: 'User account not found.' });
+    }
 
-      const currentStatus = normalizeAccessStatus(target.status);
-      const requestedRole = Object.prototype.hasOwnProperty.call(body, 'role')
-        ? clean(body.role, 40).toLowerCase()
-        : target.role;
-      const requestedStatus = Object.prototype.hasOwnProperty.call(body, 'status')
-        ? clean(body.status, 20).toLowerCase()
-        : currentStatus;
+    const currentStatus = normalizeAccessStatus(target.status);
+    const requestedRole = Object.prototype.hasOwnProperty.call(body, 'role')
+      ? clean(body.role, 40).toLowerCase()
+      : target.role;
+    const requestedStatus = Object.prototype.hasOwnProperty.call(body, 'status')
+      ? clean(body.status, 20).toLowerCase()
+      : currentStatus;
 
-      const policy = evaluateUserAccessChange({
-        actorUserId: req.user._id,
-        targetUserId: target._id,
-        currentRole: target.role,
-        currentStatus,
-        requestedRole,
-        requestedStatus,
-        reason: body.reason,
-      });
-
-      if (!policy.allowed) {
-        const denied = new Error(policy.message);
-        denied.code = policy.code;
-        throw denied;
-      }
-
-      if (policy.removesActiveAdministrator) {
-        const remainingAdministrators = await User.countDocuments({
-          _id: { $ne: target._id },
-          role: 'admin',
-          // $ne includes pre-migration accounts where status has not been stored yet.
-          status: { $ne: 'suspended' },
-        }).session(session);
-        if (remainingAdministrators < 1) {
-          const lastAdmin = new Error('This is the last active administrator. Promote another active user to Administrator before changing this account.');
-          lastAdmin.code = 'LAST_ACTIVE_ADMIN';
-          throw lastAdmin;
-        }
-      }
-
-      const previousRole = target.role;
-      if (target.role === 'parent') {
-        const parentAccount = await ParentAccount.findOne({ userId: target._id }).session(session);
-        if (!parentAccount) {
-          const missingParentAccount = new Error('The parent family record is missing. Contact the preschool office before changing this access.');
-          missingParentAccount.code = 'PARENT_ACCOUNT_NOT_FOUND';
-          throw missingParentAccount;
-        }
-        // Parent accounts are status-only here. Their student allow-list is
-        // immutable from this staff screen and cannot be converted into a staff role.
-        parentAccount.status = requestedStatus;
-        await parentAccount.save({ session });
-      }
-
-      target.role = requestedRole;
-      target.status = requestedStatus;
-      target.authVersion = (Number.isInteger(target.authVersion) ? target.authVersion : 0) + 1;
-      await target.save({ session });
-
-      targetSnapshot = safeUser(target);
-      auditData = {
-        actorUserId: req.user._id,
-        targetUserId: target._id,
-        targetName: target.username,
-        targetEmail: target.email,
-        action: 'user.access_updated',
-        previousRole,
-        role: target.role,
-        previousStatus: currentStatus,
-        status: requestedStatus,
-        reason: policy.reason,
-        changedFields: [...policy.changedFields, ...(target.role === 'parent' ? ['parentAccountStatus'] : []), 'sessionsRevoked'],
-        ipAddress: String(req.ip || '').slice(0, 64),
-        userAgent: String(req.get('user-agent') || '').slice(0, 300),
-      };
+    const policy = evaluateUserAccessChange({
+      actorUserId: req.user._id,
+      targetUserId: target._id,
+      currentRole: target.role,
+      currentStatus,
+      requestedRole,
+      requestedStatus,
+      reason: body.reason,
     });
-  } catch (error) {
-    const statusByCode = {
-      USER_NOT_FOUND: 404,
-      SELF_ACCESS_CHANGE: 409,
-      UNSUPPORTED_ACCOUNT_ROLE: 409,
-      PARENT_ROLE_LOCKED: 409,
-      PARENT_ACCOUNT_NOT_FOUND: 409,
-      NO_ACCESS_CHANGE: 409,
-      LAST_ACTIVE_ADMIN: 409,
-      INVALID_ROLE: 400,
-      INVALID_STATUS: 400,
-      REASON_REQUIRED: 400,
+
+    if (!policy.allowed) {
+      const validationError = ['INVALID_ROLE', 'INVALID_STATUS', 'REASON_REQUIRED'].includes(policy.code);
+      return res.status(validationError ? 400 : 409).json({
+        code: policy.code,
+        message: policy.message,
+      });
+    }
+
+    if (policy.removesActiveAdministrator) {
+      const remainingAdministrators = await User.countDocuments({
+        _id: { $ne: target._id },
+        role: 'admin',
+        // $ne includes pre-migration accounts where status has not been stored yet.
+        status: { $ne: 'suspended' },
+      });
+      if (remainingAdministrators < 1) {
+        return res.status(409).json({
+          code: 'LAST_ACTIVE_ADMIN',
+          message: 'This is the last active administrator. Promote another active user to Administrator before changing this account.',
+        });
+      }
+    }
+
+    if (target.role === 'parent') {
+      const parentAccountExists = await ParentAccount.exists({ userId: target._id });
+      if (!parentAccountExists) {
+        return res.status(409).json({
+          code: 'PARENT_ACCOUNT_NOT_FOUND',
+          message: 'The parent family record is missing. Contact the preschool office before changing this access.',
+        });
+      }
+      // ParentAccount stores the family child allow-list. Its legacy status
+      // field is not authoritative; access is controlled by User.status.
+    }
+
+    // Compare-and-set prevents an administrator's stale screen from
+    // overwriting a more recent role/status update.
+    const statusCondition = currentStatus === 'active'
+      ? { $or: [{ status: 'active' }, { status: { $exists: false } }, { status: null }] }
+      : { status: 'suspended' };
+    const version = Number.isInteger(target.authVersion) ? target.authVersion : 0;
+    const versionCondition = {
+      $or: [
+        { authVersion: version },
+        ...(version === 0 ? [{ authVersion: { $exists: false } }, { authVersion: null }] : []),
+      ],
     };
+    const updated = await User.findOneAndUpdate(
+      {
+        _id: target._id,
+        role: target.role,
+        $and: [statusCondition, versionCondition],
+      },
+      {
+        $set: { role: requestedRole, status: requestedStatus },
+        $inc: { authVersion: 1 },
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!updated) {
+      return res.status(409).json({
+        code: 'ACCOUNT_CHANGED_RETRY',
+        message: 'This account was changed by another administrator. Refresh the list and try again.',
+      });
+    }
+
+    targetSnapshot = safeUser(updated);
+    auditData = {
+      actorUserId: req.user._id,
+      targetUserId: updated._id,
+      targetName: updated.username,
+      targetEmail: updated.email,
+      action: 'user.access_updated',
+      previousRole: target.role,
+      role: updated.role,
+      previousStatus: currentStatus,
+      status: requestedStatus,
+      reason: policy.reason,
+      changedFields: [...policy.changedFields, 'sessionsRevoked'],
+      ipAddress: String(req.ip || '').slice(0, 64),
+      userAgent: String(req.get('user-agent') || '').slice(0, 300),
+    };
+  } catch (error) {
     if (error?.code === 11000) {
       return res.status(409).json({ message: 'This user account conflicts with an existing record.' });
     }
-    if (statusByCode[error?.code]) {
-      return res.status(statusByCode[error.code]).json({ code: error.code, message: error.message });
-    }
     console.error('Unable to update user access:', error?.name || 'update_error');
     return res.status(503).json({ message: 'User access could not be updated safely. Please try again.' });
-  } finally {
-    if (session) await session.endSession();
   }
 
   let auditWarning = false;

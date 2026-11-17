@@ -286,28 +286,50 @@ test('single-school parents can sign in with GR/email plus registered mobile and
     assert.equal(ownReport.children[0].result.subjects[0].subject, 'Language');
   });
 
-  await t.test('administrator suspension and restoration revoke old parent sessions', async () => {
+  await t.test('administrator can suspend and restore parent access without MongoDB transactions', async () => {
     const parentUser = await User.findById(activation.data.user.id);
     assert.ok(parentUser);
-    const suspended = await api('/api/userDetailsself/' + parentUser._id, {
-      token: adminToken,
-      method: 'PATCH',
-      body: { status: 'suspended', role: 'parent', reason: 'Parent access requested suspension' },
-    });
-    assert.equal(suspended.status, 200);
-    assert.equal(suspended.data.user.status, 'suspended');
-    assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'suspended');
-    assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
 
-    const restored = await api('/api/userDetailsself/' + parentUser._id, {
-      token: adminToken,
-      method: 'PATCH',
-      body: { status: 'active', role: 'parent', reason: 'Parent access restored by school office' },
-    });
-    assert.equal(restored.status, 200);
-    assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'active');
-    // Restoring access does not restore an old token: a fresh parent sign-in is required.
-    assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
+    const originalStartSession = mongoose.startSession;
+    mongoose.startSession = async () => {
+      throw new Error('Transactions are unavailable on a standalone MongoDB server.');
+    };
+
+    try {
+      const suspended = await api('/api/userDetailsself/' + parentUser._id, {
+        token: adminToken,
+        method: 'PATCH',
+        body: { status: 'suspended', role: 'parent', reason: 'Parent access requested suspension' },
+      });
+      assert.equal(suspended.status, 200);
+      assert.equal(suspended.data.user.status, 'suspended');
+      assert.equal((await User.findById(parentUser._id)).status, 'suspended');
+      assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
+      const blockedParentLogin = await api('/api/parent-access/login', {
+        method: 'POST',
+        body: { schoolSlug: 'family-access-school', identifier: students[0].stuNo, phone },
+      });
+      assert.equal(blockedParentLogin.status, 403);
+      assert.equal(blockedParentLogin.data.code, 'PARENT_ACCOUNT_INACTIVE');
+
+      const restored = await api('/api/userDetailsself/' + parentUser._id, {
+        token: adminToken,
+        method: 'PATCH',
+        body: { status: 'active', role: 'parent', reason: 'Parent access restored by school office' },
+      });
+      assert.equal(restored.status, 200);
+      assert.equal((await User.findById(parentUser._id)).status, 'active');
+      // Restoring the account never revives a previously issued token.
+      assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
+      const freshLogin = await api('/api/parent-access/login', {
+        method: 'POST',
+        body: { schoolSlug: 'family-access-school', identifier: students[0].stuNo, phone },
+      });
+      assert.equal(freshLogin.status, 200);
+      assert.equal(freshLogin.data.user.id, activation.data.user.id);
+    } finally {
+      mongoose.startSession = originalStartSession;
+    }
   });
 
   await t.test('registered parent email reuses the existing family account', async () => {

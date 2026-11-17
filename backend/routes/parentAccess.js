@@ -223,7 +223,7 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
   const existingFamilyAccounts = await ParentAccount.find({
     studentIds: { $in: studentIds },
   })
-    .select('userId status studentIds')
+    .select('userId studentIds')
     .select('+registeredPhone')
     .lean();
 
@@ -258,15 +258,8 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
   });
 
   const existingParentAccount = await ParentAccount.findOne({ userId: user._id })
-    .select('studentIds status activatedAt')
+    .select('studentIds activatedAt')
     .select('+registeredPhone');
-
-  if (existingParentAccount && existingParentAccount.status !== 'active') {
-    return res.status(403).json({
-      code: 'PARENT_ACCESS_INACTIVE',
-      message: 'Parent portal access is inactive. Contact the preschool office to restore it.',
-    });
-  }
 
   if (existingParentAccount &&
       normalizePhone(existingParentAccount.registeredPhone) !== normalizedPhone) {
@@ -307,7 +300,7 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
     // A concurrent request may have inserted the unique userId record first.
     // Only merge into an active record with the same registered mobile.
     const recovered = await ParentAccount.findOneAndUpdate(
-      { userId: user._id, registeredPhone: normalizedPhone, status: 'active' },
+      { userId: user._id, registeredPhone: normalizedPhone },
       {
         $addToSet: { studentIds: { $each: studentIds } },
         $set: { lastVerifiedAt: new Date() },

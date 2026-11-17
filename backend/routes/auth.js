@@ -156,10 +156,6 @@ router.post('/login', async (req, res) => {
     if (user.status === 'suspended') {
       return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: 'This account is suspended. Contact your school administrator.' });
     }
-    const parentAccount = await ParentAccount.findOne({ userId: user._id }).select('status').lean();
-    if (parentAccount && parentAccount.status !== 'active') {
-      return res.status(403).json({ code: 'PARENT_ACCESS_INACTIVE', message: 'Parent portal access is inactive. Contact your preschool office.' });
-    }
     const organizationMembershipExists = await OrganizationMembership.exists({ userId: user._id });
     if (organizationMembershipExists) {
       return res.status(403).json({
