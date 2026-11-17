@@ -7,6 +7,44 @@ on:
     branches: [main]
 
 jobs:
+  backend-security-refresh:
+    name: Refresh patched backend dependencies
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[refresh-deps]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Update backend dependencies within supported major lines
+        working-directory: backend
+        run: |
+          npm install --save "mongoose@^8.24.7" "express@^4.22.3" "nodemailer@^10.6.0"
+          npm audit fix
+          npm audit --json > "$RUNNER_TEMP/backend-npm-audit.json" || true
+          node scripts/reportNpmAudit.js "$RUNNER_TEMP/backend-npm-audit.json"
+      - name: Verify backend syntax and unit tests
+        run: |
+          find backend -path 'backend/node_modules' -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          cd backend && npm test
+      - name: Commit the npm-generated lockfile to main
+        run: |
+          if git diff --quiet -- backend/package.json backend/package-lock.json; then
+            echo "The backend dependency manifests are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package.json backend/package-lock.json
+          git commit -m "chore(deps): apply backend security updates"
+          git push origin HEAD:main
+
   backend:
     name: Backend syntax and unit tests
     runs-on: ubuntu-latest
@@ -86,6 +124,11 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+      - name: Report frontend dependency advisories
+        working-directory: frontend
+        run: |
+          npm audit --json > "$RUNNER_TEMP/frontend-npm-audit.json" || true
+          AUDIT_LABEL="Frontend dependency audit" node ../backend/scripts/reportNpmAudit.js "$RUNNER_TEMP/frontend-npm-audit.json"
       - name: Build frontend
         working-directory: frontend
         run: npm run build

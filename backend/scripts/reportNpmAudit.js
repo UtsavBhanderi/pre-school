@@ -40,7 +40,7 @@ function summarizeAudit(audit) {
 
 function printAuditReport(report) {
   const { counts, items } = report;
-  console.log('Backend dependency audit (informational; remediation is tracked separately)');
+  console.log((process.env.AUDIT_LABEL || 'Backend dependency audit') + ' (informational; remediation is tracked separately)');
   console.log(
     'Total: ' + counts.total +
     ' | critical: ' + counts.critical +
