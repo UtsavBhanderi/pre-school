@@ -21,8 +21,7 @@ const Login = () => {
     try {
       const loggedInUser = await login({ email: email.trim(), password });
       if (loggedInUser?.role === "parent" &&
-          loggedInUser?.parentAccount?.mode === "legacy_single_school" &&
-          loggedInUser.parentAccount.status === "active") {
+          loggedInUser?.parentAccount?.mode === "legacy_single_school") {
         navigate("/parent-portal", { replace: true });
       } else if (loggedInUser?.role === "admin") {
         navigate("/dashboard", { replace: true });

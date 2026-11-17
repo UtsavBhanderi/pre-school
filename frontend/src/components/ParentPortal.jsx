@@ -7,8 +7,7 @@ export default function ParentPortal() {
   const { user } = useContext(AuthContext);
   const hasSingleSchoolParentAccess =
     user?.role === "parent" &&
-    user?.parentAccount?.mode === "legacy_single_school" &&
-    user?.parentAccount?.status === "active";
+    user?.parentAccount?.mode === "legacy_single_school";
 
   if (!hasSingleSchoolParentAccess) {
     return <Navigate to="/login" replace />;

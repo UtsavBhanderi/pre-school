@@ -286,7 +286,6 @@ router.get('/me', auth, async (req, res) => {
       user: {
         parentAccount: parentAccount ? {
           mode: 'legacy_single_school',
-          status: parentAccount.status,
           studentCount: (parentAccount.studentIds || []).length,
           activatedAt: parentAccount.activatedAt || null,
         } : null,
