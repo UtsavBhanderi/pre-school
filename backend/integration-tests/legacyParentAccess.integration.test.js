@@ -310,7 +310,7 @@ test('single-school parents can sign in with GR/email plus registered mobile and
         body: { schoolSlug: 'family-access-school', identifier: students[0].stuNo, phone },
       });
       assert.equal(blockedParentLogin.status, 403);
-      assert.equal(blockedParentLogin.data.code, 'PARENT_ACCOUNT_INACTIVE');
+      assert.equal(blockedParentLogin.data.code, 'PARENT_ACCESS_INACTIVE');
 
       const restored = await api('/api/userDetailsself/' + parentUser._id, {
         token: adminToken,
