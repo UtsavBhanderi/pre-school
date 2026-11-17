@@ -312,6 +312,9 @@ test('single-school parents can sign in with GR/email plus registered mobile and
       assert.equal(blockedParentLogin.status, 403);
       assert.equal(blockedParentLogin.data.code, 'PARENT_ACCESS_INACTIVE');
 
+      // Simulate a legacy parent-account status value left behind by an older
+      // release. User.status is now the single authority for account access.
+      await ParentAccount.updateOne({ userId: parentUser._id }, { $set: { status: 'suspended' } });
       const restored = await api('/api/userDetailsself/' + parentUser._id, {
         token: adminToken,
         method: 'PATCH',
@@ -319,6 +322,11 @@ test('single-school parents can sign in with GR/email plus registered mobile and
       });
       assert.equal(restored.status, 200);
       assert.equal((await User.findById(parentUser._id)).status, 'active');
+      assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'suspended',
+        'The old mirror field must not override the restored user account.');
+      const engagementAfterRestore = await api('/api/school-engagement/parent/homework', { token: parentToken });
+      assert.equal(engagementAfterRestore.status, 200,
+        'Restored parents must be able to access family engagement despite a stale legacy status field.');
       // Restoring the account never revives a previously issued token.
       assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
       const freshLogin = await api('/api/parent-access/login', {

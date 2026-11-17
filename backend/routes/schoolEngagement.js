@@ -27,8 +27,11 @@ const isStaff = (req, res) => {
 };
 
 async function getParentChildren(req, res) {
-  const account = await ParentAccount.findOne({ userId: req.user?._id }).select('studentIds status').lean();
-  if (!account || account.status !== 'active' || !Array.isArray(account.studentIds) || !account.studentIds.length) {
+  // User.status is checked by auth middleware before this helper runs.
+  // ParentAccount.status is a legacy mirror and may be stale after restoration;
+  // this document is authoritative only for the linked-child allow-list.
+  const account = await ParentAccount.findOne({ userId: req.user?._id }).select('studentIds').lean();
+  if (!account || !Array.isArray(account.studentIds) || !account.studentIds.length) {
     res.status(403).json({ code: 'PARENT_ACCESS_INACTIVE', message: 'Parent portal access is not active. Contact the preschool office.' });
     return null;
   }
