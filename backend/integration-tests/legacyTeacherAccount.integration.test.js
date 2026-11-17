@@ -21,6 +21,7 @@ test('school administrators manually create teacher logins that can sign in with
 
   const { app } = require('../server');
   const User = require('../models/User');
+  const DailyWorkReport = require('../models/DailyWorkReport');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
   const server = app.listen(0);
@@ -38,6 +39,17 @@ test('school administrators manually create teacher logins that can sign in with
   });
   const adminToken = jwt.sign(
     { user: { id: String(admin._id), role: 'admin', authVersion: 0 } },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' },
+  );
+  const parent = await User.create({
+    username: 'Parent Account ' + tag,
+    email: 'parent-' + tag + '@example.test',
+    password: 'ParentAccountPassword123',
+    role: 'parent',
+  });
+  const parentToken = jwt.sign(
+    { user: { id: String(parent._id), role: 'parent', authVersion: 0 } },
     process.env.JWT_SECRET,
     { expiresIn: '1h' },
   );
@@ -61,7 +73,8 @@ test('school administrators manually create teacher logins that can sign in with
 
   t.after(async () => {
     await Promise.allSettled([
-      User.deleteMany({ _id: admin._id }),
+      User.deleteMany({ _id: { $in: [admin._id, parent._id] } }),
+      DailyWorkReport.deleteMany({ user: { $in: [admin._id, parent._id] } }),
       User.deleteMany({ email: teacherEmail }),
       mongoose.connection.dropDatabase(),
     ]);
@@ -115,6 +128,50 @@ test('school administrators manually create teacher logins that can sign in with
       body: { username: 'Another Teacher', email: 'other-' + tag + '@example.test', password: teacherPassword, role: 'teacher' },
     });
     assert.equal(response.status, 403);
+  });
+
+  await t.test('only administrators and teachers can use the daily work report API', async () => {
+    const parentRead = await api('/api/dailyWorkReport', { token: parentToken });
+    const parentCreate = await api('/api/dailyWorkReport', {
+      token: parentToken,
+      method: 'POST',
+      body: {
+        TimeIn: '09:00',
+        TimeOut: '13:00',
+        subject: 'Classroom',
+        standard: 'Nursery',
+        dailyWorkReport: 'Parent account must not create a staff work report.',
+        totalStudents: 10,
+      },
+    });
+    assert.equal(parentRead.status, 403);
+    assert.equal(parentCreate.status, 403);
+    assert.equal(await DailyWorkReport.countDocuments({ user: parent._id }), 0);
+
+    const teacherCreate = await api('/api/dailyWorkReport', {
+      token: teacherToken,
+      method: 'POST',
+      body: {
+        TimeIn: '09:00',
+        TimeOut: '13:00',
+        subject: 'Language',
+        standard: 'Nursery',
+        branch: 'Main',
+        dailyWorkReport: 'Read a story and practised new words.',
+        totalStudents: 12,
+      },
+    });
+    assert.equal(teacherCreate.status, 200);
+    const teacherOwnReports = await api('/api/dailyWorkReport', { token: teacherToken });
+    assert.equal(teacherOwnReports.status, 200);
+    assert.equal(teacherOwnReports.data.length, 1);
+    assert.equal(teacherOwnReports.data[0].subject, 'Language');
+
+    const teacherAllReports = await api('/api/dailyWorkReport/all', { token: teacherToken });
+    assert.equal(teacherAllReports.status, 403);
+    const adminAllReports = await api('/api/dailyWorkReport/all', { token: adminToken });
+    assert.equal(adminAllReports.status, 200);
+    assert.equal(adminAllReports.data.length, 1);
   });
 
   await t.test('wrong password is still rejected', async () => {

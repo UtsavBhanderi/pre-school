@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
 const DailyWorkReport = require('../models/DailyWorkReport');
 
 // POST /api/dailyWorkReport - Create a new daily work report
-router.post('/', auth, async (req, res) => {
+router.post('/', async (req, res) => {
   const { TimeIn, TimeOut, subject, standard, branch, dailyWorkReport, totalStudents } = req.body;
 
   try {
@@ -31,7 +30,7 @@ router.post('/', auth, async (req, res) => {
 
 // GET /api/dailyWorkReport - Get all daily work reports for the logged-in user
 // this is for teachers-dashboard
-router.get('/', auth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const reports = await DailyWorkReport.find({ user: req.user.id });
     res.json(reports);
@@ -43,7 +42,7 @@ router.get('/', auth, async (req, res) => {
 
 // Get all fees
 // this is for teachers-Entry
-router.get('/all', auth, adminOnly, async (req, res) => {
+router.get('/all', adminOnly, async (req, res) => {
   try {
     const dailyWork = await DailyWorkReport.find();
     res.json(dailyWork);
