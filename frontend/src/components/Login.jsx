@@ -9,7 +9,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { login, logout } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
@@ -20,25 +20,16 @@ const Login = () => {
 
     try {
       const loggedInUser = await login({ email: email.trim(), password });
-      if ((!Array.isArray(loggedInUser?.memberships) || loggedInUser.memberships.length === 0) &&
-          loggedInUser?.hasInactiveWorkspaceMemberships) {
-        logout();
-        setErrorMessage("Your school workspace access is inactive. Contact your preschool administrator to restore access.");
-        return;
-      }
-      if (loggedInUser?.parentAccount?.mode === "legacy_single_school" && loggedInUser.parentAccount.status === "active") {
+      if (loggedInUser?.role === "parent" &&
+          loggedInUser?.parentAccount?.mode === "legacy_single_school" &&
+          loggedInUser.parentAccount.status === "active") {
         navigate("/parent-portal", { replace: true });
-      } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.length > 0 &&
-          loggedInUser.memberships.every((membership) => membership.role === "parent")) {
-        navigate("/parent-portal", { replace: true });
-      } else if (Array.isArray(loggedInUser?.memberships) && loggedInUser.memberships.some((membership) => membership.role !== "parent")) {
-        navigate("/dashboard", { replace: true });
       } else if (loggedInUser?.role === "admin") {
         navigate("/dashboard", { replace: true });
       } else if (loggedInUser?.role === "teacher") {
         navigate("/teacher-dashboard", { replace: true });
       } else {
-        setErrorMessage("This account does not have access to a dashboard. Contact your administrator.");
+        setErrorMessage("This account does not have access to a school dashboard. Contact your preschool administrator.");
       }
     } catch (error) {
       setErrorMessage(error.response?.data?.message || "We couldn't sign you in. Check your email and password, then try again.");
@@ -70,7 +61,7 @@ const Login = () => {
               SECURE SCHOOL ACCESS
             </div>
             <h2>Welcome back</h2>
-            <p className="muted mb-4">Teachers: sign in with the email ID and password your school administrator gave you. Your account is created manually by the school; no invitation or email verification is needed.</p>
+            <p className="muted mb-4">Teachers and administrators: sign in with the email and password set up by your school administrator. Parents and guardians can use the separate family access link below with the student GR number or registered parent email and mobile number.</p>
 
             <form onSubmit={handleSubmit} noValidate>
               <div className="mb-3">
@@ -144,7 +135,6 @@ const Login = () => {
               <div className="login-help-links">
                 <Link to="/forgot-password" className="login-recovery-link">Forgot your password?</Link>
                 <Link to="/parent-access" className="login-recovery-link">Parent? Activate your family access</Link>
-                <Link to="/signup" className="login-recovery-link">Create a preschool account</Link>
               </div>
               <p>Having trouble signing in? Please contact your school administrator.</p>
             </div>

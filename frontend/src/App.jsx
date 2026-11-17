@@ -31,13 +31,10 @@ import AdminUsers from "./components/AdminUsers.jsx";
 import OperationsHome from "./components/OperationsHome.jsx";
 import HelpCenter from "./components/HelpCenter.jsx";
 import AnnouncementsPage from "./components/AnnouncementsPage.jsx";
-import AcceptInvitation from "./components/AcceptInvitation.jsx";
 import ParentPortal from "./components/ParentPortal.jsx";
 import ParentAccess from "./components/ParentAccess.jsx";
 import ForgotPassword from "./components/ForgotPassword.jsx";
 import ResetPassword from "./components/ResetPassword.jsx";
-import CreateOrganization from "./components/CreateOrganization.jsx";
-import VerifyOrganizationSignup from "./components/VerifyOrganizationSignup.jsx";
 import SchoolCommunication from "./components/SchoolCommunication.jsx";
 
 const PrivateRoute = ({ children, roles }) => {
@@ -54,15 +51,6 @@ const PrivateRoute = ({ children, roles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // SaaS members must never fall back into legacy single-school screens,
-  // whose APIs are intentionally blocked until their tenant migration is complete.
-  if (roles?.includes("teacher") && Array.isArray(user.memberships) && user.memberships.length > 0) {
-    const hasStaffWorkspace = user.memberships.some((membership) => membership.role !== "parent");
-    const hasFamilyWorkspace = user.memberships.some((membership) => membership.role === "parent");
-    if (hasStaffWorkspace) return <Navigate to="/dashboard" replace />;
-    if (hasFamilyWorkspace) return <Navigate to="/parent-portal" replace />;
-  }
-
   return children;
 };
 
@@ -73,13 +61,10 @@ const App = () => (
         <Route path="/" element={<Layout />}>
           <Route index element={<Login />} />
           <Route path="login" element={<Login />} />
-          <Route path="accept-invitation" element={<AcceptInvitation />} />
           <Route path="parent-access" element={<ParentAccess />} />
           <Route path="parent-access/:schoolSlug" element={<ParentAccess />} />
           <Route path="forgot-password" element={<ForgotPassword />} />
           <Route path="reset-password" element={<ResetPassword />} />
-          <Route path="signup" element={<CreateOrganization />} />
-          <Route path="verify-organization" element={<VerifyOrganizationSignup />} />
           <Route
             path="teacher-dashboard"
             element={
@@ -90,7 +75,7 @@ const App = () => (
           />
         </Route>
 
-        <Route path="/parent-portal" element={<PrivateRoute><ParentPortal /></PrivateRoute>} />
+        <Route path="/parent-portal" element={<PrivateRoute roles={["parent"]}><ParentPortal /></PrivateRoute>} />
 
         <Route
           path="/dashboard"

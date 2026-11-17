@@ -5,7 +5,6 @@ import { AuthContext } from "./context/AuthContext";
 import SideNav from "./pages/afterLogin/SideNav.jsx";
 import "./operations.css";
 import { Navigate } from "react-router-dom";
-import TenantWorkspace from "./components/TenantWorkspace.jsx";
 
 const PAGE_META = [
   ["/dashboard/home", "Start here", "Choose a common task or search using everyday words."],
@@ -56,7 +55,7 @@ export default function LayoutAdmin() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const commandInputRef = useRef(null);
-  const { user, logout } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const page = PAGE_META.find(([path]) => location.pathname === path || location.pathname.startsWith(path + "/")) || PAGE_META[0];
@@ -96,31 +95,6 @@ export default function LayoutAdmin() {
     setCommandQuery("");
     setCommandOpen(true);
   };
-
-  if (user?.hasInactiveWorkspaceMemberships &&
-      (!Array.isArray(user?.memberships) || user.memberships.length === 0)) {
-    return (
-      <main className="container py-5">
-        <section className="mx-auto p-4 border rounded-3 shadow-sm bg-white" style={{ maxWidth: "620px" }}>
-          <div className="d-inline-flex align-items-center rounded-pill px-3 py-2 mb-3" style={{ background: "#fff4e5", color: "#8a4b08", fontSize: ".75rem", fontWeight: 800 }}>
-            ACCESS NEEDS REVIEW
-          </div>
-          <h1 className="h3">School workspace access is inactive</h1>
-          <p className="text-secondary">This account no longer has an active organization workspace. Your school data has not been deleted. Ask the preschool administrator to review your account access.</p>
-          <button type="button" className="btn btn-primary" onClick={logout}>Sign out</button>
-        </section>
-      </main>
-    );
-  }
-
-  if (Array.isArray(user?.memberships) && user.memberships.length > 0 &&
-      user.memberships.every((membership) => membership.role === "parent")) {
-    return <Navigate to="/parent-portal" replace />;
-  }
-
-  if (Array.isArray(user?.memberships) && user.memberships.some((membership) => membership.role !== "parent")) {
-    return <TenantWorkspace />;
-  }
 
   if (user && user.role !== "admin") {
     return <Navigate to="/login" replace />;

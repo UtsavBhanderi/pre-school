@@ -492,7 +492,7 @@ async function mockTenantApi(page) {
   };
 }
 
-test('organization owner can enter the tenant workspace and register a child in the selected branch', async () => {
+test.skip('SaaS phase parked: organization owner tenant workspace and branch registration', async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const tenantApi = await mockTenantApi(page);
 
@@ -709,7 +709,7 @@ async function mockParentPortalApi(page) {
   };
 }
 
-test('parent login opens the family portal and shows only linked child and billing information', async () => {
+test.skip('SaaS phase parked: organization-linked parent family portal', async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const api = await mockParentPortalApi(page);
 
@@ -764,6 +764,21 @@ test('parent direct sign-in page is labelled, readable and mobile-friendly', asy
     dimensions.document <= dimensions.viewport + 1,
     'Parent access setup should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
   );
+  await page.close();
+});
+
+test('single-school release does not expose organization signup or invitation screens', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mockSchoolApi(page);
+  await page.goto(BASE_URL + '/login');
+
+  assert.equal(await page.getByRole('link', { name: 'Create a preschool account' }).count(), 0);
+  assert.equal(await page.getByRole('link', { name: /accept invitation/i }).count(), 0);
+
+  await page.goto(BASE_URL + '/signup');
+  await page.waitForFunction(() => window.location.pathname === '/login');
+  await page.goto(BASE_URL + '/accept-invitation');
+  await page.waitForFunction(() => window.location.pathname === '/login');
   await page.close();
 });
 
