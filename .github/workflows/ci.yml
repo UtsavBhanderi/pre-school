@@ -39,7 +39,9 @@ jobs:
           npm uninstall react-devtools sort-by
           npm install "axios@^1.21.1" "react-router-dom@^7.18.5" "vite@^6.4.6" "@vitejs/plugin-react@^4.7.0"
           npm install "xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
-          npm audit fix
+          # npm may exit nonzero when only low-severity tooling advisories remain.
+          # The explicit high/critical audit gate below is the release blocker.
+          npm audit fix || true
           npm audit --json > "$RUNNER_TEMP/frontend-npm-audit.json" || true
           AUDIT_LABEL="Frontend dependency audit" node ../backend/scripts/reportNpmAudit.js "$RUNNER_TEMP/frontend-npm-audit.json"
           npm audit --audit-level=high
