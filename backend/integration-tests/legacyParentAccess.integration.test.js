@@ -8,8 +8,8 @@ const jwt = require('jsonwebtoken');
 
 const configuredUri = String(process.env.MONGO_INTEGRATION_URI || '').trim();
 
-test('single-school parents can self-activate and only see their linked children', {
-  skip: !configuredUri ? 'Set MONGO_INTEGRATION_URI to a disposable MongoDB replica set.' : false,
+test('single-school parents can sign in with GR/email plus registered mobile and only see linked children', {
+  skip: !configuredUri ? 'Set MONGO_INTEGRATION_URI to a disposable MongoDB instance.' : false,
 }, async (t) => {
   const parsedUri = new URL(configuredUri);
   parsedUri.pathname = '/preschool_parent_legacy_' + crypto.randomBytes(6).toString('hex');
@@ -121,42 +121,37 @@ test('single-school parents can self-activate and only see their linked children
     assert.equal(config.data.parentAccessUrl, 'https://family-school.example.test/parent-access/family-access-school');
   });
 
-  await t.test('GR number without its registered phone cannot activate an account', async () => {
-    const response = await api('/api/parent-access/activate', {
+  await t.test('a GR number without its registered mobile cannot create a parent account', async () => {
+    const response = await api('/api/parent-access/login', {
       method: 'POST',
       body: {
         schoolSlug: 'family-access-school',
         identifier: students[0].stuNo,
         phone: '9123456789',
-        fullName: 'Family Parent',
-        email: parentEmail,
-        password: 'StrongFamilyPassword123',
       },
     });
     assert.equal(response.status, 404);
     assert.equal(response.data.code, 'PARENT_RECORD_NOT_MATCHED');
-    assert.equal(await User.countDocuments({ email: parentEmail }), 0);
+    assert.equal(await ParentAccount.countDocuments({}), 0);
+    assert.equal(await User.countDocuments({ role: 'parent' }), 0);
   });
 
   let activation;
-  await t.test('valid GR number plus registered mobile creates a parent login and auto-links siblings', async () => {
+  await t.test('GR number plus registered mobile signs in without registration or a password', async () => {
     activation = await api('/api/parent-access/activate', {
       method: 'POST',
       body: {
         schoolSlug: 'family-access-school',
         identifier: students[0].stuNo,
         phone: '+91 98765 43210',
-        fullName: 'Family Parent',
-        email: parentEmail,
-        password: 'StrongFamilyPassword123',
-        confirmPassword: 'StrongFamilyPassword123',
       },
     });
-    assert.equal(activation.status, 201);
+    assert.equal(activation.status, 200);
     assert.ok(activation.data.token);
     assert.equal(activation.data.user.role, 'parent');
 
     const user = await User.findById(activation.data.user.id);
+    assert.ok(user.email.endsWith('@parent-login.invalid'));
     createdUserIds.push(user._id);
     const parentAccount = await ParentAccount.findOne({ userId: user._id }).select('+registeredPhone').lean();
     assert.ok(parentAccount);
@@ -164,19 +159,35 @@ test('single-school parents can self-activate and only see their linked children
     assert.equal(parentAccount.studentIds.length, 2);
   });
 
-  let parentToken;
-  await t.test('parent can sign in normally and auth context identifies the parent account', async () => {
-    const login = await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: parentEmail, password: 'StrongFamilyPassword123' },
-    });
-    assert.equal(login.status, 200);
-    parentToken = login.data.token;
-
+  const parentToken = activation.data.token;
+  await t.test('the issued session identifies the parent and linked child count', async () => {
     const me = await api('/api/auth/me', { token: parentToken });
     assert.equal(me.status, 200);
+    assert.equal(me.data.user.role, 'parent');
     assert.equal(me.data.user.parentAccount.mode, 'legacy_single_school');
     assert.equal(me.data.user.parentAccount.studentCount, 2);
+  });
+
+  await t.test('a changed school-record mobile cannot create a second family account', async () => {
+    const originalMobile = students[0].FatherMobileNumber;
+    await Student.updateOne({ _id: students[0]._id }, { $set: { FatherMobileNumber: 9988776655 } });
+    let changedMobileLogin;
+    try {
+      changedMobileLogin = await api('/api/parent-access/login', {
+        method: 'POST',
+        body: {
+          schoolSlug: 'family-access-school',
+          identifier: students[0].stuNo,
+          phone: '9988776655',
+        },
+      });
+    } finally {
+      await Student.updateOne({ _id: students[0]._id }, { $set: { FatherMobileNumber: originalMobile } });
+    }
+    assert.equal(changedMobileLogin.status, 409);
+    assert.equal(changedMobileLogin.data.code, 'PARENT_PHONE_CHANGE_REQUIRED');
+    assert.equal(await ParentAccount.countDocuments({}), 1);
+    assert.equal(await User.countDocuments({ role: 'parent' }), 1);
   });
 
   await t.test('parent portal only returns the two linked children and their school data', async () => {
@@ -275,40 +286,18 @@ test('single-school parents can self-activate and only see their linked children
     assert.equal(ownReport.children[0].result.subjects[0].subject, 'Language');
   });
 
-  await t.test('parent can change password and prior sessions are revoked', async () => {
-    const changed = await api('/api/parent-portal/change-password', {
-      token: parentToken,
-      method: 'POST',
-      body: {
-        currentPassword: 'StrongFamilyPassword123',
-        newPassword: 'AnotherStrongFamilyPassword456',
-      },
-    });
-    assert.equal(changed.status, 200);
-    const stale = await api('/api/auth/me', { token: parentToken });
-    assert.equal(stale.status, 401);
-    const nextLogin = await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: parentEmail, password: 'AnotherStrongFamilyPassword456' },
-    });
-    assert.equal(nextLogin.status, 200);
-
-    const parentUser = await User.findOne({ email: parentEmail });
+  await t.test('administrator suspension and restoration revoke old parent sessions', async () => {
+    const parentUser = await User.findById(activation.data.user.id);
     assert.ok(parentUser);
     const suspended = await api('/api/userDetailsself/' + parentUser._id, {
       token: adminToken,
       method: 'PATCH',
-      body: { status: 'suspended', role: 'parent', reason: 'Parent account requested suspension' },
+      body: { status: 'suspended', role: 'parent', reason: 'Parent access requested suspension' },
     });
     assert.equal(suspended.status, 200);
     assert.equal(suspended.data.user.status, 'suspended');
-    const suspendedParentAccount = await ParentAccount.findOne({ userId: parentUser._id }).lean();
-    assert.equal(suspendedParentAccount.status, 'suspended');
-    assert.equal((await api('/api/auth/me', { token: nextLogin.data.token })).status, 401);
-    assert.equal((await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: parentEmail, password: 'AnotherStrongFamilyPassword456' },
-    })).status, 403);
+    assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'suspended');
+    assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
 
     const restored = await api('/api/userDetailsself/' + parentUser._id, {
       token: adminToken,
@@ -317,41 +306,38 @@ test('single-school parents can self-activate and only see their linked children
     });
     assert.equal(restored.status, 200);
     assert.equal((await ParentAccount.findOne({ userId: parentUser._id }).lean()).status, 'active');
-    assert.equal((await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: parentEmail, password: 'AnotherStrongFamilyPassword456' },
-    })).status, 200);
+    // Restoring access does not restore an old token: a fresh parent sign-in is required.
+    assert.equal((await api('/api/auth/me', { token: parentToken })).status, 401);
   });
-  await t.test('registered parent email plus mobile also activates, while duplicate same-phone claims are blocked', async () => {
-    const duplicate = await api('/api/parent-access/activate', {
-      method: 'POST',
-      body: {
-        schoolSlug: 'family-access-school',
-        identifier: students[0].stuNo,
-        phone,
-        fullName: 'Another Login',
-        email: 'duplicate-' + tag + '@example.test',
-        password: 'StrongDuplicateFamilyPassword123',
-      },
-    });
-    assert.equal(duplicate.status, 409);
-    assert.equal(await User.countDocuments({ email: 'duplicate-' + tag + '@example.test' }), 0);
 
-    const emailActivation = await api('/api/parent-access/activate', {
+  await t.test('registered parent email reuses the existing family account', async () => {
+    const emailLogin = await api('/api/parent-access/login', {
       method: 'POST',
       body: {
         schoolSlug: 'family-access-school',
-        identifier: 'other-' + tag + '@example.test',
-        phone: '9123456789',
-        fullName: 'Other Parent',
-        email: 'other-' + tag + '@example.test',
-        password: 'StrongOtherFamilyPassword123',
+        identifier: parentEmail,
+        phone,
       },
     });
-    assert.equal(emailActivation.status, 201);
-    assert.equal(emailActivation.data.user.role, 'parent');
-    createdUserIds.push(new mongoose.Types.ObjectId(emailActivation.data.user.id));
-    const otherAccount = await ParentAccount.findOne({ userId: emailActivation.data.user.id }).lean();
+    assert.equal(emailLogin.status, 200);
+    assert.equal(emailLogin.data.user.id, activation.data.user.id);
+    assert.equal(await ParentAccount.countDocuments({}), 1);
+  });
+
+  await t.test('another child family can sign in independently using its saved email and mobile', async () => {
+    const otherEmail = 'other-' + tag + '@example.test';
+    const otherLogin = await api('/api/parent-access/login', {
+      method: 'POST',
+      body: {
+        schoolSlug: 'family-access-school',
+        identifier: otherEmail,
+        phone: '9123456789',
+      },
+    });
+    assert.equal(otherLogin.status, 200);
+    assert.equal(otherLogin.data.user.role, 'parent');
+    createdUserIds.push(new mongoose.Types.ObjectId(otherLogin.data.user.id));
+    const otherAccount = await ParentAccount.findOne({ userId: otherLogin.data.user.id }).lean();
     assert.equal(otherAccount.studentIds.length, 1);
     assert.equal(String(otherAccount.studentIds[0]), String(students[2]._id));
   });

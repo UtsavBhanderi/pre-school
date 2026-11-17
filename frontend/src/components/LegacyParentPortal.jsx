@@ -3,7 +3,7 @@ import axios from "axios";
 import {
   MdSchool, MdDashboard, MdPeople, MdFactCheck, MdCurrencyRupee,
   MdCampaign, MdCalendarMonth, MdAssessment, MdRefresh, MdLogout,
-  MdLock, MdShield, MdCheckCircle, MdErrorOutline, MdHistory,
+  MdShield, MdCheckCircle, MdErrorOutline, MdHistory,
   MdReceiptLong, MdArrowForward, MdEventAvailable, MdMenuBook,
   MdOutlineAccountCircle, MdForum,
 } from "react-icons/md";
@@ -22,7 +22,7 @@ const PARENT_NAV = [
   { id: "engagement", label: "Homework & more", title: "Homework and family communication", Icon: MdForum },
   { id: "calendar", label: "Calendar", title: "School calendar", Icon: MdCalendarMonth },
   { id: "reports", label: "Reports", title: "Learning reports", Icon: MdAssessment },
-  { id: "security", label: "Security", title: "Account security", Icon: MdLock },
+  { id: "security", label: "Sign-in help", title: "How parent sign-in works", Icon: MdShield },
 ];
 
 const localDate = (date) => {
@@ -96,11 +96,6 @@ export default function LegacyParentPortal() {
   const [calendarTo, setCalendarTo] = useState(() => {
     const date = new Date(); date.setDate(date.getDate() + 90); return localDate(date);
   });
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState("");
 
   const loadPortal = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true);
@@ -156,32 +151,7 @@ export default function LegacyParentPortal() {
     window.location.assign("/login");
   };
 
-  const changePassword = async (event) => {
-    event.preventDefault();
-    setPasswordMessage("");
-    if (newPassword.length < 12 || newPassword.length > 128 || !newPassword.trim()) {
-      setPasswordMessage("Choose a password between 12 and 128 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage("The new passwords do not match.");
-      return;
-    }
-    setSavingPassword(true);
-    try {
-      const result = await request("/api/parent-portal/change-password", {
-        method: "POST",
-        data: { currentPassword, newPassword },
-      });
-      setPasswordMessage(result.message || "Password changed. Please sign in again.");
-      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
-      setTimeout(() => logoutAndNavigate(), 800);
-    } catch (error) {
-      setPasswordMessage(error.response?.data?.message || "Your password could not be changed.");
-    } finally {
-      setSavingPassword(false);
-    }
-  };
+
 
   return (
     <div className="legacy-parent-portal">
@@ -372,17 +342,32 @@ export default function LegacyParentPortal() {
 
             {activeTab === "security" && (
               <section className="legacy-parent-panel">
-                <div className="legacy-parent-panel-heading"><div><h2>Account security</h2><p>Change your parent portal password. You will sign in again after the change.</p></div><MdShield size={25} /></div>
-                <form className="legacy-parent-form" onSubmit={changePassword}>
-                  <label>Current password<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required maxLength={128} /></label>
-                  <label>New password<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" required minLength={12} maxLength={128} /></label>
-                  <label>Confirm new password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required minLength={12} maxLength={128} /></label>
-                  {passwordMessage && <div className={"legacy-parent-alert " + (passwordMessage.toLowerCase().includes("incorrect") || passwordMessage.toLowerCase().includes("not match") ? "error" : "success")} role="status">{passwordMessage}</div>}
-                  <button type="submit" className="legacy-parent-primary-btn" disabled={savingPassword}>{savingPassword ? "Updating password…" : "Update password"}</button>
-                </form>
-                <div className="legacy-parent-card"><h3>Keep your account safe</h3><p>Do not share your password with anyone. The preschool office will never ask for your password.</p></div>
+                <div className="legacy-parent-panel-heading">
+                  <div>
+                    <h2>Sign in to your family portal</h2>
+                    <p>Your access is linked to the contact details saved in your preschool records.</p>
+                  </div>
+                  <MdShield size={25} aria-hidden="true" />
+                </div>
+                <div className="legacy-parent-card">
+                  <h3>Next time, use these two details</h3>
+                  <ol className="mb-0">
+                    <li>Your child’s exact GR/admission number, or the parent email saved in the child’s school record.</li>
+                    <li>The registered parent mobile number saved with the preschool.</li>
+                  </ol>
+                  <p className="mt-3 mb-0">You do not need to register again or create a separate password for this family portal.</p>
+                </div>
+                <div className="legacy-parent-card">
+                  <h3>Need to change your mobile number?</h3>
+                  <p className="mb-0">Contact the preschool office and ask them to update the family contact details in the student record. For your protection, a new number cannot silently create a second account for an already linked child.</p>
+                </div>
+                <div className="legacy-parent-card">
+                  <h3>Keep your family access private</h3>
+                  <p className="mb-0">Do not share your registered mobile number or your child’s GR number with anyone outside your family. The school office can help if you cannot sign in.</p>
+                </div>
               </section>
             )}
+                        )}
           </>
         )}
 

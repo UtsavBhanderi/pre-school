@@ -153,7 +153,16 @@ async function createAutomaticParentUser({ session, organizationId = null, norma
         const [createdUser] = await User.create([userData], { session });
         user = createdUser;
       } else {
-        user = await User.create(userData);
+        try {
+          user = await User.create(userData);
+        } catch (error) {
+          if (error?.code !== 11000) throw error;
+          // Two simultaneous first sign-ins can derive the same family email.
+          // Reuse the winning insert rather than asking the parent to retry
+          // against an account that has already been created successfully.
+          user = await User.findOne({ email });
+          if (!user) throw error;
+        }
       }
     }
   }
@@ -240,6 +249,16 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
     .select('+registeredPhone')
     .lean();
 
+  const hasDifferentRegisteredPhone = existingFamilyAccounts.some((account) =>
+    normalizePhone(account.registeredPhone) !== normalizedPhone
+  );
+  if (hasDifferentRegisteredPhone) {
+    return res.status(409).json({
+      code: 'PARENT_PHONE_CHANGE_REQUIRED',
+      message: 'This child is already linked to a parent account with a different registered mobile number. Contact the preschool office to update the family contact safely.',
+    });
+  }
+
   const matchingFamilyAccounts = existingFamilyAccounts.filter((account) =>
     normalizePhone(account.registeredPhone) === normalizedPhone
   );
@@ -286,24 +305,39 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
 
   // The unique userId index makes this upsert safe to retry after a partial
   // deployment/network failure. Repeated parent sign-ins do not create extras.
-  await ParentAccount.findOneAndUpdate(
-    { userId: user._id },
-    {
-      $set: {
-        studentIds: mergedStudentIds,
-        registeredPhone: normalizedPhone,
-        status: 'active',
-        lastVerifiedAt: new Date(),
+  try {
+    await ParentAccount.findOneAndUpdate(
+      { userId: user._id },
+      {
+        $set: {
+          studentIds: mergedStudentIds,
+          registeredPhone: normalizedPhone,
+          status: 'active',
+          lastVerifiedAt: new Date(),
+        },
+        $setOnInsert: { activatedAt: new Date() },
       },
-      $setOnInsert: { activatedAt: new Date() },
-    },
-    {
-      upsert: true,
-      new: true,
-      runValidators: true,
-      setDefaultsOnInsert: true,
-    }
-  );
+      {
+        upsert: true,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    // A concurrent request may have inserted the unique userId record first.
+    // Only merge into an active record with the same registered mobile.
+    const recovered = await ParentAccount.findOneAndUpdate(
+      { userId: user._id, registeredPhone: normalizedPhone, status: 'active' },
+      {
+        $addToSet: { studentIds: { $each: studentIds } },
+        $set: { lastVerifiedAt: new Date() },
+      },
+      { new: true, runValidators: true }
+    );
+    if (!recovered) throw error;
+  }
 
   try {
     await UserAccessAuditEvent.create({

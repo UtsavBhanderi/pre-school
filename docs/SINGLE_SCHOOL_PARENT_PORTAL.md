@@ -32,18 +32,19 @@ For production, keep the normal secure authentication configuration in place, in
 
 Parents do not need to be added through the staff account form. Parent invitations are disabled; staff invitations remain a separate workflow.
 
-## 3. Parent activation
+## 3. Parent sign-in (no parent registration required)
 
-At `/parent-access/<school-slug>`, the parent enters:
+At `/parent-access/<school-slug>`, the parent enters only:
 
 - The child's exact GR/admission number **or** the registered parent email saved in the school record.
 - The parent's registered mobile number.
-- The parent's full name and the email address they want to use to sign in.
-- A password and confirmation.
 
-For a new login, use a password of at least 12 characters. When the email already belongs to an account, enter that account's current password instead of creating a different password.
+The school does not need to create a parent login manually, send an invitation, or ask the parent to register. The backend checks the submitted details against the saved student/family record. When they match, it creates or reuses the family account, links eligible siblings that share the same saved parent email and matching mobile, and signs the parent in.
 
-After the school record matches, the parent is signed in and sent to the family portal. Next time, the parent uses the regular `/login` page with the login email and password.
+The same link can be shared with every family. Parents can sign in again using any linked child's GR/admission number (or the saved parent email) and the same registered mobile. A separately invented parent email or password is not part of this single-school sign-in flow.
+
+If a child's registered mobile number changes after a family account has been linked, the login is blocked with a clear contact-office message. The preschool office must update and verify the family contact record rather than allowing a second account to claim the same child.
+
 
 ## 4. School data required for automatic matching
 
@@ -76,13 +77,13 @@ The single-school family portal includes:
 - Active school-wide notices.
 - School calendar events and holidays.
 - Learning report cards, subject marks, percentages, and grades when those marks have been saved.
-- Parent password change and sign out.
+- Parent sign-in help and sign out (the single-school parent login uses the child's GR/email plus the registered mobile number, not a separate password).
 
 The legacy single-school model does not currently store the tenant arrival/pickup handover history, so that tenant-only feature is not shown in this standalone portal.
 
 ## 6. Parent access management
 
-Parent accounts appear in **Dashboard → User access**. An administrator can suspend or restore parent sign-in. The parent role and family child links cannot be edited from the staff role editor. Status changes also revoke existing sign-in sessions and are written to the access history.
+Parent accounts appear in **Dashboard → User access**. An administrator can suspend or restore parent sign-in. The parent role and family child links cannot be edited from the staff role editor. Status changes also revoke existing sign-in sessions and are written to the access history. To change a linked family's phone number, update and verify the student/family record through the school office; the parent login does not create a replacement account when a previously linked child's phone changes.
 
 If a parent's email or phone is incorrect, update the underlying student/family contact record first. If the family account was already activated against an incorrect record, contact the school administrator before changing account links.
 
