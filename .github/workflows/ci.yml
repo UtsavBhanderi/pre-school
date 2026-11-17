@@ -33,16 +33,27 @@ jobs:
         run: |
           find backend -path 'backend/node_modules' -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
           cd backend && npm test
-      - name: Commit the npm-generated lockfile to main
+      - name: Update and audit frontend dependencies
+        working-directory: frontend
         run: |
-          if git diff --quiet -- backend/package.json backend/package-lock.json; then
-            echo "The backend dependency manifests are already current."
+          npm uninstall react-devtools sort-by
+          npm install "axios@^1.21.1" "react-router-dom@^7.18.5" "vite@^6.4.6" "@vitejs/plugin-react@^4.7.0"
+          npm install "xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+          npm audit fix
+          npm audit --json > "$RUNNER_TEMP/frontend-npm-audit.json" || true
+          AUDIT_LABEL="Frontend dependency audit" node ../backend/scripts/reportNpmAudit.js "$RUNNER_TEMP/frontend-npm-audit.json"
+          npm audit --audit-level=high
+          npm run build
+      - name: Commit the npm-generated lockfiles to main
+        run: |
+          if git diff --quiet -- backend/package.json backend/package-lock.json frontend/package.json frontend/package-lock.json; then
+            echo "The dependency manifests are already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add backend/package.json backend/package-lock.json
-          git commit -m "chore(deps): apply backend security updates"
+          git add backend/package.json backend/package-lock.json frontend/package.json frontend/package-lock.json
+          git commit -m "chore(deps): apply backend and frontend security updates"
           git push origin HEAD:main
 
   backend:
@@ -63,6 +74,9 @@ jobs:
         run: |
           npm audit --json > "$RUNNER_TEMP/backend-npm-audit.json" || true
           node scripts/reportNpmAudit.js "$RUNNER_TEMP/backend-npm-audit.json"
+      - name: Enforce no high or critical backend advisories
+        working-directory: backend
+        run: npm audit --audit-level=high
       - name: Check backend JavaScript syntax
         run: find backend -path 'backend/node_modules' -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Check operational shell script syntax
@@ -129,6 +143,9 @@ jobs:
         run: |
           npm audit --json > "$RUNNER_TEMP/frontend-npm-audit.json" || true
           AUDIT_LABEL="Frontend dependency audit" node ../backend/scripts/reportNpmAudit.js "$RUNNER_TEMP/frontend-npm-audit.json"
+      - name: Enforce no high or critical frontend advisories
+        working-directory: frontend
+        run: npm audit --audit-level=high
       - name: Build frontend
         working-directory: frontend
         run: npm run build
