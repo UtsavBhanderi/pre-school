@@ -39,40 +39,18 @@ function escapeRegex(value) {
 }
 
 async function resolveSingleSchool() {
-  // No Organization documents means the installation is still using the
-  // original single-school data model. Do not create SaaS rows just for parents.
+  // This runtime supports original single-school records only. Never infer
+  // that an organization/branch database can be used as a single school.
   const anyOrganization = await Organization.exists({});
-  if (!anyOrganization) {
-    const schoolName = cleanText(process.env.SINGLE_SCHOOL_NAME, 120) || 'Pre-School';
-    return { mode: 'legacy_single_school', schoolName, slug: slugifySchoolName(schoolName) };
-  }
-
-  const configuredId = String(process.env.SINGLE_SCHOOL_ORGANIZATION_ID || '').trim();
-  if (configuredId) {
-    if (!mongoose.Types.ObjectId.isValid(configuredId)) {
-      return { error: 'SINGLE_SCHOOL_ORGANIZATION_ID is not a valid organization ID.', status: 503 };
-    }
-    const organization = await Organization.findOne({ _id: configuredId, status: 'active' }).lean();
-    return organization
-      ? { mode: 'organization', organization }
-      : { error: 'The configured preschool workspace is not active.', status: 503 };
-  }
-
-  const organizations = await Organization.find({ status: 'active' })
-    .select('_id name slug status timezone locale currency contact settings createdBy')
-    .sort({ createdAt: 1 })
-    .limit(2)
-    .lean();
-
-  if (organizations.length !== 1) {
+  if (anyOrganization) {
     return {
-      error: organizations.length > 1
-        ? 'More than one active preschool workspace exists. Configure SINGLE_SCHOOL_ORGANIZATION_ID before enabling parent self-registration.'
-        : 'The preschool workspace is not configured yet. Ask the school administrator to complete setup.',
+      error: 'This installation is configured for one preschool using the single-school database. Organization and branch workspaces are disabled in this release. Contact the administrator before changing or migrating school records.',
       status: 503,
     };
   }
-  return { mode: 'organization', organization: organizations[0] };
+
+  const schoolName = cleanText(process.env.SINGLE_SCHOOL_NAME, 120) || 'Pre-School';
+  return { mode: 'legacy_single_school', schoolName, slug: slugifySchoolName(schoolName) };
 }
 
 function schoolPortalUrl(req, slug) {
@@ -829,22 +807,11 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    if (schoolResult.mode === 'legacy_single_school') {
-      if (schoolSlug && schoolSlug !== schoolResult.slug) {
-        return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
-      }
-      return await loginLegacyParent({
-        req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
-      });
-    }
-
-    const organization = schoolResult.organization;
-    if (schoolSlug && schoolSlug !== organization.slug) {
+    if (schoolSlug && schoolSlug !== schoolResult.slug) {
       return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
     }
-    return await activateOrganizationParent({
-      req, res, organization, identifier, submittedPhone,
-      parentName: 'Parent / Guardian', loginEmail: '', password: '', automatic: true,
+    return await loginLegacyParent({
+      req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
     });
   } catch (error) {
     console.error('Unable to complete parent sign-in:', {
@@ -887,32 +854,12 @@ router.post('/activate', async (req, res) => {
   }
 
   try {
-    if (schoolResult.mode === 'legacy_single_school') {
-      if (schoolSlug && schoolSlug !== schoolResult.slug) {
-        return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
-      }
-      return await activateLegacyParent({
-        req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
-        parentName, loginEmail, password,
-      });
-    }
-
-    const organization = schoolResult.organization;
-    if (schoolSlug && schoolSlug !== organization.slug) {
+    if (schoolSlug && schoolSlug !== schoolResult.slug) {
       return res.status(404).json({ message: 'This parent portal link does not belong to the configured preschool.' });
     }
-    if (parentName.length < 2) {
-      return res.status(400).json({ message: 'Enter the parent or guardian full name.' });
-    }
-    if (!isEmail(loginEmail)) {
-      return res.status(400).json({ message: 'Enter a valid email address for your parent login.' });
-    }
-    if (password.length < 8 || password.length > 128 || !password.trim()) {
-      return res.status(400).json({ message: 'Enter your current account password, or create a password with at least 12 characters.' });
-    }
-
-    return await activateOrganizationParent({
-      req, res, organization, identifier, submittedPhone, parentName, loginEmail, password,
+    return await activateLegacyParent({
+      req, res, school: schoolResult, identifier, submittedPhone, normalizedPhone,
+      parentName, loginEmail, password,
     });
   } catch (error) {
     console.error('Unable to look up parent school records:', error?.name || 'lookup_error');

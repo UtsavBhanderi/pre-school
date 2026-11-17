@@ -11,7 +11,6 @@ const ParentAccount = require('../models/ParentAccount');
 const bcrypt = require('bcryptjs');
 const { createPasswordResetToken, hashPasswordResetToken, passwordResetExpiry, isValidNewPassword } = require('../utils/passwordResetTokens');
 const { createPasswordResetUrl, sendPasswordResetEmail } = require('../utils/passwordResetEmail');
-const { resolveWorkspaceMembershipState } = require('../utils/workspaceMembershipState');
 const UserAccessAuditEvent = require('../models/UserAccessAuditEvent');
 
 // The legacy school dashboard currently supports teacher and administrator accounts only.
@@ -161,6 +160,13 @@ router.post('/login', async (req, res) => {
     if (parentAccount && parentAccount.status !== 'active') {
       return res.status(403).json({ code: 'PARENT_ACCESS_INACTIVE', message: 'Parent portal access is inactive. Contact your preschool office.' });
     }
+    const organizationMembershipExists = await OrganizationMembership.exists({ userId: user._id });
+    if (organizationMembershipExists) {
+      return res.status(403).json({
+        code: 'SINGLE_SCHOOL_ONLY',
+        message: 'This installation supports one preschool account space. Multi-school accounts are not enabled in this release.',
+      });
+    }
 
     return res.json({ token: signToken(user) });
   } catch (error) {
@@ -260,22 +266,28 @@ router.post('/reset-password', async (req, res) => {
 
 router.get('/me', auth, async (req, res) => {
   try {
-    const allMemberships = await OrganizationMembership.find({
-      userId: req.user._id,
-    })
-      .populate({ path: 'organizationId', select: 'name slug status timezone locale currency subscription.plan subscription.status' })
-      .populate({ path: 'branchIds', select: 'name code status timezone' })
-      .sort({ createdAt: 1 })
-      .lean();
+    const organizationMembershipExists = await OrganizationMembership.exists({ userId: req.user._id });
+    if (organizationMembershipExists) {
+      return res.status(403).json({
+        code: 'SINGLE_SCHOOL_ONLY',
+        message: 'This installation supports one preschool account space. Multi-school accounts are not enabled in this release.',
+      });
+    }
 
-    const { memberships, hasInactiveWorkspaceMemberships } = resolveWorkspaceMembershipState(allMemberships);
+    const organizationExists = await Organization.exists({});
+    if (organizationExists) {
+      return res.status(503).json({
+        code: 'SINGLE_SCHOOL_DATA_CHECK_REQUIRED',
+        message: 'Organization/branch records were found in this database. This release requires the single-school database model. Contact the administrator before changing or migrating records.',
+      });
+    }
+
     const parentAccount = await ParentAccount.findOne({ userId: req.user._id })
       .select('studentIds status activatedAt')
       .lean();
 
     return res.json({
       user: {
-        hasInactiveWorkspaceMemberships,
         parentAccount: parentAccount ? {
           mode: 'legacy_single_school',
           status: parentAccount.status,
@@ -286,35 +298,11 @@ router.get('/me', auth, async (req, res) => {
         username: req.user.username,
         email: req.user.email,
         role: req.user.role,
-        memberships: memberships.filter((entry) => entry.organizationId).map((entry) => ({
-          id: String(entry._id),
-          organization: {
-            id: String(entry.organizationId._id),
-            name: entry.organizationId.name,
-            slug: entry.organizationId.slug,
-            timezone: entry.organizationId.timezone,
-            locale: entry.organizationId.locale,
-            currency: entry.organizationId.currency,
-            status: entry.organizationId.status,
-            subscription: entry.organizationId.subscription || {},
-          },
-          role: entry.role,
-          status: entry.status,
-          classNames: entry.classNames || [],
-          branchIds: (entry.branchIds || []).map((branch) => ({
-            id: String(branch._id),
-            name: branch.name,
-            code: branch.code,
-            status: branch.status,
-            timezone: branch.timezone,
-          })),
-          accessAllBranches: Boolean(entry.accessAllBranches),
-        })),
       },
     });
   } catch (error) {
-    console.error('Unable to load user workspace context:', error);
-    return res.status(503).json({ message: 'Your school workspace could not be loaded.' });
+    console.error('Unable to load single-school account context:', error);
+    return res.status(503).json({ message: 'Your school account could not be loaded.' });
   }
 });
 

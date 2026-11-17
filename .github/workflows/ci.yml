@@ -35,8 +35,8 @@ jobs:
         working-directory: backend
         run: npm test
 
-  tenant-integration:
-    name: Tenant isolation integration tests
+  single-school-integration:
+    name: Single-school workflow integration tests
     runs-on: ubuntu-latest
     env:
       MONGO_INTEGRATION_URI: mongodb://127.0.0.1:27017/preschool_integration?replicaSet=rs0
@@ -69,7 +69,7 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-      - name: Run tenant isolation integration tests
+      - name: Run single-school workflow integration tests
         working-directory: backend
         run: npm run test:integration
 

@@ -53,6 +53,19 @@ test('legacy parent direct login works without MongoDB transactions and reuses i
     await mongoose.disconnect();
   });
 
+  await t.test('organization signup, invitations and SaaS APIs are blocked in single-school mode', async () => {
+    for (const pathname of [
+      '/api/organizations/registration-status',
+      '/api/invitations/inspect',
+      '/api/saas/operations/summary',
+    ]) {
+      const response = await fetch('http://127.0.0.1:' + server.address().port + pathname);
+      assert.equal(response.status, 404, pathname + ' should be unavailable in single-school mode');
+      const body = await response.json();
+      assert.equal(body.code, 'SAAS_NOT_AVAILABLE');
+    }
+  });
+
   const siblings = await Student.create([
     {
       stuNo: 'GR-' + tag + '-001',

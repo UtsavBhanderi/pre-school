@@ -42,30 +42,14 @@ const reportCardRoutes = require('./routes/reportCard');
 const reportDocxRoutes = require('./reportDocx');
 const eventRoutes = require('./routes/calendar');
 const announcementsRoutes = require('./routes/announcements');
-const organizationsRoutes = require('./routes/organizations');
-const tenantWorkspaceRoutes = require('./routes/tenantWorkspace');
-const tenantSettingsRoutes = require('./routes/tenantSettings');
-const tenantOwnershipRoutes = require('./routes/tenantOwnership');
-const tenantOperationsRoutes = require('./routes/tenantOperations');
-const invitationsRoutes = require('./routes/invitations');
-const publicInvitationsRoutes = require('./routes/publicInvitations');
-const parentPortalRoutes = require('./routes/parentPortal');
 const parentAccessRoutes = require('./routes/parentAccess');
 const legacyParentPortalRoutes = require('./routes/legacyParentPortal');
 const schoolEngagementRoutes = require('./routes/schoolEngagement');
-const tenantAnnouncementRoutes = require('./routes/tenantAnnouncements');
-const tenantCommunicationRoutes = require('./routes/tenantCommunications');
-const tenantCalendarRoutes = require('./routes/tenantCalendar');
-const tenantHandoverRoutes = require('./routes/tenantHandover');
-const tenantWorkReportsRoutes = require('./routes/tenantWorkReports');
 const privateMediaRoutes = require('./routes/privateMedia');
-const tenantMediaRoutes = require('./routes/tenantMedia');
 const privateMediaResponse = require('./middleware/privateMediaResponse');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
 // Register the migration-run model at application boot so its unique idempotency index is provisioned with the SaaS schema.
-const LegacyMigrationRun = require('./models/LegacyMigrationRun');
-const TenantStaffProfile = require('./models/TenantStaffProfile');
 
 app.disable('x-powered-by');
 app.use(requestSecurityHeaders);
@@ -87,21 +71,6 @@ const passwordResetRateLimit = createRateLimiter({
   windowMs: 60 * 60 * 1000,
   max: 5,
   message: 'Too many password recovery attempts. Please try again in an hour.',
-});
-const organizationSignupRateLimit = createRateLimiter({
-  windowMs: 60 * 60 * 1000,
-  max: 8,
-  message: 'Too many preschool sign-up attempts. Please try again later.',
-});
-const invitationInspectRateLimit = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: 'Too many invitation checks. Please wait before trying again.',
-});
-const invitationAcceptRateLimit = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 8,
-  message: 'Too many invitation acceptance attempts. Please wait before trying again.',
 });
 // A school may have many families sharing one public IP (for example, a
 // mobile carrier or campus network). Keep a broad IP ceiling and apply the
@@ -149,7 +118,8 @@ for (const directory of ['gallery', 'pdf', 'students', 'teachers', 'video']) {
 
 // Gallery, school photos, PDFs and video files are delivered through short-lived, authorization-checked links.
 
-// Authentication endpoints must remain reachable before a session exists.
+// Authentication and single-school parent access are the only public identity
+// flows in this release. All management routes use the original school dataset.
 app.use('/api/auth/login', loginRateLimit);
 app.use('/api/auth/register', accountRegistrationRateLimit);
 app.use('/api/auth/forgot-password', passwordResetRateLimit);
@@ -159,30 +129,16 @@ app.use('/api/parent-access/activate', parentAccessIpRateLimit, parentAccessIden
 app.use('/api/parent-access/login', parentAccessIpRateLimit, parentAccessIdentityRateLimit);
 app.use('/api/parent-access', parentAccessRoutes);
 app.use('/api/media', privateMediaRoutes);
-app.use('/api/saas/media', auth, tenantMediaRoutes);
-
-// Organization registration and membership discovery are separate from the
-// single-school APIs. Public registration has two explicit readiness gates.
-app.use('/api/organizations/signup', organizationSignupRateLimit);
-app.use('/api/organizations', organizationsRoutes);
-app.use('/api/invitations/inspect', invitationInspectRateLimit);
-app.use('/api/invitations/accept', invitationAcceptRateLimit);
-app.use('/api/invitations', publicInvitationsRoutes);
-app.use('/api/saas/invitations', auth, invitationsRoutes);
-app.use('/api/saas/parent', auth, parentPortalRoutes);
-// ParentAccount is an explicit per-user allow-list of child IDs, so this route
-// remains scoped even if an organization workspace is added later.
 app.use('/api/parent-portal', auth, legacyParentPortalRoutes);
 app.use('/api/school-engagement', auth, legacySingleTenantOnly, schoolEngagementRoutes);
-app.use('/api/saas/notices', auth, tenantAnnouncementRoutes);
-app.use('/api/saas/communications', auth, tenantCommunicationRoutes);
-app.use('/api/saas/calendar', auth, tenantCalendarRoutes);
-app.use('/api/saas/handover', auth, tenantHandoverRoutes);
-app.use('/api/saas/work-reports', auth, tenantWorkReportsRoutes);
-app.use('/api/saas/operations', auth, tenantOperationsRoutes);
-app.use('/api/saas', auth, tenantWorkspaceRoutes);
-app.use('/api/saas/settings', auth, tenantSettingsRoutes);
-app.use('/api/saas/ownership', auth, tenantOwnershipRoutes);
+
+// Multi-school APIs intentionally return a clear unavailable response in this
+// release. Their implementation remains parked for a later product phase.
+const saasUnavailable = (_req, res) => res.status(404).json({
+  code: 'SAAS_NOT_AVAILABLE',
+  message: 'This installation is configured for one preschool. Organization signup, invitations and multi-school workspaces are not available in this release.',
+});
+app.use(['/api/organizations', '/api/invitations', '/api/saas'], saasUnavailable);
 
 // Teachers can submit and view their own work reports; administrative listing
 // is separately protected inside the report router.
