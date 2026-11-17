@@ -217,6 +217,69 @@ test('single-school parent engagement supports homework, private messages and po
     assert.equal(parentCannotVote.status, 404);
   });
 
+  await t.test('administrator can publish one poll to parents and teachers with independent private votes', async () => {
+    const created = await api('/api/school-engagement/staff/polls', {
+      token: adminToken,
+      method: 'POST',
+      body: {
+        question: 'Which school celebration activity should we plan?',
+        description: 'Please select one option.',
+        options: ['Sports day', 'Family picnic'],
+        standard: 'all',
+        audience: 'all',
+        endsAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(created.status, 201);
+    assert.match(created.data.message, /parents and teachers/i);
+
+    const [parentPolls, teacherPolls] = await Promise.all([
+      api('/api/school-engagement/parent/polls', { token: parentToken }),
+      api('/api/school-engagement/staff/polls', { token: teacherToken }),
+    ]);
+    const parentPoll = parentPolls.data.polls.find((item) => item.id === created.data.pollId);
+    const teacherPoll = teacherPolls.data.polls.find((item) => item.id === created.data.pollId);
+    assert.ok(parentPoll, 'The parent portal should receive the shared poll.');
+    assert.ok(teacherPoll, 'The teacher workspace should receive the same poll.');
+    assert.equal(parentPoll.audience, 'all');
+    assert.equal(teacherPoll.audience, 'all');
+
+    const parentVote = await api('/api/school-engagement/parent/polls/' + created.data.pollId + '/votes', {
+      token: parentToken,
+      method: 'POST',
+      body: { optionIndex: 0 },
+    });
+    const teacherVote = await api('/api/school-engagement/staff/polls/' + created.data.pollId + '/votes', {
+      token: teacherToken,
+      method: 'POST',
+      body: { optionIndex: 1 },
+    });
+    assert.equal(parentVote.status, 200);
+    assert.equal(teacherVote.status, 200);
+
+    const duplicateParentVote = await api('/api/school-engagement/parent/polls/' + created.data.pollId + '/votes', {
+      token: parentToken,
+      method: 'POST',
+      body: { optionIndex: 1 },
+    });
+    const duplicateTeacherVote = await api('/api/school-engagement/staff/polls/' + created.data.pollId + '/votes', {
+      token: teacherToken,
+      method: 'POST',
+      body: { optionIndex: 0 },
+    });
+    assert.equal(duplicateParentVote.status, 409);
+    assert.equal(duplicateTeacherVote.status, 409);
+
+    const adminPolls = await api('/api/school-engagement/staff/polls', { token: adminToken });
+    const aggregate = adminPolls.data.polls.find((item) => item.id === created.data.pollId);
+    assert.equal(aggregate.totalVotes, 2);
+    assert.deepEqual(aggregate.results, [1, 1]);
+    assert.equal(JSON.stringify(parentVote.data).includes(String(parent._id)), false);
+    assert.equal(JSON.stringify(teacherVote.data).includes(String(teacher._id)), false);
+    assert.equal(JSON.stringify(parentPolls.data).includes(String(teacher._id)), false);
+    assert.equal(JSON.stringify(teacherPolls.data).includes(String(parent._id)), false);
+  });
+
   await t.test('parent cannot submit homework for a child outside its saved allow-list', async () => {
     const response = await api('/api/school-engagement/parent/homework/' + homeworkId + '/submissions', {
       token: parentToken, method: 'POST', body: { studentId: String(otherStudent._id), responseText: 'Not my child' },
