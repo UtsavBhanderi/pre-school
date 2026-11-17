@@ -367,7 +367,6 @@ export default function LegacyParentPortal() {
                 </div>
               </section>
             )}
-                        )}
           </>
         )}
 

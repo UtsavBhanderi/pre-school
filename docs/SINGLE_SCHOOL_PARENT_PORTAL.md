@@ -60,7 +60,7 @@ The current matching fields are:
 
 The phone comparison accepts a 10-digit Indian mobile number, a leading zero, or the `+91` country prefix. The underlying saved number still needs to be correct.
 
-Siblings are linked automatically only when the stored parent email and registered phone match as well. A second login cannot claim a child again using the same registered phone. A parent with a separately registered mobile can have a separate account.
+Siblings are linked automatically only when the stored parent email and registered phone match as well. Repeated sign-ins for the same family reuse the existing account. If a linked child's registered mobile changes, sign-in is blocked until the preschool office updates and verifies the family contact record; it does not create a second account for that child.
 
 ### One-organization data already migrated to SaaS
 
@@ -91,7 +91,7 @@ If a parent's email or phone is incorrect, update the underlying student/family 
 
 The initial activation checks that the GR/email and phone match the school's stored records and limits repeated attempts. This is a database-record match; it does **not** prove the person currently controls the phone. No SMS one-time password is sent by this implementation. Add an SMS OTP provider before treating mobile possession as independently verified, especially before sharing sensitive child or health information.
 
-The built-in request limiter is process-local. Keep infrastructure-level rate limiting at the CDN, WAF, reverse proxy, or API gateway for public production traffic.
+The built-in request limiter applies a stricter limit to each GR/email-plus-mobile combination and a broader per-IP ceiling. It is process-local and is not shared across multiple API instances, so keep infrastructure-level rate limiting at the CDN, WAF, reverse proxy, or API gateway for public production traffic.
 
 
 ## Parent engagement: homework, family messages and polls

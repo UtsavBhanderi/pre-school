@@ -118,8 +118,8 @@ const parentAccessIdentityRateLimit = createRateLimiter({
   message: 'Too many attempts for these family details. Please wait before trying again or contact the preschool office.',
   keyGenerator(req) {
     const identifier = String(req.body?.identifier || '').trim().toLowerCase().slice(0, 254);
-    const phone = String(req.body?.phone || '').replace(/\\D/g, '').slice(-10);
-    const digest = crypto.createHash('sha256').update(identifier + '\\0' + phone).digest('hex');
+    const phone = String(req.body?.phone || '').replace(/\D/g, '').slice(-10);
+    const digest = crypto.createHash('sha256').update(JSON.stringify([identifier, phone])).digest('hex');
     const address = req.ip || req.socket?.remoteAddress || 'unknown';
     return String(address).slice(0, 128) + ':' + digest;
   },

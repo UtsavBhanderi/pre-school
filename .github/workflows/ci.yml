@@ -105,7 +105,7 @@ jobs:
         run: npm ci
       - name: Install Playwright and Chromium
         run: |
-          npm install --prefix "$RUNNER_TEMP/playwright" --no-save --no-package-lock playwright@1.55.1
+          npm install --prefix "$RUNNER_TEMP/playwright" --no-save --no-package-lock playwright@1.64.1
           "$RUNNER_TEMP/playwright/node_modules/.bin/playwright" install --with-deps chromium
       - name: Run browser smoke tests
         working-directory: frontend
