@@ -55,18 +55,32 @@ export default function ParentEngagement() {
       const childRows = Array.isArray(childResult.children) ? childResult.children : [];
       setChildren(childRows);
       setForm((old) => ({ ...old, studentId: old.studentId || childRows[0]?.id || "" }));
-      const [homeworkResult, complaintResult, pollResult, messageResult, noticeResult] = await Promise.all([
+      const sectionResults = await Promise.allSettled([
         request("/api/school-engagement/parent/homework"),
         request("/api/school-engagement/parent/complaints"),
         request("/api/school-engagement/parent/polls"),
         request("/api/school-engagement/parent/messages"),
         request("/api/announcements"),
       ]);
-      setHomework(homeworkResult.homework || []);
-      setComplaints(complaintResult.complaints || []);
-      setPolls(pollResult.polls || []);
-      setSchoolMessages(messageResult.messages || []);
-      setSchoolNotices(Array.isArray(noticeResult) ? noticeResult : []);
+      const sectionNames = ["homework", "messages to school", "polls", "messages from school", "school notices"];
+      const failedSections = [];
+      const assignWhenLoaded = (index, setter, field) => {
+        const result = sectionResults[index];
+        if (result.status === "fulfilled") {
+          const value = field ? result.value?.[field] : result.value;
+          setter(Array.isArray(value) ? value : []);
+        } else {
+          failedSections.push(sectionNames[index]);
+        }
+      };
+      assignWhenLoaded(0, setHomework, "homework");
+      assignWhenLoaded(1, setComplaints, "complaints");
+      assignWhenLoaded(2, setPolls, "polls");
+      assignWhenLoaded(3, setSchoolMessages, "messages");
+      assignWhenLoaded(4, setSchoolNotices, null);
+      if (failedSections.length) {
+        setError("Some sections could not be refreshed: " + failedSections.join(", ") + ". Other sections remain available. Select Refresh to try again.");
+      }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Parent engagement information could not be loaded.");
     } finally {

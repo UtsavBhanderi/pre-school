@@ -56,18 +56,32 @@ export default function SchoolCommunication({ embedded = false }) {
     setLoading(true);
     setError("");
     try {
-      const [classResult, homeworkResult, complaintResult, pollResult, messageResult] = await Promise.all([
+      const sectionResults = await Promise.allSettled([
         api("/api/school-engagement/staff/classes"),
         api("/api/school-engagement/staff/homework"),
         api("/api/school-engagement/staff/complaints"),
         api("/api/school-engagement/staff/polls"),
         api("/api/school-engagement/staff/messages"),
       ]);
-      setClasses(classResult.classes || []);
-      setHomework(homeworkResult.homework || []);
-      setComplaints(complaintResult.complaints || []);
-      setPolls(pollResult.polls || []);
-      setMessages(messageResult.messages || []);
+      const sectionNames = ["class list", "homework", "parent messages", "polls", "school messages"];
+      const failedSections = [];
+      const assignWhenLoaded = (index, setter, field) => {
+        const result = sectionResults[index];
+        if (result.status === "fulfilled") {
+          const value = field ? result.value?.[field] : result.value;
+          setter(Array.isArray(value) ? value : []);
+        } else {
+          failedSections.push(sectionNames[index]);
+        }
+      };
+      assignWhenLoaded(0, setClasses, "classes");
+      assignWhenLoaded(1, setHomework, "homework");
+      assignWhenLoaded(2, setComplaints, "complaints");
+      assignWhenLoaded(3, setPolls, "polls");
+      assignWhenLoaded(4, setMessages, "messages");
+      if (failedSections.length) {
+        setError("Some sections could not be refreshed: " + failedSections.join(", ") + ". Other sections remain available. Select Refresh to try again.");
+      }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "School communication records could not be loaded.");
     } finally {

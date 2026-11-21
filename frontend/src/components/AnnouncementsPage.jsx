@@ -47,6 +47,7 @@ export default function AnnouncementsPage({ readOnly = false }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState("");
+  const [confirmingNoticeId, setConfirmingNoticeId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -140,16 +141,17 @@ export default function AnnouncementsPage({ readOnly = false }) {
   const toggleArchive = async (notice) => {
     const nextActive = !notice.isActive;
     const action = nextActive ? "reactivate" : "archive";
-    if (!window.confirm(`Do you want to ${action} “${notice.title}”? ${nextActive ? "It will be available according to its dates." : "It will no longer appear on the staff notice board."}`)) return;
     setBusyId(notice._id);
     setError("");
     setSuccess("");
     try {
       const response = await axios.patch(`${API_BASE_URL}/api/announcements/${notice._id}/status`, { isActive: nextActive });
       setSuccess(response.data?.message || "Notice status updated.");
+      setConfirmingNoticeId("");
       await loadNotices();
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Notice status could not be updated.");
+      setConfirmingNoticeId("");
     } finally {
       setBusyId("");
     }
@@ -264,9 +266,19 @@ export default function AnnouncementsPage({ readOnly = false }) {
                   {!readOnly && (
                     <div className="ops-notice-actions">
                       <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => beginEdit(notice)} aria-label={"Edit " + notice.title}><MdEdit aria-hidden="true" /> Edit</button>
-                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => toggleArchive(notice)} disabled={busyId === notice._id} aria-label={(notice.isActive ? "Archive " : "Reactivate ") + notice.title}>
-                        <MdOutlineArchive aria-hidden="true" /> {busyId === notice._id ? "Updating…" : notice.isActive ? "Archive" : "Reactivate"}
-                      </button>
+                      {confirmingNoticeId === notice._id ? (
+                        <>
+                          <span className="small text-secondary" role="status">{notice.isActive ? "Archive this notice?" : "Restore this notice?"}</span>
+                          <button type="button" className="btn btn-sm btn-primary" onClick={() => toggleArchive(notice)} disabled={busyId === notice._id}>
+                            {busyId === notice._id ? "Updating…" : notice.isActive ? "Confirm archive" : "Confirm restore"}
+                          </button>
+                          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setConfirmingNoticeId("")} disabled={busyId === notice._id}>Cancel</button>
+                        </>
+                      ) : (
+                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setConfirmingNoticeId(notice._id)} disabled={Boolean(busyId)} aria-label={(notice.isActive ? "Archive " : "Reactivate ") + notice.title}>
+                          <MdOutlineArchive aria-hidden="true" /> {notice.isActive ? "Archive" : "Reactivate"}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
