@@ -182,6 +182,31 @@ test('teacher accounts cannot open administrator dashboard routes', async () => 
   await page.close();
 });
 
+test('administrator can open the class subject setup on mobile', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mockSchoolApi(page);
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('admin@example.com');
+  await page.locator('#login-password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+
+  await page.waitForURL((url) => url.pathname.endsWith('/dashboard/home'));
+  await page.goto(BASE_URL + '/dashboard/subjects');
+  await page.getByRole('heading', { name: 'Class subjects' }).waitFor();
+  await page.getByLabel('Class / standard').selectOption('ENG JR.');
+  assert.equal(await page.getByRole('textbox', { name: 'Subjects' }).count(), 1);
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  assert.ok(
+    dimensions.document <= dimensions.viewport + 1,
+    'Subject setup should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
+  );
+  await page.close();
+});
+
 test('invalid credentials show a readable error and keep the user on login', async () => {
   const page = await browser.newPage();
   await mockSchoolApi(page, { rejectLogin: true });
