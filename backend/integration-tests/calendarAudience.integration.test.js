@@ -124,6 +124,25 @@ test('single-school calendar events respect parent and teacher visibility while 
     const refreshedTeachers = await api('/api/teacher-portal/calendar', { role: 'teacher' });
     assert.ok(refreshedParents.data.events.every((event) => event.title !== 'Parents only'));
     assert.ok(refreshedTeachers.data.events.some((event) => event.title === 'Parents only'));
+
+    // A FullCalendar drag/resize update sends only the new dates. It must keep
+    // the existing audience instead of silently broadening the event to everyone.
+    const dragged = await api('/api/events/' + parentOnly._id, {
+      role: 'admin',
+      method: 'PUT',
+      body: {
+        start: new Date(new Date(parentOnly.start).getTime() + 86400000).toISOString(),
+        end: new Date(new Date(parentOnly.end).getTime() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(dragged.status, 200);
+    assert.equal(dragged.data.audience, 'teachers');
+
+    const refreshedAfterDragParents = await api('/api/parent-portal/calendar', { role: 'parent' });
+    const refreshedAfterDragTeachers = await api('/api/teacher-portal/calendar', { role: 'teacher' });
+    assert.ok(refreshedAfterDragParents.data.events.every((event) => event.title !== 'Parents only'));
+    assert.ok(refreshedAfterDragTeachers.data.events.some((event) => event.title === 'Parents only'));
+
     const refreshedAdmin = await api('/api/events', { role: 'admin' });
     assert.equal(refreshedAdmin.data.length, 3);
   });

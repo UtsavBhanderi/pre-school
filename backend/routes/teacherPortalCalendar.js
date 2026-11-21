@@ -46,6 +46,9 @@ router.get('/calendar', async (req, res) => {
         endsAt: event.end || event.start || null,
         color: event.color || '',
         audience: event.audience || 'all',
+        description: event.description || '',
+        location: event.location || '',
+        allDay: Boolean(event.allDay),
       })),
     });
   } catch (error) {

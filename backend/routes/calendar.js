@@ -40,7 +40,13 @@ router.put('/:id', async (req, res) => {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) updates[field] = req.body[field];
     }
     if (!Object.keys(updates).length) return res.status(400).json({ message: 'Make at least one calendar event change before saving.' });
-    const validation = validateCalendarEvent({ title: updates.title ?? event.title, start: updates.start ?? event.start, end: updates.end ?? event.end, color: updates.color ?? event.color });
+    const validation = validateCalendarEvent({
+      title: updates.title ?? event.title,
+      start: updates.start ?? event.start,
+      end: updates.end ?? event.end,
+      color: updates.color ?? event.color,
+      audience: updates.audience ?? event.audience ?? 'all',
+    });
     if (!validation.valid) return res.status(400).json({ message: validation.message });
     Object.assign(event, validation.value);
     await event.save();
