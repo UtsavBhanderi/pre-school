@@ -98,7 +98,7 @@ test('student deletion preserves parent, academic and paid-fee history', {
       password: 'ParentPassword123',
       role: 'parent',
     });
-    await ParentAccount.create({ userId: parent._id, studentIds: [student._id] });
+    await ParentAccount.create({ userId: parent._id, studentIds: [student._id], registeredPhone: '9876543210' });
     const response = await api('/api/students/' + student._id, { method: 'DELETE' });
     assert.equal(response.status, 409);
     assert.equal(response.data.code, 'STUDENT_PARENT_ACCESS_PRESERVED');
