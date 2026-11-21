@@ -12,6 +12,7 @@ export default function GalleryDashboard() {
   const [saving, setSaving] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
+  const [confirmingPhotoId, setConfirmingPhotoId] = useState("");
 
   const fetchPhotos = useCallback(async () => {
     setLoading(true);
@@ -84,15 +85,16 @@ export default function GalleryDashboard() {
   };
 
   const handleDelete = async (photo) => {
-    if (!window.confirm("Delete “" + (photo.title || "this image") + "” from the gallery?")) return;
     setPageError("");
     setPageSuccess("");
     try {
       await axios.delete(API_BASE_URL + "/api/gallery/" + photo._id);
       setPhotos((previous) => previous.filter((item) => item._id !== photo._id));
+      setConfirmingPhotoId("");
       if (currentPhoto?._id === photo._id) handleCancel();
       setPageSuccess("Gallery item deleted.");
     } catch (error) {
+      setConfirmingPhotoId("");
       setPageError(error.response?.data?.message || error.response?.data?.error || "Unable to delete this image.");
     }
   };
@@ -177,7 +179,14 @@ export default function GalleryDashboard() {
                 <p className="gallery-card-description">{photo.description || "No caption added."}</p>
                 <div className="d-flex gap-2 mt-auto">
                   <button type="button" className="btn btn-outline-primary btn-sm flex-grow-1" onClick={() => handleEdit(photo)}>Edit</button>
-                  <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(photo)}>Delete</button>
+                  {confirmingPhotoId === photo._id ? (
+                    <>
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(photo)}>Confirm delete</button>
+                      <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setConfirmingPhotoId("")}>Cancel</button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setConfirmingPhotoId(photo._id)}>Delete</button>
+                  )}
                 </div>
               </div>
             </article>

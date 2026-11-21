@@ -17,6 +17,8 @@ const AdminPdf = () => {
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [editingPdf, setEditingPdf] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const [filter, setFilter] = useState({
     title: "",
     standard: "",
@@ -139,16 +141,18 @@ const AdminPdf = () => {
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
+    setDeletingId(id); setPageError(""); setPageSuccess("");
     try {
-      // confirm("Are you sure you want to delete this PDF?") && 
       await axios.delete(`${linkone}/api/pdfs/${id}`);
-      setPdfs((prevPdfs) => prevPdfs.filter((pdf) => pdf._id !== id));
+      setPdfs((previous) => previous.filter((pdf) => pdf._id !== id));
+      setConfirmDeleteId("");
       setPageSuccess("PDF resource deleted.");
-      setPageError("");
     } catch (error) {
       console.error(error);
+      setConfirmDeleteId("");
       setPageError(error.response?.data?.message || "Unable to delete the PDF resource.");
-    }
+    } finally { setDeletingId(""); }
   };
 
   const handleCancel = () => {
@@ -361,10 +365,13 @@ const AdminPdf = () => {
                 <button
                   className="btn btn-sm btn-danger"
                   // onClick={() =>  handleDelete(pdf._id)}
-                  type="button" onClick={() => confirm("Are you sure you want to delete this PDF?") && handleDelete(pdf._id)}
+                  type="button" onClick={() => confirmDeleteId === pdf._id ? handleDelete(pdf._id) : setConfirmDeleteId(pdf._id)} disabled={Boolean(deletingId)}
                 >
-                  Delete
+                  {confirmDeleteId === pdf._id ? "Confirm delete" : "Delete"}
                 </button>
+                {confirmDeleteId === pdf._id && (
+                  <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => setConfirmDeleteId("")} disabled={Boolean(deletingId)}>Cancel</button>
+                )}
               </td>
             </tr>
           ))}

@@ -269,10 +269,18 @@ const Fees = () => {
     saveAs(data, "students.xlsx");
   };
   function exportToExcelConfirm() {
-    confirm("confirm download") && exportToExcel();
+    setPageError("");
+    exportToExcel();
+    setPageSuccess("Fee register exported successfully.");
   }
   function exportCheckedToExcelConfirm() {
-    confirm("confirm download") && exportCheckedToExcel();
+    setPageError("");
+    if (!selectedStudents.length) {
+      setPageError("Select at least one student before exporting.");
+      return;
+    }
+    exportCheckedToExcel();
+    setPageSuccess("Selected fee records exported successfully.");
   }
 
   {

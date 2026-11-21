@@ -17,6 +17,8 @@ const AdminVideo = () => {
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [editingVideo, setEditingVideo] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const [filter, setFilter] = useState({
     title: "",
     standard: "",
@@ -139,15 +141,18 @@ const AdminVideo = () => {
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
+    setDeletingId(id); setPageError(""); setPageSuccess("");
     try {
-      await axios.delete(`${linkone}` + `/api/videos/${id}`);
-      setVideos((prevVideos) => prevVideos.filter((video) => video._id !== id));
+      await axios.delete(`${linkone}/api/videos/${id}`);
+      setVideos((previous) => previous.filter((video) => video._id !== id));
+      setConfirmDeleteId("");
       setPageSuccess("Video resource deleted.");
-      setPageError("");
     } catch (error) {
       console.error(error);
+      setConfirmDeleteId("");
       setPageError(error.response?.data?.message || "Unable to delete the video resource.");
-    }
+    } finally { setDeletingId(""); }
   };
 
   const handleCancel = () => {
@@ -357,10 +362,13 @@ const AdminVideo = () => {
                 <button
                   className="btn btn-sm btn-danger"
                   // onClick={() => handleDelete(video._id)}
-                  type="button" onClick={() => confirm("Delete this video resource?") && handleDelete(video._id)}
+                  type="button" onClick={() => confirmDeleteId === video._id ? handleDelete(video._id) : setConfirmDeleteId(video._id)} disabled={Boolean(deletingId)}
                 >
-                  Delete
+                  {confirmDeleteId === video._id ? "Confirm delete" : "Delete"}
                 </button>
+                {confirmDeleteId === video._id && (
+                  <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => setConfirmDeleteId("")} disabled={Boolean(deletingId)}>Cancel</button>
+                )}
               </td>
             </tr>
           ))}
