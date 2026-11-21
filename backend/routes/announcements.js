@@ -3,20 +3,23 @@
 const express = require('express');
 const Announcement = require('../models/Announcement');
 const adminOnly = require('../middleware/adminOnly');
+const { audiencesForAnnouncementRole } = require('../utils/announcementAudience');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  const audiences = audiencesForAnnouncementRole(req.user?.role);
+  if (!audiences) return res.status(403).json({ message: 'This account cannot view school notices.' });
   try {
     const now = new Date();
     const notices = await Announcement.find({
       isActive: true,
       startsAt: { $lte: now },
       $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }],
-      audience: req.user?.role === 'teacher' ? { $in: ['all', 'teachers', 'both'] } : { $in: ['parents', 'both'] },
-    }).sort({ createdAt: -1 }).lean();
+      audience: { $in: audiences },
+    }).sort({ createdAt: -1, _id: -1 }).lean();
     return res.json(notices);
   } catch (error) {
-    console.error('Unable to load school notices:', error);
+    console.error('Unable to load school notices:', error?.name || 'database_error');
     return res.status(500).json({ message: 'Unable to load school notices.' });
   }
 });

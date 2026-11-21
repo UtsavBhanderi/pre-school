@@ -38,6 +38,7 @@ export default function ParentEngagement() {
   const [complaints, setComplaints] = useState([]);
   const [polls, setPolls] = useState([]);
   const [schoolMessages, setSchoolMessages] = useState([]);
+  const [schoolNotices, setSchoolNotices] = useState([]);
   const [form, setForm] = useState({ studentId: "", category: "general", subject: "", message: "" });
   const [notes, setNotes] = useState({});
   const [selections, setSelections] = useState({});
@@ -54,16 +55,18 @@ export default function ParentEngagement() {
       const childRows = Array.isArray(childResult.children) ? childResult.children : [];
       setChildren(childRows);
       setForm((old) => ({ ...old, studentId: old.studentId || childRows[0]?.id || "" }));
-      const [homeworkResult, complaintResult, pollResult, messageResult] = await Promise.all([
+      const [homeworkResult, complaintResult, pollResult, messageResult, noticeResult] = await Promise.all([
         request("/api/school-engagement/parent/homework"),
         request("/api/school-engagement/parent/complaints"),
         request("/api/school-engagement/parent/polls"),
         request("/api/school-engagement/parent/messages"),
+        request("/api/announcements"),
       ]);
       setHomework(homeworkResult.homework || []);
       setComplaints(complaintResult.complaints || []);
       setPolls(pollResult.polls || []);
       setSchoolMessages(messageResult.messages || []);
+      setSchoolNotices(Array.isArray(noticeResult) ? noticeResult : []);
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Parent engagement information could not be loaded.");
     } finally {
@@ -140,7 +143,8 @@ export default function ParentEngagement() {
     { id: "homework", label: "Homework", icon: MdAssignment },
     { id: "complaints", label: "Messages to school", icon: MdFeedback },
     { id: "polls", label: "Polls", icon: MdPoll },
-    { id: "schoolMessages", label: "From school", icon: MdCampaign },
+    { id: "schoolMessages", label: "Messages", icon: MdCampaign },
+    { id: "notices", label: "School notices", icon: MdCampaign },
   ];
 
   return (
@@ -228,6 +232,25 @@ export default function ParentEngagement() {
                 </article>
               ))}</div> : <Empty title="No messages yet" detail="Your private messages and school replies will appear here." />}
             </>
+          )}
+
+          {tab === "notices" && (
+            <div className="legacy-parent-card-list">
+              {schoolNotices.length ? schoolNotices.map((item) => (
+                <article className="legacy-parent-card" key={item._id}>
+                  <div className="legacy-parent-panel-heading">
+                    <div><h3>{item.title}</h3><small>{item.priority || "normal"} · Published {formatDate(item.createdAt)}</small></div>
+                    <span className={"legacy-parent-status " + (item.priority === "urgent" ? "absent" : item.priority === "important" ? "due" : "present")}>
+                      {item.priority || "normal"}
+                    </span>
+                  </div>
+                  <p className="parent-engagement-preserve">{item.message}</p>
+                  <small className="parent-engagement-note">
+                    {item.expiresAt ? "Available until " + formatDate(item.expiresAt) : "Shared by your preschool"}
+                  </small>
+                </article>
+              )) : <Empty title="No current school notices" detail="Important school updates and reminders will appear here." />}
+            </div>
           )}
 
           {tab === "schoolMessages" && (

@@ -27,6 +27,7 @@ test('single-school parent engagement supports homework, private messages and po
   const ParentComplaint = require('../models/ParentComplaint');
   const ParentPoll = require('../models/ParentPoll');
   const SchoolMessage = require('../models/SchoolMessage');
+  const Announcement = require('../models/Announcement');
 
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
   const server = app.listen(0);
@@ -73,7 +74,7 @@ test('single-school parent engagement supports homework, private messages and po
 
   t.after(async () => {
     await Promise.allSettled([
-      HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}), SchoolMessage.deleteMany({}),
+      HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}), SchoolMessage.deleteMany({}), Announcement.deleteMany({}),
       ParentAccount.deleteMany({}), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id] } }),
       User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id] } }),
       mongoose.connection.dropDatabase(),
@@ -151,6 +152,41 @@ test('single-school parent engagement supports homework, private messages and po
     assert.equal(JSON.stringify(staffPolls.data.polls[0]).includes(String(parent._id)), false);
   });
 
+  await t.test('school notices are available to parents and teachers according to audience', async () => {
+    const everyoneNotice = await api('/api/announcements', {
+      token: adminToken, method: 'POST',
+      body: { title: 'Everyone welcome', message: 'The school picnic is on Friday.', audience: 'all' },
+    });
+    assert.equal(everyoneNotice.status, 201);
+    const parentNotices = await api('/api/announcements', { token: parentToken });
+    const teacherNotices = await api('/api/announcements', { token: teacherToken });
+    assert.equal(parentNotices.status, 200);
+    assert.equal(teacherNotices.status, 200);
+    assert.ok(parentNotices.data.some((item) => item._id === everyoneNotice.data.announcement._id));
+    assert.ok(teacherNotices.data.some((item) => item._id === everyoneNotice.data.announcement._id));
+
+    const teachersOnly = await api('/api/announcements', {
+      token: adminToken, method: 'POST',
+      body: { title: 'Staff reminder', message: 'Please meet in the staff room.', audience: 'teachers' },
+    });
+    assert.equal(teachersOnly.status, 201);
+    const refreshedParents = await api('/api/announcements', { token: parentToken });
+    const refreshedTeachers = await api('/api/announcements', { token: teacherToken });
+    assert.ok(refreshedParents.data.every((item) => item._id !== teachersOnly.data.announcement._id));
+    assert.ok(refreshedTeachers.data.some((item) => item._id === teachersOnly.data.announcement._id));
+
+    const parentsOnly = await api('/api/announcements', {
+      token: adminToken, method: 'POST',
+      body: { title: 'Family reminder', message: 'Please update your contact details.', audience: 'parents' },
+    });
+    assert.equal(parentsOnly.status, 201);
+    const finalParents = await api('/api/announcements', { token: parentToken });
+    const finalTeachers = await api('/api/announcements', { token: teacherToken });
+    assert.ok(finalParents.data.some((item) => item._id === parentsOnly.data.announcement._id));
+    assert.ok(finalTeachers.data.every((item) => item._id !== parentsOnly.data.announcement._id));
+    const parentManageDenied = await api('/api/announcements/manage', { token: parentToken });
+    assert.equal(parentManageDenied.status, 403);
+  });
   await t.test('admin messages and teacher polls are delivered only to their selected audiences', async () => {
     const teachersOnly = await api('/api/school-engagement/staff/messages', {
       token: adminToken, method: 'POST',

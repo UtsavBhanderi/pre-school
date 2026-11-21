@@ -146,7 +146,7 @@ app.use(['/api/organizations', '/api/invitations', '/api/saas'], saasUnavailable
 // Teachers can submit and view their own work reports; administrative listing
 // is separately protected inside the report router.
 app.use('/api/dailyWorkReport', auth, legacySingleTenantOnly, staffOnly, dailyWorkReportRoutes);
-app.use('/api/announcements', auth, legacySingleTenantOnly, staffOnly, announcementsRoutes);
+app.use('/api/announcements', auth, legacySingleTenantOnly, announcementsRoutes);
 
 // Legacy school-management APIs require an authenticated administrator. Local private media URLs are signed by the response middleware.
 app.use('/api/gallery', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, galleryRoutes);
