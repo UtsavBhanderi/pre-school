@@ -680,7 +680,7 @@ function NewTeacherRegister() {
             <div className="modal-body">
               <form onSubmit={handleSubmit}>
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="selfPhoto" className="form-label">
                       Teacher Photo
                     </label>
@@ -693,7 +693,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="motherPhoto" className="form-label">
                       Mother Photo
                     </label>
@@ -706,7 +706,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="fatherPhoto" className="form-label">
                       Father Photo
                     </label>
@@ -721,7 +721,7 @@ function NewTeacherRegister() {
                   </div>
                 </div>
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="firstName" className="form-label">
                       First Name
                     </label>
@@ -736,7 +736,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="middleName" className="form-label">
                       Middle Name
                     </label>
@@ -751,7 +751,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="lastName" className="form-label">
                       Last Name
                     </label>
@@ -768,7 +768,7 @@ function NewTeacherRegister() {
                   </div>
                 </div>
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="gender" className="form-label">
                       Gender
                     </label>
@@ -786,7 +786,7 @@ function NewTeacherRegister() {
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="dob" className="form-label">
                       Date of Birth
                     </label>
@@ -800,7 +800,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     {/* <input type="text" className="form-control" id="bloodGroup" name="bloodGroup" value={teacher.bloodGroup} onChange={handleChange} required />  */}
                     <label htmlFor="bloodGroup" className="form-label">
                       Blood Group
@@ -827,7 +827,7 @@ function NewTeacherRegister() {
                   </div>
                 </div>
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="religion" className="form-label">
                       Religion
                     </label>
@@ -850,7 +850,7 @@ function NewTeacherRegister() {
                     </select>
                   </div>
 
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="cast" className="form-label">
                       Cast
                     </label>
@@ -870,12 +870,12 @@ function NewTeacherRegister() {
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  {/* <div className="mb-3 col-4">
+                  {/* <div className="mb-3 col-12 col-md-6 col-lg-4">
                   <label htmlFor="nationality" className="form-label">Nationality</label>
                   <input type="text" className="form-control" id="nationality" name="nationality" value={teacher.nationality} onChange={handleChange} required />
                 </div> */}
 
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     {/* <input type="text" className="form-control" id="motherTongue" name="motherTongue" value={teacher.motherTongue} onChange={handleChange} required /> */}
                     <label htmlFor="motherTongue" className="form-label">
                       Mother Tongue
@@ -897,7 +897,7 @@ function NewTeacherRegister() {
                   </div>
                 </div>
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="address" className="form-label">
                       Address
                     </label>
@@ -911,7 +911,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="RegisterPhoneNumber" className="form-label">
                       Register Mobile Number
                     </label>
@@ -926,7 +926,7 @@ function NewTeacherRegister() {
                     />
                   </div>
 
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="standard" className="form-label">
                       Standard
                     </label>
@@ -953,7 +953,7 @@ function NewTeacherRegister() {
                   </div>
                 </div>
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="Problem" className="form-label">
                       Teacher Problem
                     </label>
@@ -967,7 +967,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="GR_No" className="form-label">
                       GR_No
                     </label>
@@ -984,7 +984,7 @@ function NewTeacherRegister() {
                 </div>
 
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="MotherMobileNumber" className="form-label">
                       Father Mobile No.
                     </label>
@@ -998,7 +998,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="FatherMobileNumber" className="form-label">
                       Mother Phone No.
                     </label>
@@ -1012,7 +1012,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label
                       htmlFor="EmergencyPhoneNumber"
                       className="form-label"
@@ -1029,7 +1029,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="Email" className="form-label">
                       Email ID.
                     </label>
@@ -1046,7 +1046,7 @@ function NewTeacherRegister() {
                 </div>
 
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="Village" className="form-label">
                       Village
                     </label>
@@ -1060,7 +1060,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="Taluka" className="form-label">
                       Taluka
                     </label>
@@ -1074,7 +1074,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="District" className="form-label">
                       District
                     </label>
@@ -1091,7 +1091,7 @@ function NewTeacherRegister() {
                 </div>
 
                 <div className="row">
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="drivingLicence" className="form-label">
                       Driving Licence No.
                     </label>
@@ -1105,7 +1105,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="vehical" className="form-label">
                       Vehical
                     </label>
@@ -1119,7 +1119,7 @@ function NewTeacherRegister() {
                       required={!isEdit}
                     />
                   </div>
-                  <div className="mb-3 col-4">
+                  <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="married" className="form-label">
                       Married
                     </label>

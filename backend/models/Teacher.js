@@ -26,7 +26,7 @@ const teacherSchema = new mongoose.Schema({
   Village: { type: String },
   Taluka: { type: String },
   District: { type: String },
-  drivingLicence: { type: Number },
+  drivingLicence: { type: String, trim: true },
   vehical: { type: String, required: false },
   married: { type: Boolean }
 });
