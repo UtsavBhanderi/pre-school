@@ -90,6 +90,35 @@ test('report templates preserve saved student marks and historical grading scale
   });
   await student.save();
 
+  await t.test('DOCX export uses the full student name and validates the report relationship', async () => {
+    const response = await fetch(
+      new URL('/api/docx/generate-docx/' + student._id + '/' + historicalReport._id, 'http://127.0.0.1:' + server.address().port),
+      { headers: { 'x-auth-token': token } },
+    );
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') || '', /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/);
+    assert.match(response.headers.get('content-disposition') || '', /Progress_Report_Aarav_Test_/);
+    assert.ok((await response.arrayBuffer()).byteLength > 500);
+
+    const invalid = await fetch(
+      new URL('/api/docx/generate-docx/not-an-id/' + historicalReport._id, 'http://127.0.0.1:' + server.address().port),
+      { headers: { 'x-auth-token': token } },
+    );
+    assert.equal(invalid.status, 400);
+
+    const unrelated = await ReportCard.create({
+      reportName: 'Not linked ' + tag,
+      standard: 'ENG JR.',
+      description: '100',
+      students: [],
+    });
+    const forbidden = await fetch(
+      new URL('/api/docx/generate-docx/' + student._id + '/' + unrelated._id, 'http://127.0.0.1:' + server.address().port),
+      { headers: { 'x-auth-token': token } },
+    );
+    assert.equal(forbidden.status, 403);
+  });
+
   await t.test('saved marks prevent deletion of their report template', async () => {
     const response = await api('/api/reportCard/' + historicalReport._id, { method: 'DELETE' });
     assert.equal(response.status, 409);
