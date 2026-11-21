@@ -692,7 +692,8 @@ const NewStudentRegister = () => {
     const dateToFullWords = (dateString) => {
         if (!dateString) return "";
 
-        const date = new Date(dateString);
+        const date = parseStudentDate(dateString);
+        if (!date) return "";
 
         if (Number.isNaN(date.getTime())) {
             return "";
