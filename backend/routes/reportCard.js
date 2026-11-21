@@ -98,7 +98,9 @@ router.get('/:reportId/roster', async (req, res) => {
     const [students, subjectConfig] = await Promise.all([
       // Always use the current class roster. A report created before a new
       // admission must still include that child.
-      Student.find({ standard: report.standard })
+      // Merge current admissions with the original template roster so
+      // students who later move classes retain access to historical results.
+      Student.find({ $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
         .select('firstName middleName lastName stuNo standard marks')
         .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
         .lean(),
@@ -106,7 +108,7 @@ router.get('/:reportId/roster', async (req, res) => {
     ]);
     await ReportCard.updateOne(
       { _id: report._id },
-      { $set: { students: students.map((student) => student._id) } },
+      { $addToSet: { students: { $each: students.map((student) => student._id) } } },
     );
     return res.json({
       report: { _id: report._id, reportName: report.reportName, standard: report.standard, outOfMarks: Number(report.description) },
@@ -123,13 +125,13 @@ router.get('/:reportId/students', async (req, res) => {
   try {
     const report = await ReportCard.findById(req.params.reportId).select('reportName standard').lean();
     if (!report) return res.status(404).json({ message: 'Report template not found.' });
-    const roster = await Student.find({ standard: report.standard })
+    const roster = await Student.find({ $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
       .select('firstName middleName lastName stuNo standard marks')
       .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
       .lean();
     await ReportCard.updateOne(
       { _id: report._id },
-      { $set: { students: roster.map((student) => student._id) } },
+      { $addToSet: { students: { $each: roster.map((student) => student._id) } } },
     );
     const students = roster.map((student) => {
       const result = (student.marks || []).find((item) => String(item.reportId || '') === String(report._id));
