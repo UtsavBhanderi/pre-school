@@ -54,8 +54,7 @@ router.post('/', upload.fields([{ name: 'selfPhoto', maxCount: 1 }, { name: 'mot
         const batchYear = new Date().getFullYear() + '-' + (new Date().getFullYear() + 1);
 
         const profileData = pickProfileFields(req.body, TEACHER_PROFILE_FIELDS);
-        if (profileData.Email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(profileData.Email)) {
-            await cleanupRequestUploads(req);
+        if (profileData.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileData.Email)) {
             await cleanupRequestUploads(req);
             return res.status(400).json({ message: 'Enter a valid teacher email address.' });
         }
@@ -269,7 +268,7 @@ router.put('/:id', upload.fields([
         if (files.selfPhoto?.[0]) updatedTeacher.selfPhoto = `uploads/teachers/${files.selfPhoto[0].filename}`;
         if (files.motherPhoto?.[0]) updatedTeacher.motherPhoto = `uploads/teachers/${files.motherPhoto[0].filename}`;
         if (files.fatherPhoto?.[0]) updatedTeacher.fatherPhoto = `uploads/teachers/${files.fatherPhoto[0].filename}`;
-        if (updatedTeacher.Email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(updatedTeacher.Email)) {
+        if (updatedTeacher.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updatedTeacher.Email)) {
             return res.status(400).json({ message: 'Enter a valid teacher email address.' });
         }
         if (updatedTeacher.Email) updatedTeacher.Email = updatedTeacher.Email.toLowerCase();
