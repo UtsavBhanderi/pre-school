@@ -6,6 +6,7 @@ const nodemailer = require('nodemailer');
 const Fees = require('../models/Fee');
 const { STANDARD_FEES } = require('../config/standardFees');
 const { asAmount, calculateRemaining } = require('../utils/feeMath');
+const { validateFeeAmounts } = require('../utils/feeValidation');
 
 const router = express.Router();
 
@@ -139,76 +140,74 @@ router.get('/all', async (req, res) => {
 });
 
 router.post('/create', async (req, res) => {
+  const body = req.body || {};
+  const amounts = validateFeeAmounts({
+    totalStandardFees: body.totalStandardFees, discount: body.discount ?? 0,
+    paymentDetails: body.paymentDetails ?? [], totalFeesPaid: body.totalFeesPaid ?? 0,
+    paymentDetailsProvided: Array.isArray(body.paymentDetails),
+  });
+  if (!amounts.valid) return res.status(400).json({ message: amounts.message });
+  const studentName = typeof body.studentName === 'string' ? body.studentName.trim() : '';
+  const standard = typeof body.standard === 'string' ? body.standard.trim() : '';
+  const batchYear = typeof body.batchYear === 'string' ? body.batchYear.trim() : '';
+  if (!studentName || studentName.length > 150) return res.status(400).json({ message: 'Enter the student name (up to 150 characters).' });
+  if (!standard || standard.length > 60) return res.status(400).json({ message: 'Choose a valid class.' });
+  if (!batchYear || batchYear.length > 12) return res.status(400).json({ message: 'Choose a valid school year.' });
   try {
-    const totalStandardFees = asAmount(req.body.totalStandardFees);
-    const discount = asAmount(req.body.discount);
-    const paymentDetails = Array.isArray(req.body.paymentDetails) ? req.body.paymentDetails : [];
-    const totalFeesPaid = paymentDetails.length
-      ? sumPaymentDetails(paymentDetails)
-      : asAmount(req.body.totalFeesPaid);
-
+    const feeData = { studentName, standard, batchYear, ...amounts.value };
+    const optionalTextFields = ['studentPhoneNumber', 'ParentsPhoneNumber', 'ParentsMobileNumber', 'EmergencyMobileNumber', 'parentEmail', 'stuNo'];
+    for (const field of optionalTextFields) if (typeof body[field] === 'string') feeData[field] = body[field].trim();
+    if (feeData.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(feeData.parentEmail)) {
+      return res.status(400).json({ message: 'Enter a valid parent email address.' });
+    }
     const fee = await Fees.create({
-      ...req.body,
-      totalStandardFees,
-      totalFeesPaid,
-      discount,
-      paymentDetails,
-      totalFeesRemaining: calculateRemaining(totalStandardFees, totalFeesPaid, discount),
+      ...feeData,
+      totalFeesRemaining: calculateRemaining(amounts.value.totalStandardFees, amounts.value.totalFeesPaid, amounts.value.discount),
     });
     return res.status(201).json(fee);
   } catch (error) {
-    console.error('Failed to create fee record:', error);
-    return res.status(400).json({ message: 'Unable to create fee record.' });
+    console.error('Failed to create fee record:', error?.name || 'database_error');
+    return res.status(400).json({ message: 'Unable to create fee record. Check the details and try again.' });
   }
 });
 
 router.put('/update/:id', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Invalid fee record ID.' });
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid fee record ID.' });
-    }
-
     const existing = await Fees.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Fee record not found.' });
-
-    const paymentDetails = Array.isArray(req.body.paymentDetails)
-      ? req.body.paymentDetails
-      : existing.paymentDetails;
-    const totalStandardFees = asAmount(req.body.totalStandardFees, asAmount(existing.totalStandardFees));
-    const discount = asAmount(req.body.discount, asAmount(existing.discount));
-    const totalFeesPaid = Array.isArray(req.body.paymentDetails)
-      ? sumPaymentDetails(paymentDetails)
-      : asAmount(req.body.totalFeesPaid, asAmount(existing.totalFeesPaid));
-
-    const { _id, __v, ...payload } = req.body;
-    const updates = {
-      ...payload,
-      paymentDetails,
-      totalStandardFees,
-      totalFeesPaid,
-      discount,
-      totalFeesRemaining: calculateRemaining(totalStandardFees, totalFeesPaid, discount),
-    };
-
-    const updatedFees = await Fees.findByIdAndUpdate(
-      req.params.id,
-      { $set: updates },
-      { new: true, runValidators: true }
-    );
-
-    // Do not fail a valid fee update because the optional email integration is unavailable.
-    if (totalFeesPaid > asAmount(existing.totalFeesPaid)) {
-      try {
-        await sendFeeEmail(updatedFees);
-      } catch (emailError) {
-        console.error('Fee record saved, but email notification failed:', emailError.message);
+    const body = req.body || {};
+    const paymentDetailsProvided = Array.isArray(body.paymentDetails);
+    const paymentDetails = paymentDetailsProvided ? body.paymentDetails : existing.paymentDetails;
+    const amounts = validateFeeAmounts({
+      totalStandardFees: body.totalStandardFees ?? existing.totalStandardFees,
+      discount: body.discount ?? existing.discount, paymentDetails,
+      totalFeesPaid: body.totalFeesPaid ?? existing.totalFeesPaid, paymentDetailsProvided,
+    });
+    if (!amounts.valid) return res.status(400).json({ message: amounts.message });
+    const updates = { ...amounts.value };
+    const allowedTextFields = ['studentName', 'studentPhoneNumber', 'ParentsPhoneNumber', 'ParentsMobileNumber', 'EmergencyMobileNumber', 'parentEmail', 'batchYear', 'standard', 'stuNo'];
+    for (const field of allowedTextFields) {
+      if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
+      if (typeof body[field] !== 'string' || body[field].trim().length > (field === 'studentName' ? 150 : 120)) {
+        return res.status(400).json({ message: 'Check the ' + field + ' value and try again.' });
       }
+      updates[field] = body[field].trim();
     }
-
+    if (updates.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.parentEmail)) return res.status(400).json({ message: 'Enter a valid parent email address.' });
+    if (updates.standard !== undefined && !updates.standard) return res.status(400).json({ message: 'Choose a valid class.' });
+    if (updates.batchYear !== undefined && !updates.batchYear) return res.status(400).json({ message: 'Choose a valid school year.' });
+    updates.totalFeesRemaining = calculateRemaining(amounts.value.totalStandardFees, amounts.value.totalFeesPaid, amounts.value.discount);
+    const updatedFees = await Fees.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
+    if (!updatedFees) return res.status(404).json({ message: 'Fee record not found.' });
+    if (amounts.value.totalFeesPaid > asAmount(existing.totalFeesPaid)) {
+      try { await sendFeeEmail(updatedFees); }
+      catch (emailError) { console.error('Fee record saved, but email notification failed:', emailError?.name || 'email_error'); }
+    }
     return res.json(updatedFees);
   } catch (error) {
-    console.error('Failed to update fee record:', error);
-    return res.status(400).json({ message: 'Unable to update fee record.' });
+    console.error('Failed to update fee record:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'Unable to update fee record. Please try again.' });
   }
 });
 
