@@ -89,8 +89,13 @@ function TeacherBirthday() {
     }
   
       if (filters.middleName) {
-          filtered = filtered.filter(teacher =>
-              String(teacher.middleName || '').toLowerCase().includes(filters.middleName.toLowerCase())
+          const searchName = filters.middleName.toLowerCase();
+          filtered = filtered.filter((teacher) =>
+            [teacher.firstName, teacher.middleName, teacher.lastName]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(searchName)
           );
       }
   
@@ -142,8 +147,8 @@ function TeacherBirthday() {
             end = new Date(now.getFullYear(), now.getMonth(), 0);
             break;
         default:
-            start = new Date(dateFilter);
-            end = new Date(dateFilter);
+            start = parseCalendarDate(dateFilter) || new Date(Number.NaN);
+            end = start;
             break;
     }
       return { start, end };
@@ -155,7 +160,9 @@ function TeacherBirthday() {
       <div className="page-header"><div><h2 className="mb-0">Teacher birthdays</h2><p className="page-subtitle">Find staff birthdays by date range, name, class, or teacher number.</p></div><span className="badge text-bg-light border px-3 py-2">{filteredTeachers.length} results</span></div>
       <div className="filter-panel mb-3" aria-label="Filter teacher birthdays">
         <div className="col">
+          <label htmlFor="teacher-birthday-range">Date range</label>
           <select
+            id="teacher-birthday-range"
             value={filters.date}
             className="form-select"
             onChange={(e) =>
@@ -173,8 +180,9 @@ function TeacherBirthday() {
           </select>
         </div>
         <div className="col">
-          <label>Date:</label>
+          <label htmlFor="teacher-birthday-date">Exact birthday date</label>
           <input
+            id="teacher-birthday-date"
             type="date"
             value={filters.dob}
             className="form-control"
@@ -184,9 +192,10 @@ function TeacherBirthday() {
           />
         </div>
         <div className="col">
-          <label>Middle Name:</label>
+          <label htmlFor="teacher-birthday-name">Teacher name</label>
           <input
-            type="text"
+            id="teacher-birthday-name"
+            type="search"
             value={filters.middleName}
             className="form-control"
             onChange={(e) =>
@@ -195,20 +204,22 @@ function TeacherBirthday() {
           />
         </div>
         <div className="col">
-          <label>standard:</label>
-          <input
-            type="text"
+          <label htmlFor="teacher-birthday-standard">Class / standard</label>
+          <select
+            id="teacher-birthday-standard"
             value={filters.standard}
-            className="form-control"
-            onChange={(e) =>
-              setFilters({ ...filters, standard: e.target.value })
-            }
-          />
+            className="form-select"
+            onChange={(e) => setFilters({ ...filters, standard: e.target.value })}
+          >
+            <option value="">All classes</option>
+            {TEACHER_STANDARDS.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
+          </select>
         </div>
         <div className="col">
-          <label>Teacher No:</label>
+          <label htmlFor="teacher-birthday-number">Teacher number</label>
           <input
-            type="text"
+            id="teacher-birthday-number"
+            type="search"
             value={filters.GR_No}
             className="form-control"
             onChange={(e) => setFilters({ ...filters, GR_No: e.target.value })}
