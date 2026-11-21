@@ -14,6 +14,8 @@ const CalendarPage = () => {
   const [savingEvent, setSavingEvent] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
+  const [confirmDeleteEvent, setConfirmDeleteEvent] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
 
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -47,6 +49,7 @@ const CalendarPage = () => {
 
   // Open modal to create a new event
   const handleDateClick = (info) => {
+    setConfirmDeleteEvent(false);
     setModalEvent({
       title: "",
       start: info.dateStr.length === 10 ? info.dateStr + "T09:00" : info.dateStr.slice(0, 16),
@@ -59,6 +62,7 @@ const CalendarPage = () => {
 
   // Open modal to edit an existing event
   const handleEventClick = (clickInfo) => {
+      setConfirmDeleteEvent(false);
       setModalEvent({
       id: clickInfo.event.id || clickInfo.event._def.extendedProps._id,
       title: clickInfo.event.title,
@@ -113,21 +117,16 @@ const CalendarPage = () => {
 
   // Delete an event
   const handleEventDelete = async () => {
-    if (!modalEvent.id) {
-      alert("No event ID is available for deletion.");
-      return;
-    }
-
+    if (!modalEvent.id || deletingEvent) { setPageError("The selected event could not be identified. Close this window and select it again."); return; }
+    setDeletingEvent(true); setPageError(""); setPageSuccess("");
     try {
-      await axios.delete(`${linkone}/api/events/${modalEvent.id}`);
-      setEvents((previous) => previous.filter(
-        (event) => String(event._id || event.id) !== String(modalEvent.id)
-      ));
-      setShowModal(false);
+      await axios.delete(linkone + "/api/events/" + modalEvent.id);
+      setEvents((previous) => previous.filter((event) => String(event._id || event.id) !== String(modalEvent.id)));
+      setPageSuccess("Calendar event deleted."); setConfirmDeleteEvent(false); setShowModal(false);
     } catch (error) {
       console.error("Unable to delete calendar event:", error);
-      alert(error.response?.data?.message || "Unable to delete the calendar event.");
-    }
+      setPageError(error.response?.data?.message || "Unable to delete the calendar event.");
+    } finally { setDeletingEvent(false); }
   };
 
   // Handle form input changes
@@ -204,6 +203,7 @@ const CalendarPage = () => {
                 <Form.Label>Event Title</Form.Label>
                 <Form.Control
                   type="text"
+                  maxLength={120}
                   placeholder="Enter event title"
                   name="title"
                   value={modalEvent.title}
@@ -244,24 +244,24 @@ const CalendarPage = () => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          {modalEvent.isEdit && (
-            // <Button variant="danger" onClick={handleEventDelete}>
-            <Button
-              variant="danger"
-              onClick={() =>
-                confirm("Are you sure you want to delete this event?") &&
-                handleEventDelete()
-              }
-            >
-              Delete Event
-            </Button>
+          {modalEvent.isEdit && !confirmDeleteEvent && (
+            <Button variant="outline-danger" onClick={() => setConfirmDeleteEvent(true)} disabled={savingEvent || deletingEvent}>Delete event</Button>
           )}
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
-            Close
-          </Button>
-          <Button variant="primary" onClick={handleSaveEvent} disabled={savingEvent}>
-            {savingEvent ? "Saving…" : modalEvent.isEdit ? "Save changes" : "Create event"}
-          </Button>
+          {confirmDeleteEvent && (
+            <div className="w-100 me-auto">
+              <div className="alert alert-warning mb-2" role="alert">Delete this event? This action cannot be undone.</div>
+              <div className="d-flex gap-2">
+                <Button variant="outline-secondary" onClick={() => setConfirmDeleteEvent(false)} disabled={deletingEvent}>Keep event</Button>
+                <Button variant="danger" onClick={handleEventDelete} disabled={deletingEvent}>{deletingEvent ? "Deleting…" : "Confirm delete"}</Button>
+              </div>
+            </div>
+          )}
+          {!confirmDeleteEvent && (
+            <>
+              <Button variant="secondary" onClick={() => setShowModal(false)} disabled={savingEvent || deletingEvent}>Close</Button>
+              <Button variant="primary" onClick={handleSaveEvent} disabled={savingEvent || deletingEvent}>{savingEvent ? "Saving…" : modalEvent.isEdit ? "Save changes" : "Create event"}</Button>
+            </>
+          )}
         </Modal.Footer>
       </Modal>
     </div>
