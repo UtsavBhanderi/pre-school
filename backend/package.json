@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test",
     "start": "node server.js",
-    "test:integration": "node --test integration-tests/legacyParentAccess.integration.test.js integration-tests/legacyParentDirectLogin.integration.test.js integration-tests/legacyParentEngagement.integration.test.js integration-tests/legacyTeacherAccount.integration.test.js integration-tests/reportCardHistory.integration.test.js integration-tests/feeHistory.integration.test.js integration-tests/subjectConfig.integration.test.js integration-tests/studentDeletion.integration.test.js",
+    "test:integration": "node --test integration-tests/legacyParentAccess.integration.test.js integration-tests/legacyParentDirectLogin.integration.test.js integration-tests/legacyParentEngagement.integration.test.js integration-tests/legacyTeacherAccount.integration.test.js integration-tests/reportCardHistory.integration.test.js integration-tests/feeHistory.integration.test.js integration-tests/subjectConfig.integration.test.js integration-tests/studentDeletion.integration.test.js integration-tests/calendarAudience.integration.test.js",
     "migration:preflight": "node legacyMigrationPreflight.js",
     "migration:tenant": "node legacyTenantMigration.js",
     "migration:staff": "node legacyStaffMigration.js",

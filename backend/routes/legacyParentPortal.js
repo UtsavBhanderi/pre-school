@@ -233,14 +233,19 @@ router.get('/calendar', requireParentAccount, async (req, res) => {
   try {
     const events = await Calendar.find({
       start: { $lt: range.endExclusive },
-      $or: [{ end: null }, { end: { $gte: range.from } }],
-    }).select('title start end color').sort({ start: 1 }).limit(250).lean();
+      $and: [
+        { $or: [{ end: null }, { end: { $gte: range.from } }] },
+        // Old events without an audience keep their previous Everyone visibility.
+        { $or: [{ audience: { $in: ['all', 'parents'] } }, { audience: { $exists: false } }] },
+      ],
+    }).select('title start end color audience').sort({ start: 1 }).limit(250).lean();
     return res.json({ events: events.map((event) => ({
       id: String(event._id),
       title: event.title || 'School event',
       startsAt: event.start || null,
       endsAt: event.end || event.start || null,
       color: event.color || '',
+      audience: event.audience || 'all',
     })) });
   } catch (error) {
     console.error('Unable to load standalone parent calendar:', error?.name || 'calendar_error');
