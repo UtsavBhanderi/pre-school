@@ -160,12 +160,9 @@ test('manually-created teacher signs in with email and password and gets a mobil
   const teacherMobileNav = page.locator('.teacher-mobile-nav');
   assert.equal(await teacherMobileNav.isVisible(), true, 'Teacher quick navigation should be visible on a phone.');
   assert.equal(await teacherMobileNav.locator('button').count(), 5, 'The teacher mobile dock should show five primary destinations.');
-  const noticesLink = teacherMobileNav.locator('button').filter({ hasText: 'Notices' });
-  await noticesLink.click();
-  assert.ok((await noticesLink.getAttribute('class')).includes('active'), 'Selecting a mobile destination should update the active state.');
-
-  await menuButton.click();
-  await page.locator('.teacher-navigation').getByRole('button', { name: 'School calendar' }).click();
+  const calendarLink = teacherMobileNav.locator('button').filter({ hasText: 'Calendar' });
+  await calendarLink.click();
+  assert.ok((await calendarLink.getAttribute('class')).includes('active'), 'Selecting a mobile destination should update the active state.');
   await page.getByRole('heading', { name: 'School calendar' }).waitFor();
   await page.getByText('No upcoming school events').waitFor();
 

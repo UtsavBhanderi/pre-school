@@ -49,8 +49,10 @@ test('single-school calendar events respect parent and teacher visibility while 
   );
   const tokens = { admin: tokenFor(admin), teacher: tokenFor(teacher), parent: tokenFor(parent) };
 
-  async function api(pathname, { role, method = 'GET', body } = {}) {
-    const response = await fetch(new URL(pathname, 'http://127.0.0.1:' + server.address().port), {
+  async function api(pathname, { role, method = 'GET', body, params } = {}) {
+    const url = new URL(pathname, 'http://127.0.0.1:' + server.address().port);
+    for (const [key, value] of Object.entries(params || {})) url.searchParams.set(key, value);
+    const response = await fetch(url, {
       method,
       headers: {
         'x-auth-token': tokens[role],
@@ -99,9 +101,15 @@ test('single-school calendar events respect parent and teacher visibility while 
     assert.deepEqual(adminEvents.data.map((event) => event.audience).sort(), ['all', 'parents', 'teachers']);
   });
 
+  const calendarFrom = new Date().toISOString().slice(0, 10);
+  const calendarToDate = new Date();
+  calendarToDate.setDate(calendarToDate.getDate() + 10);
+  const calendarTo = calendarToDate.toISOString().slice(0, 10);
+  const calendarParams = { from: calendarFrom, to: calendarTo };
+
   await t.test('parents and teachers see only the events addressed to their audience', async () => {
-    const parentCalendar = await api('/api/parent-portal/calendar', { role: 'parent' });
-    const teacherCalendar = await api('/api/teacher-portal/calendar', { role: 'teacher' });
+    const parentCalendar = await api('/api/parent-portal/calendar', { role: 'parent', params: calendarParams });
+    const teacherCalendar = await api('/api/teacher-portal/calendar', { role: 'teacher', params: calendarParams });
     assert.equal(parentCalendar.status, 200);
     assert.equal(teacherCalendar.status, 200);
 
@@ -120,8 +128,8 @@ test('single-school calendar events respect parent and teacher visibility while 
     assert.equal(updated.status, 200);
     assert.equal(updated.data.audience, 'teachers');
 
-    const refreshedParents = await api('/api/parent-portal/calendar', { role: 'parent' });
-    const refreshedTeachers = await api('/api/teacher-portal/calendar', { role: 'teacher' });
+    const refreshedParents = await api('/api/parent-portal/calendar', { role: 'parent', params: calendarParams });
+    const refreshedTeachers = await api('/api/teacher-portal/calendar', { role: 'teacher', params: calendarParams });
     assert.ok(refreshedParents.data.events.every((event) => event.title !== 'Parents only'));
     assert.ok(refreshedTeachers.data.events.some((event) => event.title === 'Parents only'));
 
@@ -138,8 +146,8 @@ test('single-school calendar events respect parent and teacher visibility while 
     assert.equal(dragged.status, 200);
     assert.equal(dragged.data.audience, 'teachers');
 
-    const refreshedAfterDragParents = await api('/api/parent-portal/calendar', { role: 'parent' });
-    const refreshedAfterDragTeachers = await api('/api/teacher-portal/calendar', { role: 'teacher' });
+    const refreshedAfterDragParents = await api('/api/parent-portal/calendar', { role: 'parent', params: calendarParams });
+    const refreshedAfterDragTeachers = await api('/api/teacher-portal/calendar', { role: 'teacher', params: calendarParams });
     assert.ok(refreshedAfterDragParents.data.events.every((event) => event.title !== 'Parents only'));
     assert.ok(refreshedAfterDragTeachers.data.events.some((event) => event.title === 'Parents only'));
 

@@ -43,7 +43,7 @@ const NAV_GROUPS = [
 ];
 
 const ALL_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
-const MOBILE_NAV_ITEMS = ALL_ITEMS.filter((item) => ["home", "attendance", "reports", "communication", "notices"].includes(item.id));
+const MOBILE_NAV_ITEMS = ALL_ITEMS.filter((item) => ["home", "attendance", "reports", "communication", "calendar"].includes(item.id));
 const localDateKey = (value = new Date()) => {
   const date = new Date(value);
   return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
