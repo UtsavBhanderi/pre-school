@@ -47,6 +47,11 @@ function NewTeacherRegister() {
 
   const [isEdit, setIsEdit] = useState(false);
   const [currentTeacherId, setCurrentTeacherId] = useState(null);
+  const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
+  const [savingTeacher, setSavingTeacher] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -59,7 +64,7 @@ function NewTeacherRegister() {
       setTeachers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Unable to load teachers:", error);
-      alert(error.response?.data?.message || "Unable to load teacher records.");
+      setPageError(error.response?.data?.message || "Unable to load teacher records.");
     }
   };
 
@@ -81,28 +86,28 @@ function NewTeacherRegister() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (savingTeacher) return;
+    setSavingTeacher(true); setPageError(""); setPageSuccess("");
     const formData = new FormData();
     for (const [key, value] of Object.entries(teacher)) {
       if (value === null || value === undefined || value === "") continue;
-      if (typeof File !== "undefined" && value instanceof File) {
-        formData.append(key, value);
-      } else {
-        formData.append(key, String(value));
-      }
+      if (typeof File !== "undefined" && value instanceof File) formData.append(key, value);
+      else formData.append(key, String(value));
     }
     try {
       if (isEdit) {
         await axios.put(`${linkone}/api/teachers/${currentTeacherId}`, formData);
-        alert("Teacher updated successfully.");
+        setPageSuccess("Teacher record updated successfully.");
       } else {
         await axios.post(`${linkone}/api/teachers`, formData);
-        alert("Teacher registered successfully.");
+        setPageSuccess("Teacher registered successfully.");
       }
       await fetchTeachers();
       resetForm();
     } catch (error) {
-      console.error("There was an error!", error);
-    }
+      console.error("Unable to save teacher record:", error);
+      setPageError(error.response?.data?.message || "Unable to save teacher record. Check the details and try again.");
+    } finally { setSavingTeacher(false); }
   };
 
   const handleEdit = (teacher) => {
@@ -116,15 +121,19 @@ function NewTeacherRegister() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this teacher record?")) return;
+    if (deletingId) return;
+    setDeletingId(id); setPageError(""); setPageSuccess("");
     try {
       await axios.delete(`${linkone}/api/teachers/${id}`);
-      alert("Teacher deleted successfully.");
+      setConfirmDeleteId("");
+      setSelectedTeachers((previous) => previous.filter((teacherId) => teacherId !== id));
+      setPageSuccess("Teacher record deleted successfully.");
       await fetchTeachers();
     } catch (error) {
       console.error("Unable to delete teacher:", error);
-      alert(error.response?.data?.message || "Unable to delete teacher record.");
-    }
+      setConfirmDeleteId("");
+      setPageError(error.response?.data?.message || "Unable to delete teacher record.");
+    } finally { setDeletingId(""); }
   };
 
   const resetForm = () => {
@@ -441,6 +450,8 @@ function NewTeacherRegister() {
 
   return (
     <div className="mt-1">
+      {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
+      {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
       <div className="page-header">
         <div>
           <h2 className="mb-0">Teacher records</h2>
@@ -607,8 +618,11 @@ function NewTeacherRegister() {
                       {/* Edit */}
                     </button>
                     <button
+                      type="button"
                       className="btn btn-sm btn-danger"
-                      onClick={() => handleDelete(teacher._id)}
+                      disabled={Boolean(deletingId)}
+                      onClick={() => confirmDeleteId === teacher._id ? handleDelete(teacher._id) : setConfirmDeleteId(teacher._id)}
+                      aria-label={confirmDeleteId === teacher._id ? "Confirm delete teacher" : "Delete teacher"}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -623,6 +637,9 @@ function NewTeacherRegister() {
                       </svg>
                       {/* Delete */}
                     </button>
+                    {confirmDeleteId === teacher._id && (
+                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setConfirmDeleteId("")} disabled={deletingId === teacher._id}>Cancel</button>
+                    )}
                     {/* <button
                     className="btn btn-sm btn-primary"
                     onClick={() => generateDocx(teacher)}

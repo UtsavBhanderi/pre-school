@@ -91,6 +91,10 @@ const NewStudentRegister = () => {
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [loadingProfile, setLoadingProfile] = useState(false);
     const [savingStudent, setSavingStudent] = useState(false);
+    const [pageError, setPageError] = useState("");
+    const [pageSuccess, setPageSuccess] = useState("");
+    const [confirmDeleteId, setConfirmDeleteId] = useState("");
+    const [deletingId, setDeletingId] = useState("");
 
     const [selectedReport, setSelectedReport] = useState("");
 
@@ -120,10 +124,7 @@ const NewStudentRegister = () => {
         } catch (error) {
             console.error("Failed to fetch students:", error);
 
-            alert(
-                error.response?.data?.message ||
-                "Unable to load students. Please try again."
-            );
+            setPageError(error.response?.data?.message || "Unable to load students. Please try again.");
 
             setStudents([]);
         } finally {
@@ -291,11 +292,13 @@ const NewStudentRegister = () => {
                     formData
                 );
 
-                alert("Student updated successfully.");
+                setPageSuccess("Student updated successfully.");
+                setPageError("");
             } else {
                 await axios.post(`${API_URL}/api/students`, formData);
 
-                alert("Student registered successfully.");
+                setPageSuccess("Student registered successfully.");
+                setPageError("");
             }
 
             await fetchStudents();
@@ -309,7 +312,7 @@ const NewStudentRegister = () => {
                 error.response?.data?.error ||
                 "Unable to save student.";
 
-            alert(message);
+            setPageError(message);
         } finally {
             setSavingStudent(false);
         }
@@ -379,17 +382,19 @@ const NewStudentRegister = () => {
     // ============================================================
 
     const handleDelete = async (id) => {
-        const confirmed = window.confirm("Are you sure you want to delete this student?");
-        if (!confirmed) return;
-
+        if (deletingId) return;
+        setDeletingId(id); setPageError(""); setPageSuccess("");
         try {
             await axios.delete(`${API_URL}/api/students/${id}`);
             setSelectedStudents((prev) => prev.filter((studentId) => studentId !== id));
+            setConfirmDeleteId("");
+            setPageSuccess("Student record deleted successfully.");
             await fetchStudents();
         } catch (error) {
             console.error("Unable to delete student:", error);
-            alert(error.response?.data?.message || "Unable to delete student.");
-        }
+            setConfirmDeleteId("");
+            setPageError(error.response?.data?.message || "Unable to delete student.");
+        } finally { setDeletingId(""); }
     };
 
     // ============================================================
@@ -480,7 +485,7 @@ const NewStudentRegister = () => {
 
     const exportToExcel = () => {
         if (!students.length) {
-            alert("No students available to export.");
+            setPageError("No students are available to export.");
             return;
         }
 
@@ -526,7 +531,7 @@ const NewStudentRegister = () => {
         );
 
         if (!selected.length) {
-            alert("Please select at least one student.");
+            setPageError("Select at least one student before exporting.");
             return;
         }
 
@@ -701,9 +706,7 @@ const NewStudentRegister = () => {
         loadFile("/temp.docx", (error, content) => {
             if (error) {
                 console.error("Unable to load temp.docx:", error);
-                alert(
-                    "Certificate template could not be loaded. Make sure temp.docx is inside the public folder."
-                );
+                setPageError("Certificate template could not be loaded. Make sure temp.docx is inside the public folder.");
                 return;
             }
 
@@ -755,9 +758,7 @@ const NewStudentRegister = () => {
             } catch (error) {
                 console.error("Certificate generation error:", error);
 
-                alert(
-                    "Unable to generate certificate. Please check your template placeholders."
-                );
+                setPageError("Unable to generate certificate. Please check your template placeholders.");
             }
         });
     };
@@ -786,10 +787,7 @@ const NewStudentRegister = () => {
         } catch (error) {
             console.error("Failed to load student profile:", error);
 
-            alert(
-                error.response?.data?.message ||
-                "Unable to load student profile."
-            );
+            setPageError(error.response?.data?.message || "Unable to load student profile.");
         } finally {
             setLoadingProfile(false);
         }
@@ -879,10 +877,7 @@ const NewStudentRegister = () => {
                     <button
                         type="button"
                         className="btn btn-outline-primary"
-                        onClick={() =>
-                            window.confirm("Export the complete student list?") &&
-                            exportToExcel()
-                        }
+                        onClick={exportToExcel}
                     >
                         Download all records
                     </button>
@@ -891,10 +886,7 @@ const NewStudentRegister = () => {
                         type="button"
                         className="btn btn-outline-primary"
                         disabled={selectedStudents.length === 0}
-                        onClick={() =>
-                            window.confirm("Export the selected student records?") &&
-                            exportCheckedToExcel()
-                        }
+                        onClick={exportCheckedToExcel}
                     >
                         Download selected records
                     </button>
@@ -1209,15 +1201,7 @@ const NewStudentRegister = () => {
                                                 type="button"
                                                 className="btn btn-sm btn-primary"
                                                 title="Generate Certificate"
-                                                onClick={() => {
-                                                    if (
-                                                        window.confirm(
-                                                            "Confirm certificate download?"
-                                                        )
-                                                    ) {
-                                                        generateDocx(item);
-                                                    }
-                                                }}
+                                                onClick={() => generateDocx(item)}
                                             >
                                                 <svg
                                                     xmlns="http://www.w3.org/2000/svg"
