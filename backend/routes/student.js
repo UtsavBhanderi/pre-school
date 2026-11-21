@@ -8,6 +8,8 @@ const ReportCard = require("../models/ReportCard"); // to get Out Of Marks
 const Subject = require('../models/Subject');
 const { validateStudentReportMarks, calculateStudentReportResult } = require('../utils/studentReportMarks');
 const Fees = require("../models/Fee");
+const ParentAccount = require('../models/ParentAccount');
+const { hasFeePaymentHistory } = require('../utils/feeValidation');
 
 const router = express.Router();
 // const { Student, Sequence } = require('../models/Student');
@@ -203,9 +205,68 @@ router.delete('/:id', async (req, res) => {
     return res.status(400).json({ message: 'Invalid student ID.' });
   }
   try {
-    const deletedStudent = await Student.findByIdAndDelete(req.params.id);
-    if (!deletedStudent) return res.status(404).json({ message: 'Student not found.' });
-    return res.json({ message: 'Student record deleted successfully.' });
+    const student = await Student.findById(req.params.id).select('stuNo marks').lean();
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+
+    const [parentAccess, linkedReport] = await Promise.all([
+      ParentAccount.exists({ studentIds: student._id }),
+      ReportCard.exists({ students: student._id }),
+    ]);
+    if (parentAccess) {
+      return res.status(409).json({
+        code: 'STUDENT_PARENT_ACCESS_PRESERVED',
+        message: 'This student is linked to a parent portal account. Remove or transfer the family access before deleting the student.',
+      });
+    }
+    if (Array.isArray(student.marks) && student.marks.length > 0) {
+      return res.status(409).json({
+        code: 'STUDENT_ACADEMIC_HISTORY_PRESERVED',
+        message: 'This student has saved academic results. Keep the student record so report-card history remains available.',
+      });
+    }
+    if (linkedReport) {
+      return res.status(409).json({
+        code: 'STUDENT_REPORT_HISTORY_PRESERVED',
+        message: 'This student is included in a report-card template. Remove the student from that template before deleting the record.',
+      });
+    }
+
+    const fee = student.stuNo
+      ? await Fees.findOne({ stuNo: student.stuNo })
+        .select('totalFeesPaid paymentDetails openingBalancePaid')
+        .lean()
+      : null;
+    if (fee && hasFeePaymentHistory(fee)) {
+      return res.status(409).json({
+        code: 'STUDENT_PAYMENT_HISTORY_PRESERVED',
+        message: 'This student has recorded fee payments. Keep the student record so receipts and financial history remain linked.',
+      });
+    }
+
+    // Remove only an unpaid fee schedule, and re-check that it is still unpaid
+    // in the delete query so a concurrent payment cannot be erased.
+    if (fee) {
+      const removedFee = await Fees.findOneAndDelete({
+        _id: fee._id,
+        $and: [
+          { $or: [{ totalFeesPaid: { $lte: 0 } }, { totalFeesPaid: { $exists: false } }] },
+          { $or: [{ openingBalancePaid: { $lte: 0 } }, { openingBalancePaid: { $exists: false } }] },
+          { $or: [{ paymentDetails: { $size: 0 } }, { paymentDetails: { $exists: false } }, { paymentDetails: null }] },
+        ],
+      });
+      if (!removedFee) {
+        return res.status(409).json({
+          code: 'STUDENT_FEE_RECORD_CHANGED',
+          message: 'The fee record changed while this student was being deleted. Refresh the page and review the fee history.',
+        });
+      }
+    }
+
+    const deletedStudent = await Student.findOneAndDelete({ _id: req.params.id });
+    if (!deletedStudent) {
+      return res.status(409).json({ message: 'The student record changed while it was being deleted. Refresh and try again.' });
+    }
+    return res.json({ message: 'Unused student record and unpaid fee schedule deleted.' });
   } catch (error) {
     console.error('Student deletion failed:', error?.name || 'database_error');
     return res.status(500).json({ message: 'Unable to delete student record.' });
