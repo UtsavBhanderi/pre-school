@@ -156,29 +156,36 @@ const AttendancePage = () => {
       {/* Date and Standard Filters */}
       <div className="filter-panel mb-3" aria-label="Filter attendance records">
         <div className="form-group col">
-          <label>Date:</label>
+          <label htmlFor="attendance-filter-date">Date</label>
           <input
             type="date"
+            id="attendance-filter-date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="form-control"
+            required
+            aria-label="Filter attendance by date"
           />
         </div>
-        <div className="form-group col">
+        <div className="form-group col-12 col-sm-6 col-xl-3">
+          <label htmlFor="attendance-filter-gr">GR / roll number</label>
           <input
-            type="text"
+            id="attendance-filter-gr"
+            type="search"
             name="stuNo"
-            placeholder="Student No"
+            placeholder="Search GR number"
             className="form-control"
             value={stuNo}
             onChange={(e) => setStuNo(e.target.value)}
           />
         </div>
-        <div className="form-group col">
+        <div className="form-group col-12 col-sm-6 col-xl-3">
+          <label htmlFor="attendance-filter-name">Student name</label>
           <input
-            type="text"
+            id="attendance-filter-name"
+            type="search"
             name="middleName"
-            placeholder="Student Name"
+            placeholder="Search full name"
             className="form-control"
             value={middleName}
             onChange={(e) => setMiddleName(e.target.value)}
@@ -194,9 +201,10 @@ const AttendancePage = () => {
             placeholder="Enter standard (optional)"
           />
         </div> */}
-        <div className="form-group col">
-          {/* <label>Select Standard</label> */}
+        <div className="form-group col-12 col-sm-6 col-xl-2">
+          <label htmlFor="attendance-filter-standard">Class</label>
           <select
+            id="attendance-filter-standard"
             value={standard}
             onChange={(e) => setStandard(e.target.value)}
             className="form-select"
@@ -212,16 +220,17 @@ const AttendancePage = () => {
             <option value="GUJ SR.">GUJ SR.</option>
           </select>
         </div>
-        <div className="form-group col">
-          {/* <label>Select Standard</label> */}
+        <div className="form-group col-12 col-sm-6 col-xl-2">
+          <label htmlFor="attendance-filter-status">Status</label>
           <select
+            id="attendance-filter-status"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             className="form-select"
           >
-            <option value="">Select status</option>
-            <option value="present">present</option>
-            <option value="absent">absent</option>
+            <option value="">All statuses</option>
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
           </select>
         </div>
       </div>

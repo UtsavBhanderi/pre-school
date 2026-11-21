@@ -101,48 +101,36 @@ router.get('/students', async (req, res) => {
 router.get('/attendances', async (req, res) => {
   try {
     const { date, standard, middleName, stuNo, status } = req.query;
-    const filter = {};
-
-    if (date) {
-      const parsedDate = parseDateInputShared(date);
-      if (!parsedDate) return res.status(400).json({ message: 'Invalid attendance date.' });
-      const dayStart = new Date(parsedDate);
-      dayStart.setUTCHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
-      filter.date = { $gte: dayStart, $lt: dayEnd };
-    }
-
-    let attendances = await Attendance.find(filter)
-      .sort({ date: -1 })
-      .populate({
-        path: 'studentDetails.studentId',
-        model: 'Student',
-        select: 'stuNo firstName middleName lastName standard',
-      });
-
+    if (!date) return res.status(400).json({ message: 'Choose a date to view attendance records.' });
+    const parsedDate = parseDateInputShared(date);
+    if (!parsedDate) return res.status(400).json({ message: 'Choose a valid attendance date.' });
+    if (status && !VALID_STATUSES.has(String(status))) return res.status(400).json({ message: 'Choose a valid attendance status.' });
+    const dayStart = new Date(parsedDate);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+    const attendances = await Attendance.find({ date: { $gte: dayStart, $lt: dayEnd } })
+      .sort({ date: -1, updatedAt: -1, _id: -1 })
+      .populate({ path: 'studentDetails.studentId', model: 'Student', select: 'stuNo firstName middleName lastName standard' });
     const searchName = String(middleName || '').trim().toLowerCase();
     const searchStuNo = String(stuNo || '').trim().toLowerCase();
-
-    if (standard || searchName || searchStuNo || status) {
-      attendances = attendances.map((attendance) => {
-        const studentDetails = attendance.studentDetails.filter((detail) => {
-          const student = detail.studentId;
-          if (!student) return false;
-          if (standard && student.standard !== standard) return false;
-          if (searchName && !String(student.middleName || '').toLowerCase().includes(searchName)) return false;
-          if (searchStuNo && !String(student.stuNo || '').toLowerCase().includes(searchStuNo)) return false;
-          if (status && detail.status !== status) return false;
-          return true;
-        });
-        return { ...attendance.toObject(), studentDetails };
-      }).filter((attendance) => attendance.studentDetails.length > 0);
-    }
-
-    return res.json(attendances);
+    const results = attendances.map((attendance) => {
+      const studentDetails = attendance.studentDetails.filter((detail) => {
+        const student = detail.studentId;
+        if (!student) return false;
+        if (standard && student.standard !== String(standard).trim()) return false;
+        const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ').toLowerCase();
+        if (searchName && !fullName.includes(searchName)) return false;
+        if (searchStuNo && !String(student.stuNo || '').toLowerCase().includes(searchStuNo)) return false;
+        if (status && detail.status !== status) return false;
+        return true;
+      });
+      return { ...attendance.toObject(), studentDetails };
+    }).filter((attendance) => attendance.studentDetails.length > 0);
+    return res.json(results);
   } catch (error) {
-    console.error('Unable to fetch attendance records:', error);
-    return res.status(500).json({ message: 'Unable to fetch attendance records.' });
+    console.error('Unable to fetch attendance records:', error?.name || 'query_error');
+    return res.status(500).json({ message: 'Unable to fetch attendance records. Please try again.' });
   }
 });
 
