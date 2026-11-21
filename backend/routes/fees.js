@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const Fees = require('../models/Fee');
 const { STANDARD_FEES } = require('../config/standardFees');
 const { asAmount, calculateRemaining } = require('../utils/feeMath');
-const { validateFeeAmounts } = require('../utils/feeValidation');
+const { validateFeeAmounts, hasFeePaymentHistory } = require('../utils/feeValidation');
 
 const router = express.Router();
 

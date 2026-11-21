@@ -108,13 +108,7 @@ test('school administrators manually create teacher logins that can sign in with
     });
     assert.equal(response.status, 409);
     assert.match(response.data.message, /already exists/);
-    assert.equal(await Teacher.countDocuments({ Email: new RegExp('^' + teacherEmail + '
-    const response = await api('/api/auth/register', {
-      method: 'POST',
-      body: { username: 'Self Registered', email: teacherEmail, password: teacherPassword, role: 'teacher' },
-    });
-    assert.equal(response.status, 401);
-    assert.equal(await User.countDocuments({ email: teacherEmail }), 0);
+    assert.equal(await Teacher.countDocuments({ Email: teacherEmail }), 1);
   });
 
   await t.test('administrator creates an active teacher account directly, without invitation or verification', async () => {

@@ -62,116 +62,7 @@ router.post('/', upload.fields([{ name: 'selfPhoto', maxCount: 1 }, { name: 'mot
         if (profileData.Email) {
             profileData.Email = profileData.Email.toLowerCase();
             const duplicateEmail = await Teacher.exists({
-                Email: { $regex: '^' + escapeRegExp(profileData.Email) + '
-            ...profileData,
-            selfPhoto: req.files?.selfPhoto?.[0] ? `uploads/teachers/${req.files.selfPhoto[0].filename}` : undefined,
-            motherPhoto: req.files?.motherPhoto?.[0] ? `uploads/teachers/${req.files.motherPhoto[0].filename}` : undefined,
-            fatherPhoto: req.files?.fatherPhoto?.[0] ? `uploads/teachers/${req.files.fatherPhoto[0].filename}` : undefined,
-            // stuNo,
-            batchYear
-        });
-        await newTeacher.save();
-        res.status(201).send('Teacher registered successfully');
-    } catch (error) {
-        await cleanupRequestUploads(req);
-        console.error('Teacher registration failed:', error);
-        res.status(400).json({ message: 'Unable to register teacher.' });
-    }
-});
-
-// Update a teacher
-router.put('/:id', upload.fields([
-    { name: 'selfPhoto', maxCount: 1 },
-    { name: 'motherPhoto', maxCount: 1 },
-    { name: 'fatherPhoto', maxCount: 1 },
-]), verifyUploadContent('teachers'), async (req, res) => {
-    try {
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            await cleanupRequestUploads(req);
-            return res.status(400).json({ message: 'Invalid teacher ID.' });
-        }
-
-        const updatedTeacher = pickProfileFields(req.body, TEACHER_PROFILE_FIELDS);
-        const files = req.files || {};
-        if (files.selfPhoto?.[0]) updatedTeacher.selfPhoto = `uploads/teachers/${files.selfPhoto[0].filename}`;
-        if (files.motherPhoto?.[0]) updatedTeacher.motherPhoto = `uploads/teachers/${files.motherPhoto[0].filename}`;
-        if (files.fatherPhoto?.[0]) updatedTeacher.fatherPhoto = `uploads/teachers/${files.fatherPhoto[0].filename}`;
-        if (updatedTeacher.Email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(updatedTeacher.Email)) {
-            return res.status(400).json({ message: 'Enter a valid teacher email address.' });
-        }
-        if (updatedTeacher.Email) {
-            updatedTeacher.Email = updatedTeacher.Email.toLowerCase();
-            const duplicateEmail = await Teacher.exists({
-                Email: { $regex: '^' + escapeRegExp(updatedTeacher.Email) + '
-            await cleanupRequestUploads(req);
-            return res.status(400).json({ message: 'No supported teacher details were provided to update.' });
-        }
-
-        const teacher = await Teacher.findByIdAndUpdate(
-            req.params.id,
-            { $set: updatedTeacher },
-            { new: true, runValidators: true }
-        );
-        if (!teacher) { await cleanupRequestUploads(req); return res.status(404).json({ message: 'Teacher not found.' }); }
-        return res.json({ message: 'Teacher updated successfully.', teacher });
-    } catch (error) {
-        await cleanupRequestUploads(req);
-        console.error('Teacher update failed:', error);
-        return res.status(400).json({ message: 'Unable to update teacher.' });
-    }
-});
-
-// Delete a teacher
-router.delete('/:id', async (req, res) => {
-    try {
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Invalid teacher ID.' });
-        }
-        const teacher = await Teacher.findById(req.params.id);
-        if (!teacher) return res.status(404).json({ message: 'Teacher not found.' });
-
-        // Deleting a teacher profile is an offboarding action. Revoke the
-        // linked teacher login before removing its class-to-account mapping.
-        let loginAccessRevoked = false;
-        const teacherEmail = String(teacher.Email || '').trim().toLowerCase();
-        if (teacherEmail) {
-            const result = await User.updateOne(
-                { email: teacherEmail, role: 'teacher' },
-                { $set: { status: 'suspended' }, $inc: { authVersion: 1 } },
-            );
-            loginAccessRevoked = result.matchedCount > 0;
-        }
-
-        await teacher.deleteOne();
-        return res.json({
-            message: loginAccessRevoked
-                ? 'Teacher profile deleted and linked login access suspended.'
-                : 'Teacher profile deleted.',
-            loginAccessRevoked,
-        });
-    } catch (error) {
-        console.error('Teacher deletion failed:', error);
-        return res.status(500).json({ message: 'Unable to delete teacher.' });
-    }
-});
-
-
-router.get('/birthdays', async (req, res) => {
-    try {
-        // Birthday views need only identity and calendar fields, not private
-        // home address, family contacts, emergency numbers or licence details.
-        const teachers = await Teacher.find({})
-            .select('_id firstName middleName lastName dob standard GR_No selfPhoto')
-            .lean();
-        return res.json(teachers);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
-
-
-module.exports = router;
-, $options: 'i' },
+                Email: { $regex: '^' + escapeRegExp(profileData.Email) + '$', $options: 'i' },
             });
             if (duplicateEmail) {
                 await cleanupRequestUploads(req);
@@ -213,10 +104,21 @@ router.put('/:id', upload.fields([
         if (files.selfPhoto?.[0]) updatedTeacher.selfPhoto = `uploads/teachers/${files.selfPhoto[0].filename}`;
         if (files.motherPhoto?.[0]) updatedTeacher.motherPhoto = `uploads/teachers/${files.motherPhoto[0].filename}`;
         if (files.fatherPhoto?.[0]) updatedTeacher.fatherPhoto = `uploads/teachers/${files.fatherPhoto[0].filename}`;
-        if (updatedTeacher.Email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(updatedTeacher.Email)) {
+        if (updatedTeacher.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updatedTeacher.Email)) {
+            await cleanupRequestUploads(req);
             return res.status(400).json({ message: 'Enter a valid teacher email address.' });
         }
-        if (updatedTeacher.Email) updatedTeacher.Email = updatedTeacher.Email.toLowerCase();
+        if (updatedTeacher.Email) {
+            updatedTeacher.Email = updatedTeacher.Email.toLowerCase();
+            const duplicateEmail = await Teacher.exists({
+                Email: { $regex: '^' + escapeRegExp(updatedTeacher.Email) + '$', $options: 'i' },
+                _id: { $ne: req.params.id },
+            });
+            if (duplicateEmail) {
+                await cleanupRequestUploads(req);
+                return res.status(409).json({ message: 'A teacher profile with this email address already exists.' });
+            }
+        }
         if (Object.keys(updatedTeacher).length === 0) {
             await cleanupRequestUploads(req);
             return res.status(400).json({ message: 'No supported teacher details were provided to update.' });
