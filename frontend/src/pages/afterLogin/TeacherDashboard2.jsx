@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
   MdSchool, MdDashboard, MdFactCheck, MdAssignment, MdForum, MdCampaign,
-  MdHelpOutline, MdMenu, MdClose, MdLogout, MdArrowForward, MdCalendarToday,
+  MdHelpOutline, MdMenu, MdClose, MdLogout, MdArrowForward, MdCalendarToday, MdCalendarMonth,
   MdRefresh, MdCheckCircle, MdAccessTime, MdNotifications, MdPerson,
 } from "react-icons/md";
 import { IoAnalyticsOutline } from "react-icons/io5";
@@ -14,6 +14,7 @@ import WorkReport from "./TeacherDashboard";
 import TeacherHelp from "../../components/TeacherHelp.jsx";
 import AnnouncementsPage from "../../components/AnnouncementsPage.jsx";
 import SchoolCommunication from "../../components/SchoolCommunication.jsx";
+import TeacherCalendar from "../../components/TeacherCalendar.jsx";
 import "../../teacher-workspace.css";
 
 const NAV_GROUPS = [
@@ -30,6 +31,7 @@ const NAV_GROUPS = [
     items: [
       { id: "communication", label: "Parent communication", title: "Parent communication", description: "Share homework, respond to families and manage school polls.", Icon: MdForum },
       { id: "notices", label: "School notices", title: "School notices", description: "Read the latest updates and important reminders from your school.", Icon: MdCampaign },
+      { id: "calendar", label: "School calendar", title: "School calendar", description: "See the school events and dates shared with teachers.", Icon: MdCalendarMonth },
     ],
   },
   {
@@ -322,6 +324,7 @@ export default function TeacherDashboard() {
           {activePage === "reports" && <div className="teacher-feature-content"><WorkReport /></div>}
           {activePage === "communication" && <div className="teacher-feature-content"><SchoolCommunication embedded /></div>}
           {activePage === "notices" && <div className="teacher-feature-content"><AnnouncementsPage readOnly /></div>}
+          {activePage === "calendar" && <div className="teacher-feature-content"><TeacherCalendar /></div>}
           {activePage === "help" && <div className="teacher-feature-content"><TeacherHelp /></div>}
         </main>
 

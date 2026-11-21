@@ -25,6 +25,7 @@ const CalendarPage = () => {
     start: "",
     end: "",
     color: "#3788d8", // Default color
+    audience: "all",
     isEdit: false,
   });
 
@@ -55,6 +56,7 @@ const CalendarPage = () => {
       start: info.dateStr.length === 10 ? info.dateStr + "T09:00" : info.dateStr.slice(0, 16),
       end: info.dateStr.length === 10 ? info.dateStr + "T10:00" : info.dateStr.slice(0, 16),
       color: "#3788d8", // Default color
+      audience: "all",
       isEdit: false,
     });
     setShowModal(true);
@@ -69,13 +71,14 @@ const CalendarPage = () => {
       start: (() => { const raw = String(clickInfo.event.startStr || clickInfo.event.start || ""); return raw.length === 10 ? raw + "T09:00" : raw.slice(0, 16); })(),
       end: (() => { const raw = String(clickInfo.event.endStr || clickInfo.event.startStr || ""); return raw.length === 10 ? raw + "T10:00" : raw.slice(0, 16); })(),
       color: clickInfo.event.backgroundColor || "#3788d8",
+      audience: clickInfo.event.extendedProps?.audience || "all",
       isEdit: true,
     });
     setShowModal(true);
   };
 
   const handleSaveEvent = async () => {
-    const { title, start, end, color, isEdit, id } = modalEvent;
+    const { title, start, end, color, audience, isEdit, id } = modalEvent;
     if (!title.trim()) {
       setPageError("Enter an event title before saving.");
       return;
@@ -92,7 +95,7 @@ const CalendarPage = () => {
     setSavingEvent(true);
     setPageError("");
     setPageSuccess("");
-    const eventData = { title: title.trim(), start, end, color };
+    const eventData = { title: title.trim(), start, end, color, audience };
     try {
       if (isEdit) {
         const response = await axios.put(`${linkone}/api/events/${id}`, eventData);
@@ -221,6 +224,16 @@ const CalendarPage = () => {
                 />
               </Form.Group>
             </div>
+
+            <Form.Group controlId="formEventAudience" className="mt-3">
+              <Form.Label>Who can see this event?</Form.Label>
+              <Form.Select name="audience" value={modalEvent.audience || "all"} onChange={handleInputChange}>
+                <option value="all">Everyone — parents and teachers</option>
+                <option value="parents">Parents only</option>
+                <option value="teachers">Teachers only</option>
+              </Form.Select>
+              <Form.Text className="text-muted">Administrators can always see and manage every event. This setting controls visibility in the parent and teacher portals.</Form.Text>
+            </Form.Group>
 
             <Form.Group controlId="formEventStart" className="mt-3">
               <Form.Label>Start Time</Form.Label>

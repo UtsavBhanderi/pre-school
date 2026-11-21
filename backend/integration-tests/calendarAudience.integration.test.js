@@ -78,10 +78,15 @@ test('single-school calendar events respect parent and teacher visibility while 
     date.setHours(9, 0, 0, 0);
     return date;
   };
-  const createEvent = async (title, audience) => api('/api/events', {
-    role: 'admin', method: 'POST',
-    body: { title, audience, start: start(4).toISOString(), end: start(4).toISOString(), color: '#3788d8' },
-  });
+  const createEvent = async (title, audience) => {
+    const startsAt = start(4);
+    const endsAt = new Date(startsAt);
+    endsAt.setHours(endsAt.getHours() + 1);
+    return api('/api/events', {
+      role: 'admin', method: 'POST',
+      body: { title, audience, start: startsAt.toISOString(), end: endsAt.toISOString(), color: '#3788d8' },
+    });
+  };
 
   await t.test('admin creates events for each audience and can see every event', async () => {
     for (const [title, audience] of [['Parents only', 'parents'], ['Teachers only', 'teachers'], ['Everyone', 'all']]) {

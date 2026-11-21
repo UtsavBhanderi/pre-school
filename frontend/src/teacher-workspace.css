@@ -257,3 +257,28 @@
   .teacher-feature-content .form-label { margin-bottom:.35rem; font-size:.82rem; }
   .teacher-feature-content .table-responsive > .table { min-width:650px; }
 }
+
+
+/* Shared school calendar inside the teacher workspace */
+.teacher-calendar-page { display:grid; gap:.8rem; }
+.teacher-calendar-toolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:.8rem; padding:.9rem 1rem; border:1px solid #e3e9f2; border-radius:12px; background:#fff; }
+.teacher-calendar-toolbar > div { display:grid; gap:.2rem; }
+.teacher-calendar-toolbar strong { color:#2b405e; font-size:.82rem; font-weight:850; }
+.teacher-calendar-toolbar p { margin:0; color:#8491a5; font-size:.7rem; }
+.teacher-calendar-toolbar button { display:inline-flex; align-items:center; gap:.35rem; min-height:36px; padding:.4rem .65rem; border:1px solid #dce4ef; border-radius:8px; color:#4b5f7d; background:#fff; font-size:.7rem; font-weight:800; }
+.teacher-calendar-toolbar button:disabled { opacity:.6; cursor:wait; }
+.teacher-calendar-list { display:grid; gap:.6rem; }
+.teacher-calendar-event { display:flex; align-items:flex-start; gap:.75rem; padding:.9rem; border:1px solid #e3e9f2; border-radius:12px; background:#fff; box-shadow:0 3px 12px rgba(29,48,87,.025); }
+.teacher-calendar-event-icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:10px; color:#405ec0; background:#edf2ff; font-size:1.2rem; }
+.teacher-calendar-event-copy { display:grid; min-width:0; gap:.22rem; }
+.teacher-calendar-event-copy > strong { color:#2b405e; font-size:.83rem; font-weight:850; }
+.teacher-calendar-event-copy > span,.teacher-calendar-event-copy > small { display:flex; align-items:center; gap:.3rem; color:#697b94; font-size:.69rem; }
+.teacher-calendar-event-copy > span svg,.teacher-calendar-event-copy > small svg { flex:0 0 auto; color:#5b70bd; }
+.teacher-calendar-event-copy p { margin:.15rem 0 0; color:#667791; font-size:.75rem; line-height:1.6; white-space:pre-wrap; }
+.teacher-calendar-empty { display:grid; justify-items:center; gap:.3rem; padding:2rem 1rem; border:1px dashed #d4deeb; border-radius:12px; color:#8a97a8; background:#fff; text-align:center; font-size:.73rem; }
+.teacher-calendar-empty > svg { color:#657bc6; font-size:1.65rem; }
+.teacher-calendar-empty strong { color:#344968; font-size:.82rem; }
+@media(max-width:650px) {
+ .teacher-calendar-toolbar { align-items:stretch; flex-direction:column; padding:.8rem; }
+ .teacher-calendar-toolbar button { align-self:flex-start; }
+}
