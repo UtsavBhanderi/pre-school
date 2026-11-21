@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
-import { API_BASE_URL } from "../api.js";
+import { createAuthenticatedApi } from "../api.js";
 import { Link, useParams } from "react-router-dom";
 import "../report-cards.css";
 
@@ -9,7 +8,7 @@ import "../report-cards.css";
 ================================ */
 
 
-const api = axios.create({ baseURL: API_BASE_URL });
+const api = createAuthenticatedApi();
 const getGrade = (percentage) => {
   if (percentage >= 90) return "A+";
   if (percentage >= 80) return "A";

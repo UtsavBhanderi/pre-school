@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { API_BASE_URL } from "../api.js";
+import { createAuthenticatedApi } from "../api.js";
 import * as XLSX from "xlsx";
 import "../report-cards.css";
 
@@ -10,8 +9,7 @@ import "../report-cards.css";
 ================================ */
 
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
+const api = createAuthenticatedApi({
   headers: { "Content-Type": "application/json" },
 });
 
