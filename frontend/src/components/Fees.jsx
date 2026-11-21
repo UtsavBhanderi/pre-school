@@ -22,6 +22,7 @@ const Fees = () => {
     standard: "",
     totalStandardFees: 0,
     totalFeesPaid: 0,
+    openingBalancePaid: 0,
     paymentDetails: [],
     discount: 0,
   });
@@ -107,6 +108,7 @@ const Fees = () => {
       standard: "",
       totalStandardFees: 0,
       totalFeesPaid: 0,
+      openingBalancePaid: 0,
       paymentDetails: [],
       discount: 0,
     });
@@ -115,14 +117,23 @@ const Fees = () => {
   };
 
   const handleEdit = (fees) => {
+    const paymentDetails = Array.isArray(fees.paymentDetails)
+      ? fees.paymentDetails.map((payment) => ({ ...payment }))
+      : [];
+    const totalFeesPaid = Number(fees.totalFeesPaid) || 0;
+    const itemizedPayments = paymentDetails.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const openingBalancePaid = fees.openingBalancePaid !== undefined && fees.openingBalancePaid !== null
+      ? Number(fees.openingBalancePaid) || 0
+      : Math.max(0, Math.round((totalFeesPaid - itemizedPayments) * 100) / 100);
     setFormData({
       studentName: fees.studentName || "",
       studentPhoneNumber: fees.studentPhoneNumber || "",
       batchYear: fees.batchYear || "",
       standard: fees.standard || "",
       totalStandardFees: Number(fees.totalStandardFees) || 0,
-      totalFeesPaid: Number(fees.totalFeesPaid) || 0,
-      paymentDetails: Array.isArray(fees.paymentDetails) ? fees.paymentDetails.map((payment) => ({ ...payment })) : [],
+      totalFeesPaid,
+      openingBalancePaid,
+      paymentDetails,
       discount: Number(fees.discount) || 0,
     });
     setEditMode(true); setEditId(fees._id); setPageError(""); setPageSuccess("");
@@ -167,7 +178,7 @@ const Fees = () => {
     if (editMode && formData.paymentDetails[index]?._id) return;
     const { name, value } = e.target;
     const updatedPaymentDetails = formData.paymentDetails.map((detail, detailIndex) => detailIndex === index ? { ...detail, [name]: value } : detail);
-    const totalFeesPaid = Math.round(updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0) * 100) / 100;
+    const totalFeesPaid = Math.round((Number(formData.openingBalancePaid || 0) + updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0)) * 100) / 100;
     setFormData((prevFormData) => ({ ...prevFormData, paymentDetails: updatedPaymentDetails, totalFeesPaid }));
   };
 
@@ -191,7 +202,7 @@ const Fees = () => {
     setFormData((prevFormData) => ({
       ...prevFormData,
       paymentDetails: updatedPaymentDetails,
-      totalFeesPaid: Math.round(updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0) * 100) / 100,
+      totalFeesPaid: Math.round((Number(formData.openingBalancePaid || 0) + updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0)) * 100) / 100,
     }));
   };
 
@@ -503,6 +514,11 @@ const Fees = () => {
             </div>
             <div className="form-group col-12">
               <label className="fw-semibold">Payments received</label>
+              {editMode && Number(formData.openingBalancePaid) > 0 && (
+                <p className="small text-muted mb-2">
+                  Earlier paid balance of ₹{Number(formData.openingBalancePaid).toFixed(2)} is retained as an opening balance. New receipts are recorded separately.
+                </p>
+              )}
               {editMode && formData.paymentDetails.some((detail) => detail._id) && (
                 <p className="small text-muted mb-2">Previously recorded payments are locked for receipt accuracy. Add a new entry to record another payment.</p>
               )}
