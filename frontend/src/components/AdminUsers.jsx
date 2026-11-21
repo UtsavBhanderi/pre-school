@@ -57,6 +57,7 @@ export default function AdminUsers() {
   const [parentAccessUrl, setParentAccessUrl] = useState("");
   const [parentAccessError, setParentAccessError] = useState("");
   const [parentAccessCopied, setParentAccessCopied] = useState(false);
+  const [confirmAccessId, setConfirmAccessId] = useState("");
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -152,6 +153,7 @@ export default function AdminUsers() {
 
   const beginEdit = (account) => {
     setEditingUserId(account._id);
+    setConfirmAccessId("");
     setEditDraft({
       role: account.role === "parent" ? "parent" : account.role === "admin" ? "admin" : "teacher",
       status: account.status === "suspended" ? "suspended" : "active",
@@ -163,6 +165,7 @@ export default function AdminUsers() {
 
   const cancelEdit = () => {
     setEditingUserId("");
+    setConfirmAccessId("");
     setEditDraft(EMPTY_EDIT);
     setSavingAccess(false);
   };
@@ -174,15 +177,12 @@ export default function AdminUsers() {
       setErrorMessage("Enter a clear reason of at least 3 characters for this access change.");
       return;
     }
-    if (editDraft.status === "suspended" && account.status !== "suspended" &&
-        !window.confirm("Suspend access for " + account.username + "? All existing sessions for this account will be revoked.")) {
+    const needsReview = (editDraft.status === "suspended" && account.status !== "suspended") || editDraft.role !== account.role;
+    if (needsReview && confirmAccessId !== account._id) {
+      setConfirmAccessId(account._id);
+      setErrorMessage("");
       return;
     }
-    if (editDraft.role !== account.role &&
-        !window.confirm("Change " + account.username + "'s access role to " + roleLabel(editDraft.role) + "? Their existing sessions will be revoked.")) {
-      return;
-    }
-
     setSavingAccess(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -196,6 +196,7 @@ export default function AdminUsers() {
       await refreshData();
     } catch (error) {
       setErrorMessage(error.response?.data?.message || "Unable to update this account's access.");
+      setConfirmAccessId("");
     } finally {
       setSavingAccess(false);
     }
@@ -383,7 +384,7 @@ export default function AdminUsers() {
                                   <>
                                     <label className="form-label" htmlFor={"edit-role-" + account._id}>Role</label>
                                     <select id={"edit-role-" + account._id} className="form-select" value={editDraft.role}
-                                      onChange={(event) => setEditDraft((draft) => ({ ...draft, role: event.target.value }))} required>
+                                      onChange={(event) => { setConfirmAccessId(""); setEditDraft((draft) => ({ ...draft, role: event.target.value })); }} required>
                                       <option value="teacher">Teacher</option><option value="admin">Administrator</option>
                                     </select>
                                   </>
@@ -392,22 +393,29 @@ export default function AdminUsers() {
                               <div className="col-12 col-md-3">
                                 <label className="form-label" htmlFor={"edit-status-" + account._id}>Account status</label>
                                 <select id={"edit-status-" + account._id} className="form-select" value={editDraft.status}
-                                  onChange={(event) => setEditDraft((draft) => ({ ...draft, status: event.target.value }))} required>
+                                  onChange={(event) => { setConfirmAccessId(""); setEditDraft((draft) => ({ ...draft, status: event.target.value })); }} required>
                                   <option value="active">Active — can sign in</option><option value="suspended">Suspended — sign-in blocked</option>
                                 </select>
                               </div>
                               <div className="col-12 col-md-6">
                                 <label className="form-label" htmlFor={"edit-reason-" + account._id}>Reason for change *</label>
                                 <input id={"edit-reason-" + account._id} className="form-control" value={editDraft.reason}
-                                  onChange={(event) => setEditDraft((draft) => ({ ...draft, reason: event.target.value }))}
+                                  onChange={(event) => { setConfirmAccessId(""); setEditDraft((draft) => ({ ...draft, reason: event.target.value })); }}
                                   minLength={3} maxLength={500} placeholder={account.role === "parent" ? "e.g. Parent requested access suspension" : "e.g. Role updated for the new term"} required />
                               </div>
+                              {confirmAccessId === account._id && (
+                                <div className="col-12">
+                                  <div className="alert alert-warning mb-0" role="alert">
+                                    <strong>Review this access change.</strong> {editDraft.status === "suspended" && account.status !== "suspended" ? "Suspending this account will block sign-in." : ""} {editDraft.role !== account.role ? "Changing the role will change the account permissions." : ""} All current sessions will be revoked and the user will need to sign in again.
+                                  </div>
+                                </div>
+                              )}
                               <div className="col-12 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                                 <span className="small muted">{account.role === "parent" ? "Only the parent account status changes. Child/family links remain unchanged." : "You cannot edit your own access or remove the last active administrator."}</span>
                                 <div className="d-flex gap-2">
                                   <button type="button" className="btn btn-outline-secondary" onClick={cancelEdit} disabled={savingAccess}>Cancel</button>
                                   <button type="submit" className="btn btn-primary" disabled={savingAccess}>
-                                    {savingAccess ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Saving…</> : <><MdSave className="me-1" aria-hidden="true" />Save access</>}
+                                    {savingAccess ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Saving…</> : <><MdSave className="me-1" aria-hidden="true" />{confirmAccessId === account._id ? "Confirm access change" : "Review access change"}</>}
                                   </button>
                                 </div>
                               </div>
