@@ -85,6 +85,21 @@ test('school administrators manually create teacher logins that can sign in with
     await mongoose.disconnect();
   });
 
+  await t.test('teacher birthday view returns only the fields required by the birthday screen', async () => {
+    await Teacher.updateOne(
+      { Email: teacherEmail },
+      { $set: { firstName: 'Teacher', middleName: tag, dob: '1990-05-14', address: 'Private home address', EmergencyPhoneNumber: '09876543210', drivingLicence: 'PRIVATE-LICENCE' } },
+    );
+    const response = await api('/api/teachers/birthdays', { token: adminToken });
+    assert.equal(response.status, 200);
+    assert.equal(response.data.length, 1);
+    assert.equal(response.data[0].dob, '1990-05-14');
+    assert.equal(response.data[0].standard, 'Nursery');
+    assert.equal(Object.prototype.hasOwnProperty.call(response.data[0], 'address'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(response.data[0], 'EmergencyPhoneNumber'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(response.data[0], 'drivingLicence'), false);
+  });
+
   await t.test('teacher accounts cannot be self-registered or created without administrator access', async () => {
     const response = await api('/api/auth/register', {
       method: 'POST',

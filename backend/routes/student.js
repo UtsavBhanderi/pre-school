@@ -198,8 +198,12 @@ router.delete('/:id', async (req, res) => {
 
 router.get('/birthdays', async (req, res) => {
   try {
-    const students = await Student.find({});
-    res.json(students);
+    // Birthday views need only identity and calendar fields. Do not expose
+    // family contact numbers, address, identity documents or medical notes.
+    const students = await Student.find({})
+      .select('_id firstName middleName lastName gender dob standard stuNo studentPhoto')
+      .lean();
+    return res.json(students);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

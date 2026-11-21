@@ -121,8 +121,12 @@ router.delete('/:id', async (req, res) => {
 
 router.get('/birthdays', async (req, res) => {
     try {
-        const teachers = await Teacher.find({});
-        res.json(teachers);
+        // Birthday views need only identity and calendar fields, not private
+        // home address, family contacts, emergency numbers or licence details.
+        const teachers = await Teacher.find({})
+            .select('_id firstName middleName lastName dob standard GR_No selfPhoto')
+            .lean();
+        return res.json(teachers);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
