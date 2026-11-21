@@ -140,8 +140,7 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
   await page.locator('#login-password').fill('teacher-initial-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
-
-  await page.waitForURL(/\/teacher-dashboard$/);
+  await page.waitForURL((url) => url.pathname.endsWith("/teacher-dashboard"));
   await page.getByRole('heading', { name: 'Your teaching day' }).waitFor();
   const menuButton = page.locator('.teacher-menu-button');
   await menuButton.click();
@@ -178,8 +177,8 @@ test('teacher accounts cannot open administrator dashboard routes', async () => 
 
   await page.waitForURL(/\\/teacher-dashboard$/);
   await page.goto(BASE_URL + '/dashboard/subjects');
-  await page.waitForURL(/\\/login$/);
-  assert.match(page.url(), /\\/login$/);
+  await page.waitForURL((url) => url.pathname.endsWith("/login"));
+  assert.ok(new URL(page.url()).pathname.endsWith("/login"));
   await page.close();
 });
 
