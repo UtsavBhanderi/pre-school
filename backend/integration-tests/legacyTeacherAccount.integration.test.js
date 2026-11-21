@@ -22,6 +22,7 @@ test('school administrators manually create teacher logins that can sign in with
   const { app } = require('../server');
   const User = require('../models/User');
   const DailyWorkReport = require('../models/DailyWorkReport');
+  const Teacher = require('../models/Teacher');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
   const server = app.listen(0);
@@ -55,6 +56,7 @@ test('school administrators manually create teacher logins that can sign in with
   );
   const teacherEmail = 'teacher-' + tag + '@example.test';
   const teacherPassword = 'TeacherInitialPassword123';
+  await Teacher.create({ Email: teacherEmail, standard: 'Nursery' });
 
   async function api(pathname, { token, method = 'GET', body } = {}) {
     const response = await fetch(new URL(pathname, 'http://127.0.0.1:' + server.address().port), {
@@ -76,6 +78,7 @@ test('school administrators manually create teacher logins that can sign in with
       User.deleteMany({ _id: { $in: [admin._id, parent._id] } }),
       DailyWorkReport.deleteMany({ user: { $in: [admin._id, parent._id] } }),
       User.deleteMany({ email: teacherEmail }),
+      Teacher.deleteMany({ Email: teacherEmail }),
       mongoose.connection.dropDatabase(),
     ]);
     await new Promise((resolve) => server.close(resolve));
@@ -161,7 +164,7 @@ test('school administrators manually create teacher logins that can sign in with
         totalStudents: 12,
       },
     });
-    assert.equal(teacherCreate.status, 200);
+    assert.equal(teacherCreate.status, 201);
     const teacherOwnReports = await api('/api/dailyWorkReport', { token: teacherToken });
     assert.equal(teacherOwnReports.status, 200);
     assert.equal(teacherOwnReports.data.length, 1);
