@@ -8,7 +8,7 @@ const AttendanceEntryPage = () => {
   const [standard, setStandard] = useState("");
   const [attendanceData, setAttendanceData] = useState([]);
   const [errors, setErrors] = useState({});
-  const [statistics, setStatistics] = useState({ present: 0, absent: 0 });
+  const [statistics, setStatistics] = useState({ present: 0, absent: 0, unmarked: 0 });
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [submittingAttendance, setSubmittingAttendance] = useState(false);
   const [pageError, setPageError] = useState("");
@@ -116,7 +116,6 @@ const AttendanceEntryPage = () => {
       return updatedData;
     });
     setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
-    setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
     setHasUnsavedChanges(true);
   };
   const formatDate = (value) => {
@@ -190,6 +189,7 @@ const AttendanceEntryPage = () => {
         item.studentId === studentId ? { ...item, reason } : item
       )
     );
+    setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
     setHasUnsavedChanges(true);
   };
 
@@ -309,6 +309,11 @@ const AttendanceEntryPage = () => {
         </div>
       )}
 
+      {students.length > 0 && statistics.unmarked > 0 && (
+        <div className="alert alert-warning" role="status">
+          Mark {statistics.unmarked} more {statistics.unmarked === 1 ? "child" : "children"} as present or absent before saving.
+        </div>
+      )}
       {students.length > 0 && (
         <div className="ops-attendance-toolbar">
           <div>
