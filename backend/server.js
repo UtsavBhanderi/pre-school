@@ -50,6 +50,7 @@ const privateMediaRoutes = require('./routes/privateMedia');
 const privateMediaResponse = require('./middleware/privateMediaResponse');
 const subjectRoutes = require('./routes/subject');
 const User = require('./models/User');
+const { isValidNewPassword } = require('./utils/passwordResetTokens');
 // Register the migration-run model at application boot so its unique idempotency index is provisioned with the SaaS schema.
 
 app.disable('x-powered-by');
@@ -186,8 +187,8 @@ async function bootstrapAdminIfConfigured() {
   if (!username || !email || !password) {
     throw new Error('Set BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_EMAIL, and BOOTSTRAP_ADMIN_PASSWORD together, or leave all three blank.');
   }
-  if (password.length < 8) {
-    throw new Error('BOOTSTRAP_ADMIN_PASSWORD must contain at least 8 characters.');
+  if (!isValidNewPassword(password)) {
+    throw new Error('BOOTSTRAP_ADMIN_PASSWORD must contain 12 to 128 characters.');
   }
 
   const existingAdmin = await User.findOne({ role: 'admin' }).select('_id');

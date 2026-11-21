@@ -45,7 +45,7 @@ Copy `.env.example` to `.env` and set:
 - `API_PUBLIC_URL`: canonical public API origin for signed private media links.
 - `PRIVATE_MEDIA_SECRET`: a separate strong random secret for short-lived private media links.
 
-Set `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` together before the first start to create the first administrator. Use a strong password. The bootstrap step skips account creation if an administrator already exists; remove these bootstrap values after the initial setup.
+Set `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` together before the first start to create the first administrator. Use a 12–128 character password. The bootstrap step skips account creation if an administrator already exists; remove these bootstrap values after the initial setup.
 
 Password recovery email requires SMTP configuration in production: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `EMAIL_USER`, `EMAIL_PASS` and `EMAIL_FROM`. Organization verification and invitation emails are not part of this release.
 
