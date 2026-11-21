@@ -933,7 +933,9 @@ function NewTeacherRegister() {
                       Register Mobile Number
                     </label>
                     <input
-                      type="number"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       className="form-control"
                       id="RegisterPhoneNumber"
                       name="RegisterPhoneNumber"
@@ -1003,10 +1005,12 @@ function NewTeacherRegister() {
                 <div className="row">
                   <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="MotherMobileNumber" className="form-label">
-                      Father Mobile No.
+                      Mother Mobile Number
                     </label>
                     <input
-                      type="number"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       className="form-control"
                       id="MotherMobileNumber"
                       name="MotherMobileNumber"
@@ -1017,10 +1021,12 @@ function NewTeacherRegister() {
                   </div>
                   <div className="mb-3 col-12 col-md-6 col-lg-4">
                     <label htmlFor="FatherMobileNumber" className="form-label">
-                      Mother Phone No.
+                      Father Mobile Number
                     </label>
                     <input
-                      type="number"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       className="form-control"
                       id="FatherMobileNumber"
                       name="FatherMobileNumber"
@@ -1037,7 +1043,9 @@ function NewTeacherRegister() {
                       Emergency Phone No.
                     </label>
                     <input
-                      type="number"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       className="form-control"
                       id="EmergencyPhoneNumber"
                       name="EmergencyPhoneNumber"
@@ -1113,7 +1121,8 @@ function NewTeacherRegister() {
                       Driving Licence No.
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      autoComplete="off"
                       className="form-control"
                       id="drivingLicence"
                       name="drivingLicence"
