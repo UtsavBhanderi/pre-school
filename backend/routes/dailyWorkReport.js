@@ -2,29 +2,26 @@ const express = require('express');
 const router = express.Router();
 const adminOnly = require('../middleware/adminOnly');
 const DailyWorkReport = require('../models/DailyWorkReport');
+const { getLegacyTeacherScope } = require('../utils/legacyTeacherClass');
+const { validateDailyWorkReport } = require('../utils/dailyWorkReportValidation');
 
 // POST /api/dailyWorkReport - Create a new daily work report
 router.post('/', async (req, res) => {
-  const { TimeIn, TimeOut, subject, standard, branch, dailyWorkReport, totalStudents } = req.body;
-
   try {
-    const report = new DailyWorkReport({
-      user: req.user.id,
-      userName: req.user.username,
-      TimeIn,
-      TimeOut,
-      subject,
-      standard,
-      branch,
-      dailyWorkReport,
-      totalStudents
+    const requestedStandard = typeof req.body?.standard === 'string' ? req.body.standard.trim() : '';
+    const scope = await getLegacyTeacherScope(req.user, requestedStandard);
+    if (!scope.allowed) return res.status(403).json({ code: scope.code, message: scope.message });
+    const validation = validateDailyWorkReport(req.body || {}, scope.isTeacher ? scope.standard : '');
+    if (!validation.valid) return res.status(400).json({ code: validation.code || 'INVALID_WORK_REPORT', message: validation.message });
+    const report = await DailyWorkReport.create({
+      user: req.user._id,
+      userName: req.user.username || '',
+      ...validation.value,
     });
-
-    await report.save();
-    res.json(report);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    return res.status(201).json({ message: 'Daily work report submitted successfully.', report });
+  } catch (error) {
+    console.error('Unable to save daily work report:', error?.name || 'save_error');
+    return res.status(503).json({ message: 'Your daily work report could not be saved. Please try again.' });
   }
 });
 
