@@ -158,12 +158,36 @@ const NewStudentRegister = () => {
         return `${API_URL}/${String(image).replace(/^\/+/, "")}`;
     };
 
+    // HTML date inputs and MongoDB date-only strings represent a calendar day,
+    // not a UTC instant. Parse YYYY-MM-DD locally to avoid shifting DOB by a day
+    // for users in positive timezones such as India.
+    const parseStudentDate = (value) => {
+        if (!value) return null;
+        if (value instanceof Date) {
+            const copy = new Date(value);
+            return Number.isNaN(copy.getTime()) ? null : copy;
+        }
+        const text = String(value).trim();
+        const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match) {
+            const [, year, month, day] = match;
+            const date = new Date(Number(year), Number(month) - 1, Number(day));
+            return date.getFullYear() === Number(year)
+                && date.getMonth() === Number(month) - 1
+                && date.getDate() === Number(day)
+                ? date
+                : null;
+        }
+        const parsed = new Date(text);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
     const dateToIndianFormat = (dateString) => {
         if (!dateString) return "";
 
-        const date = new Date(dateString);
+        const date = parseStudentDate(dateString);
 
-        if (Number.isNaN(date.getTime())) {
+        if (!date) {
             return "";
         }
 
@@ -177,9 +201,9 @@ const NewStudentRegister = () => {
     const dateToInputFormat = (dateString) => {
         if (!dateString) return "";
 
-        const date = new Date(dateString);
+        const date = parseStudentDate(dateString);
 
-        if (Number.isNaN(date.getTime())) {
+        if (!date) {
             return "";
         }
 
