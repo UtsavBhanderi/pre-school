@@ -26,6 +26,7 @@ import AdminPdf from "./components/AdminPdf.jsx";
 import AdminVideo from "./components/AdminVideo.jsx";
 import GalleryDashboard from "./components/GalleryDashboard.jsx";
 import CreateReport from "./components/Reports.jsx";
+import SubjectManagement from "./components/SubjectManagement.jsx";
 import TeacherWorkReport from "./components/TeachersEntry.jsx";
 import AdminUsers from "./components/AdminUsers.jsx";
 import OperationsHome from "./components/OperationsHome.jsx";
@@ -103,6 +104,7 @@ const App = () => (
           <Route path="video" element={<AdminVideo />} />
           <Route path="gallery" element={<GalleryDashboard />} />
           <Route path="createReport" element={<CreateReport />} />
+          <Route path="subjects" element={<SubjectManagement />} />
           <Route path="teacherWorkReport" element={<TeacherWorkReport />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="students/:standard/:reportId" element={<StudentsReport />} />

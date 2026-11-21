@@ -105,6 +105,14 @@ const ACTIONS = [
     keywords: "image picture album gallery event photograph",
   },
   {
+    title: "Set up class subjects",
+    description: "Configure subjects before entering student report-card marks.",
+    to: "/dashboard/subjects",
+    Icon: MdOutlineSchool,
+    group: "Learning",
+    keywords: "subjects curriculum syllabus class learning report card setup",
+  },
+  {
     title: "Prepare report cards",
     description: "Enter learning progress and prepare student reports.",
     to: "/dashboard/createReport",

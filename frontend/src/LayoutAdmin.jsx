@@ -25,6 +25,7 @@ const PAGE_META = [
   ["/dashboard/pdf", "Worksheets and PDFs", "Manage classroom documents."],
   ["/dashboard/video", "Learning videos", "Manage classroom videos."],
   ["/dashboard/gallery", "School photos", "Organize photos from school activities."],
+  ["/dashboard/subjects", "Class subjects", "Set up the subjects used in student report cards."],
   ["/dashboard/createReport", "Report cards", "Prepare student progress reports."],
   ["/dashboard/students", "Student report", "Enter marks and review a student report card."],
 ];
@@ -38,6 +39,7 @@ const COMMANDS = [
   { label: "Teachers", detail: "Add or update a staff member", to: "/dashboard/teacherRegister", terms: "staff faculty teacher employee" },
   { label: "Attendance records", detail: "Review attendance already recorded", to: "/dashboard/attendanceOverview", terms: "past absence records" },
   { label: "School calendar", detail: "Add an event, holiday or celebration", to: "/dashboard/calendar", terms: "festival holidays events planning" },
+  { label: "Class subjects", detail: "Configure the subjects used in class report cards", to: "/dashboard/subjects", terms: "subjects curriculum syllabus learning setup" },
   { label: "Report cards", detail: "Enter marks and prepare reports", to: "/dashboard/createReport", terms: "marks grades results assessment" },
   { label: "Teacher work reports", detail: "Review daily classroom work logs", to: "/dashboard/teacherWorkReport", terms: "work log time daily teaching" },
   { label: "PDF resources", detail: "Manage worksheets and PDF learning material", to: "/dashboard/pdf", terms: "documents homework worksheets" },

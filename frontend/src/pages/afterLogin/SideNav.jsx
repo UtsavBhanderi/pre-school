@@ -38,6 +38,7 @@ const navigation = [
   {
     label: "Learning and reports",
     items: [
+      { to: "/dashboard/subjects", label: "Class subjects", icon: MdSchool },
       { to: "/dashboard/createReport", label: "Report cards", icon: MdAssessment },
       { to: "/dashboard/teacherWorkReport", label: "Teacher work reports", icon: MdFactCheck },
       { to: "/dashboard/pdf", label: "Worksheets and PDFs", icon: MdPictureAsPdf },
