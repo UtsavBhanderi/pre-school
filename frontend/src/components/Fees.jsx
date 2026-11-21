@@ -164,6 +164,7 @@ const Fees = () => {
   };
 
   const handlePaymentDetailChange = (index, e) => {
+    if (editMode && formData.paymentDetails[index]?._id) return;
     const { name, value } = e.target;
     const updatedPaymentDetails = formData.paymentDetails.map((detail, detailIndex) => detailIndex === index ? { ...detail, [name]: value } : detail);
     const totalFeesPaid = Math.round(updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0) * 100) / 100;
@@ -183,6 +184,7 @@ const Fees = () => {
   };
 
   const removePaymentDetail = (index) => {
+    if (editMode && formData.paymentDetails[index]?._id) return;
     const updatedPaymentDetails = formData.paymentDetails.filter(
       (_, i) => i !== index
     );
@@ -501,6 +503,9 @@ const Fees = () => {
             </div>
             <div className="form-group col-12">
               <label className="fw-semibold">Payments received</label>
+              {editMode && formData.paymentDetails.some((detail) => detail._id) && (
+                <p className="small text-muted mb-2">Previously recorded payments are locked for receipt accuracy. Add a new entry to record another payment.</p>
+              )}
               <button
                 type="button"
                 onClick={addPaymentDetail}
@@ -509,7 +514,7 @@ const Fees = () => {
                 Add a payment
               </button>
               {formData.paymentDetails.map((detail, index) => (
-                <div key={index} className="form-row row g-3">
+                <div key={detail._id || index} className="form-row row g-3">
                   <div className="col-12 col-md-3">
                     <label className="form-label small mb-1" htmlFor={"fee-payment-date-" + index}>Date received</label>
                     <input
@@ -546,12 +551,13 @@ const Fees = () => {
                       min="0.01"
                       step="0.01"
                       required
+                      disabled={editMode && Boolean(detail._id)}
                       aria-label={`Payment amount ${index + 1}`}
                       onChange={(e) => handlePaymentDetailChange(index, e)}
                       className="form-control"
                     />
                   </div>
-                  <div className="col-auto align-self-end"><button type="button" onClick={() => removePaymentDetail(index)} className="btn btn-outline-danger" aria-label={`Remove payment ${index + 1}`}>Remove</button></div>
+                  <div className="col-auto align-self-end"><button type="button" onClick={() => removePaymentDetail(index)} className="btn btn-outline-danger" aria-label={`Remove payment ${index + 1}`} disabled={editMode && Boolean(detail._id)}>Remove</button></div>
                 </div>
               ))}
             </div>

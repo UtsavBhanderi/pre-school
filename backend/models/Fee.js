@@ -24,6 +24,8 @@ const FeesSchema = new mongoose.Schema({
   stuNo: { type: String, default: '', index: true },
   totalStandardFees: { type: Number, min: 0, default: 0 },
   totalFeesPaid: { type: Number, min: 0, default: 0 },
+  // Preserves legacy paid totals that were not stored as itemized receipts.
+  openingBalancePaid: { type: Number, min: 0, default: undefined },
   totalFeesRemaining: { type: Number, min: 0, default: 0 },
   paymentDetails: { type: [PaymentDetailSchema], default: [] },
   discount: { type: Number, min: 0, default: 0 },

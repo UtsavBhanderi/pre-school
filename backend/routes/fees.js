@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const Fees = require('../models/Fee');
 const { STANDARD_FEES } = require('../config/standardFees');
 const { asAmount, calculateRemaining } = require('../utils/feeMath');
-const { validateFeeAmounts, hasFeePaymentHistory } = require('../utils/feeValidation');
+const { validateFeeAmounts, validatePaymentHistoryUpdate, hasFeePaymentHistory } = require('../utils/feeValidation');
 
 const router = express.Router();
 
@@ -155,6 +155,9 @@ router.post('/create', async (req, res) => {
   if (!batchYear || batchYear.length > 12) return res.status(400).json({ message: 'Choose a valid school year.' });
   try {
     const feeData = { studentName, standard, batchYear, ...amounts.value };
+    if (!Array.isArray(body.paymentDetails) && amounts.value.totalFeesPaid > 0) {
+      feeData.openingBalancePaid = amounts.value.totalFeesPaid;
+    }
     const optionalTextFields = ['studentPhoneNumber', 'ParentsPhoneNumber', 'ParentsMobileNumber', 'EmergencyMobileNumber', 'parentEmail', 'stuNo'];
     for (const field of optionalTextFields) if (typeof body[field] === 'string') feeData[field] = body[field].trim();
     if (feeData.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(feeData.parentEmail)) {
@@ -182,10 +185,21 @@ router.put('/update/:id', async (req, res) => {
     const amounts = validateFeeAmounts({
       totalStandardFees: body.totalStandardFees ?? existing.totalStandardFees,
       discount: body.discount ?? existing.discount, paymentDetails,
-      totalFeesPaid: body.totalFeesPaid ?? existing.totalFeesPaid, paymentDetailsProvided,
+      totalFeesPaid: paymentDetailsProvided ? (body.totalFeesPaid ?? existing.totalFeesPaid) : existing.totalFeesPaid,
+      paymentDetailsProvided,
     });
     if (!amounts.valid) return res.status(400).json({ message: amounts.message });
+
+    let paymentHistory = null;
+    if (paymentDetailsProvided) {
+      paymentHistory = validatePaymentHistoryUpdate(existing, amounts.value.paymentDetails);
+      if (!paymentHistory.valid) {
+        return res.status(409).json({ code: paymentHistory.code, message: paymentHistory.message });
+      }
+      amounts.value.totalFeesPaid = paymentHistory.totalFeesPaid;
+    }
     const updates = { ...amounts.value };
+    if (paymentHistory) updates.openingBalancePaid = paymentHistory.openingBalancePaid;
     const allowedTextFields = ['studentName', 'studentPhoneNumber', 'ParentsPhoneNumber', 'ParentsMobileNumber', 'EmergencyMobileNumber', 'parentEmail', 'batchYear', 'standard', 'stuNo'];
     for (const field of allowedTextFields) {
       if (!Object.prototype.hasOwnProperty.call(body, field)) continue;

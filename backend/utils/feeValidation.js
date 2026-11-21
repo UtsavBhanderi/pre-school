@@ -40,6 +40,49 @@ function normalizePaymentDetails(details) {
   return { valid: true, value: paymentDetails };
 }
 
+function validatePaymentHistoryUpdate(existingRecord = {}, incomingDetails = []) {
+  const existingDetails = Array.isArray(existingRecord.paymentDetails) ? existingRecord.paymentDetails : [];
+  if (!Array.isArray(incomingDetails)) {
+    return { valid: false, code: 'INVALID_PAYMENT_HISTORY', message: 'Payment history must be a list.' };
+  }
+  if (incomingDetails.length < existingDetails.length) {
+    return { valid: false, code: 'PAYMENT_HISTORY_IMMUTABLE', message: 'Previously recorded payments cannot be removed. Add a new payment entry instead.' };
+  }
+
+  let previousDetailTotal = 0;
+  for (let index = 0; index < existingDetails.length; index += 1) {
+    const previous = existingDetails[index] || {};
+    const incoming = incomingDetails[index] || {};
+    const previousAmount = Math.round(Number(previous.amount || 0) * 100) / 100;
+    const incomingAmount = Math.round(Number(incoming.amount || 0) * 100) / 100;
+    previousDetailTotal += previousAmount;
+    if (
+      String(previous.date || '').trim() !== String(incoming.date || '').trim()
+      || String(previous.time || '').trim() !== String(incoming.time || '').trim()
+      || previousAmount !== incomingAmount
+    ) {
+      return { valid: false, code: 'PAYMENT_HISTORY_IMMUTABLE', message: 'Previously recorded payments cannot be changed. Add a new payment entry instead.' };
+    }
+  }
+
+  previousDetailTotal = Math.round(previousDetailTotal * 100) / 100;
+  const previousTotalPaid = Math.round(Number(existingRecord.totalFeesPaid || 0) * 100) / 100;
+  if (previousTotalPaid + 0.001 < previousDetailTotal) {
+    return { valid: false, code: 'PAYMENT_HISTORY_RECONCILIATION_REQUIRED', message: 'The saved payment entries do not match the recorded total. Contact the preschool administrator before changing this fee record.' };
+  }
+
+  const openingBalancePaid = existingRecord.openingBalancePaid === undefined || existingRecord.openingBalancePaid === null
+    ? Math.round((previousTotalPaid - previousDetailTotal) * 100) / 100
+    : Math.round(Number(existingRecord.openingBalancePaid || 0) * 100) / 100;
+  const incomingTotal = Math.round(incomingDetails.reduce((sum, item) => sum + Number(item.amount || 0), 0) * 100) / 100;
+
+  return {
+    valid: true,
+    openingBalancePaid,
+    totalFeesPaid: Math.round((openingBalancePaid + incomingTotal) * 100) / 100,
+  };
+}
+
 function hasFeePaymentHistory(record = {}) {
   const totalPaid = Number(record.totalFeesPaid || 0);
   return (Number.isFinite(totalPaid) && totalPaid > 0)
@@ -67,4 +110,4 @@ function validateFeeAmounts(input = {}) {
   return { valid: true, value: { totalStandardFees: total.value, discount: discount.value, paymentDetails, totalFeesPaid } };
 }
 
-module.exports = { MAX_FEE_AMOUNT, parseFeeAmount, validPaymentDate, normalizePaymentDetails, validateFeeAmounts, hasFeePaymentHistory };
+module.exports = { MAX_FEE_AMOUNT, parseFeeAmount, validPaymentDate, normalizePaymentDetails, validateFeeAmounts, validatePaymentHistoryUpdate, hasFeePaymentHistory };
