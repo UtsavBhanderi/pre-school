@@ -9,6 +9,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { validateProductionConfig } = require('./utils/productionConfig');
 const { requestSecurityHeaders, createRateLimiter } = require('./middleware/requestSecurity');
+const { getHttpErrorResponse } = require('./utils/httpErrorResponse');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
@@ -106,7 +107,9 @@ app.use(cors({
     if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Origin is not allowed by CORS.'));
+    const error = new Error('Origin is not allowed by CORS.');
+    error.code = 'CORS_ORIGIN_DENIED';
+    return callback(error);
   },
 }));
 
@@ -166,17 +169,12 @@ app.get('/api/health', (req, res) => {
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
 
-  const isUploadLimit = typeof error.code === 'string' && error.code.startsWith('LIMIT_');
-  const status = isUploadLimit ? 413 : 400;
   if (process.env.NODE_ENV !== 'production') {
     console.error('Request processing error:', error);
   }
 
-  return res.status(status).json({
-    message: isUploadLimit
-      ? 'The uploaded file is too large or exceeds the allowed upload limit.'
-      : (error.message || 'The request could not be processed.'),
-  });
+  const response = getHttpErrorResponse(error);
+  return res.status(response.status).json(response.body);
 });
 
 async function bootstrapAdminIfConfigured() {
