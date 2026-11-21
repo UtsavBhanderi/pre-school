@@ -725,3 +725,39 @@ img { max-width: 100%; }
 .birthday-page .birthday-advanced-filters .input-group > .form-control {
   border-radius: 0 7px 7px 0;
 }
+
+
+/* Application-wide visual polish, using the teacher workspace as the layout baseline */
+.admin-main-content .page-card,.admin-main-content .report-create-form {
+  padding:clamp(.9rem,2vw,1.35rem); border:1px solid var(--school-border); border-radius:15px;
+  background:#fff; box-shadow:0 5px 20px rgba(30,49,85,.035);
+}
+.admin-main-content .form-control,.admin-main-content .form-select,
+.admin-main-content textarea,.admin-main-content input:not([type="checkbox"]):not([type="radio"]) {
+  min-height:43px; border-color:#d7e0ec; border-radius:10px;
+}
+.admin-main-content textarea { min-height:96px; }
+.admin-main-content .btn { min-height:39px; padding-inline:.85rem; border-radius:9px; font-weight:700; }
+.admin-main-content .section-heading { margin:1.15rem 0 .7rem; }
+.admin-main-content .table-responsive { max-width:100%; border:1px solid var(--school-border); border-radius:12px; background:#fff; }
+.admin-main-content .table-responsive > .table { margin-bottom:0; }
+.admin-main-content .page-header { align-items:flex-start; }
+@media (max-width:767.98px) {
+ .admin-main-content { padding:.85rem .7rem calc(1rem + env(safe-area-inset-bottom)); }
+ .admin-topbar { min-height:64px; padding:.55rem .7rem; }
+ .admin-topbar-caption { display:none; }
+ .admin-topbar-tools { gap:.3rem; }
+ .admin-command-shortcut { display:none; }
+ .admin-main-content .page-header { flex-direction:column; gap:.7rem; }
+ .admin-main-content .page-actions { display:flex; flex-wrap:wrap; width:100%; gap:.45rem; }
+ .admin-main-content .page-actions .btn { flex:1 1 auto; }
+ .admin-main-content .table-responsive > .table { min-width:640px; }
+ .admin-main-content .filter-panel,.admin-main-content .filter-card,.admin-main-content .filter-card-panel { padding:.75rem; }
+ .admin-main-content .modal-dialog { margin:.45rem; }
+ .admin-main-content .modal-content { max-height:calc(100dvh - .9rem); overflow-y:auto; }
+ .admin-main-content .form-control,.admin-main-content .form-select,.admin-main-content textarea { min-height:44px; font-size:16px; }
+ .admin-main-content .btn { min-height:42px; }
+}
+@media (prefers-reduced-motion:reduce) {
+ .admin-main-content *, .admin-main-content *::before, .admin-main-content *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}

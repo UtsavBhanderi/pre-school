@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../api.js";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import "../report-cards.css";
 
 /* ===============================
    API CONFIG
@@ -9,6 +10,14 @@ import { useParams } from "react-router-dom";
 
 
 const api = axios.create({ baseURL: API_BASE_URL });
+const getGrade = (percentage) => {
+  if (percentage >= 90) return "A+";
+  if (percentage >= 80) return "A";
+  if (percentage >= 70) return "B";
+  if (percentage >= 60) return "C";
+  if (percentage >= 50) return "D";
+  return "E";
+};
 
 /* ===============================
    COMPONENT
@@ -67,12 +76,19 @@ const StudentsReport = () => {
      LIVE TOTAL CALCULATION
   ================================ */
   useEffect(() => {
-    const sum = Object.values(marks).reduce(
-      (s, v) => s + Number(v || 0),
-      0
-    );
-    setTotal(sum);
-  }, [marks]);
+    const totalPaise = Object.values(marks).reduce((sum, value) => {
+      const numeric = Number(value || 0);
+      return sum + (Number.isFinite(numeric) ? Math.round(numeric * 100) : 0);
+    }, 0);
+    const nextTotal = totalPaise / 100;
+    const maximumTotal = subjects.length * Number(outOfMarks);
+    const nextPercentage = maximumTotal > 0
+      ? Number(((nextTotal / maximumTotal) * 100).toFixed(2))
+      : 0;
+    setTotal(nextTotal);
+    setPercentage(nextPercentage);
+    setGrade(Object.keys(marks).length ? getGrade(nextPercentage) : "");
+  }, [marks, subjects, outOfMarks]);
 
   /* ===============================
      EDIT STUDENT
@@ -169,14 +185,21 @@ const StudentsReport = () => {
           <h2 className="mb-0">Student report cards</h2>
           <p className="page-subtitle">Class: {standard} · {reportName || "Student report"} · Out of {outOfMarks || "—"} per subject.</p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions report-page-actions">
+          <Link to="/dashboard/createReport" className="btn btn-outline-secondary">Back to templates</Link>
           <button type="button" className="btn btn-outline-primary" onClick={fetchData} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh class"}
           </button>
         </div>
       </div>
+      {!loading && !subjects.length && (
+        <div className="report-setup-notice" role="status">
+          <div><strong>Class subjects are not configured yet</strong><p>Set up the subjects for {standard} before entering student marks.</p></div>
+          <Link className="btn btn-primary" to="/dashboard/subjects">Set up class subjects</Link>
+        </div>
+      )}
       <div className="section-heading"><h3>Students in this class</h3><span className="muted small">{students.length} students</span></div>
-      <div className="table-responsive"><table className="table table-hover align-middle">
+      <div className="table-responsive report-student-table-wrap"><table className="table table-hover align-middle">
         <thead>
           <tr>
             <th>#</th>
@@ -216,8 +239,11 @@ const StudentsReport = () => {
                     {loadingStudentId === s._id ? "Loading…" : "Edit"}
                   </button>
                   <button
+                    type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => handlePrintPreview(s)}
+                    disabled={!report}
+                    title={report ? "Open printable report card" : "Save marks before printing"}
                   >
                     Print
                   </button>
@@ -227,12 +253,39 @@ const StudentsReport = () => {
           })}
         </tbody>
       </table></div>
+      <div className="report-student-mobile-list">
+        {loading ? <div className="report-mobile-empty">Loading students…</div> : students.map((student) => {
+          const saved = student.marks?.find((item) => String(item.reportId || "") === reportId);
+          const name = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "Student";
+          const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+          return (
+            <article className="report-student-mobile-card" key={student._id}>
+              <div className="report-student-mobile-heading">
+                <span className="report-student-avatar">{initials}</span>
+                <div><strong>{name}</strong><small>GR No. {student.stuNo || "—"}</small></div>
+              </div>
+              <div className="report-student-mobile-result">
+                <div><span>Total</span><strong>{saved?.total ?? "—"}</strong></div>
+                <div><span>Percentage</span><strong>{saved ? saved.percentage + "%" : "—"}</strong></div>
+                <div><span>Grade</span><strong>{saved?.grade || "—"}</strong></div>
+              </div>
+              <div className="report-student-mobile-actions">
+                <button type="button" className="btn btn-primary" onClick={() => handleEdit(student)} disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks}>
+                  {loadingStudentId === student._id ? "Loading…" : saved ? "Edit marks" : "Enter marks"}
+                </button>
+                <button type="button" className="btn btn-outline-secondary" onClick={() => handlePrintPreview(student)} disabled={!saved}>Print</button>
+              </div>
+            </article>
+          );
+        })}
+        {!loading && students.length === 0 && <div className="report-mobile-empty">No students in this class yet. New admissions will appear here automatically.</div>}
+      </div>
 
       {/* ===============================
          EDIT MODAL
-      ================================ */}
+      =============================== */}
       {selectedStudent && (
-        <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="marks-modal-title" style={{ background: "rgba(16,24,40,.45)", overflowY: "auto" }}>
+        <div className="modal show d-block report-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="marks-modal-title">
           <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
@@ -305,7 +358,7 @@ const StudentsReport = () => {
          PRINT PREVIEW MODAL
       ================================ */}
       {printStudent && printReport && (
-        <div className="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="print-report-title" style={{ background: "rgba(16,24,40,.45)", overflowY: "auto" }}>
+        <div className="modal show d-block report-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="print-report-title">
           <div className="modal-dialog modal-xl modal-dialog-centered">
             <div className="modal-content">
 
@@ -314,7 +367,7 @@ const StudentsReport = () => {
                 <div className="report-card">
                   <div className="header">
                     <div className="school-name">
-                      Kidz Era Pre-School
+                      Your Preschool
                     </div>
                     <div className="report-title" id="print-report-title">
                       Student Report Card
@@ -325,7 +378,7 @@ const StudentsReport = () => {
                     <div><span>Student Name:</span> {[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ")}</div>
                     <div><span>Class:</span> {printStudent.standard}</div>
                     <div><span>Roll No:</span> {printStudent.stuNo}</div>
-                    <div><span>Academic Year:</span> {printReport.batchYear || "—"}</div>
+                    <div><span>Academic Year:</span> {printStudent.batchYear || "—"}</div>
                   </div>
 
                   <table>
@@ -346,7 +399,8 @@ const StudentsReport = () => {
                   </table>
 
                   <div className="summary">
-                    <div>Total Marks: {printReport.total}</div>
+                    <div>Total Marks: {printReport.total} / {outOfMarks * (printReport.subjectData?.length || 0)}</div>
+                    <div>Percentage: {printReport.percentage}%</div>
                     <div>Grade: {printReport.grade}</div>
                   </div>
 

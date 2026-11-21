@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "../api.js";
 import * as XLSX from "xlsx";
+import "../report-cards.css";
 
 /* ===============================
    API CONFIG
@@ -71,7 +72,7 @@ const Reports = () => {
       setReportName("");
       setStandard("");
       setOutOfMarks("");
-      fetchReports();
+      await fetchReports();
     } catch (err) {
       console.error("Error creating report:", err);
       setPageError(err.response?.data?.message || "Unable to create the report template.");
@@ -157,6 +158,9 @@ const Reports = () => {
               className="form-control"
               value={reportName}
               onChange={(e) => setReportName(e.target.value)}
+              maxLength={120}
+              placeholder="e.g. Term 1 Assessment"
+              autoComplete="off"
               required
             />
           </div>
@@ -193,13 +197,15 @@ const Reports = () => {
               type="number"
               min="1"
               max="10000"
-              step="any"
+              step="0.01"
               inputMode="decimal"
               className="form-control"
               value={outOfMarks}
               onChange={(e) => setOutOfMarks(e.target.value)}
+              placeholder="e.g. 100"
               required
             />
+            <small className="form-text">Each subject will be marked out of this value.</small>
           </div>
 
           <button
@@ -216,7 +222,7 @@ const Reports = () => {
       <div className="mt-4">
         <div className="section-heading"><h3>Report templates</h3><span className="muted small">{reports.length} templates</span></div>
 
-        <div className="table-responsive"><table className="table table-hover align-middle">
+        <div className="table-responsive report-template-table-wrap"><table className="table table-hover align-middle">
           <thead>
             <tr>
               <th>#</th>
@@ -273,6 +279,30 @@ const Reports = () => {
 
           </tbody>
         </table></div>
+        <div className="report-template-mobile-list" aria-label="Report templates">
+          {loadingReports ? <div className="report-mobile-empty">Loading report templates…</div> : reports.map((report, index) => (
+            <article className="report-template-mobile-card" key={report._id}>
+              <div className="report-template-mobile-heading">
+                <span className="report-template-index">REPORT {index + 1}</span>
+                <strong>{report.reportName}</strong>
+                <small>{report.standard} · Out of {report.description}</small>
+              </div>
+              <div className="report-template-mobile-actions">
+                <button type="button" className="btn btn-primary" onClick={() => handleNext(report)}>Enter marks</button>
+                <button type="button" className="btn btn-outline-primary" onClick={() => handleExcel(report._id)} disabled={Boolean(exportingReportId)}>
+                  {exportingReportId === report._id ? "Preparing…" : "Export"}
+                </button>
+                {confirmDeleteId === report._id ? (
+                  <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(report._id)} disabled={deletingReportId === report._id}>Confirm delete</button>
+                ) : (
+                  <button type="button" className="btn btn-light text-danger" onClick={() => setConfirmDeleteId(report._id)} disabled={Boolean(deletingReportId)}>Delete</button>
+                )}
+              </div>
+              {confirmDeleteId === report._id && <small className="text-muted d-block mt-2">Templates with saved results cannot be deleted.</small>}
+            </article>
+          ))}
+          {!loadingReports && reports.length === 0 && <div className="report-mobile-empty">No report templates yet. Create your first report above.</div>}
+        </div>
       </div>
     </div>
   );
