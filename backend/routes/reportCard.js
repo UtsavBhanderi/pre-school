@@ -13,8 +13,9 @@ router.post('/create', async (req, res) => {
   const validation = validateReportTemplate(req.body || {});
   if (!validation.valid) return res.status(400).json({ message: validation.message });
   try {
+    // A report template can be prepared before admissions are complete.
+    // The live class roster is refreshed whenever the report is opened.
     const students = await Student.find({ standard: validation.value.standard }).select('_id').lean();
-    if (!students.length) return res.status(404).json({ message: 'No students were found in the selected class.' });
     const newReport = await ReportCard.create({ ...validation.value, students: students.map((student) => student._id) });
     return res.status(201).json({ message: 'Report created successfully.', newReport });
   } catch (error) {
@@ -95,12 +96,18 @@ router.get('/:reportId/roster', async (req, res) => {
     const report = await ReportCard.findById(req.params.reportId).lean();
     if (!report) return res.status(404).json({ message: 'Report template not found.' });
     const [students, subjectConfig] = await Promise.all([
-      Student.find({ _id: { $in: report.students || [] }, standard: report.standard })
+      // Always use the current class roster. A report created before a new
+      // admission must still include that child.
+      Student.find({ standard: report.standard })
         .select('firstName middleName lastName stuNo standard marks')
         .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
         .lean(),
       Subject.findOne({ standard: report.standard }).select('subjects').lean(),
     ]);
+    await ReportCard.updateOne(
+      { _id: report._id },
+      { $set: { students: students.map((student) => student._id) } },
+    );
     return res.json({
       report: { _id: report._id, reportName: report.reportName, standard: report.standard, outOfMarks: Number(report.description) },
       students,
@@ -114,11 +121,17 @@ router.get('/:reportId/roster', async (req, res) => {
 router.get('/:reportId/students', async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.reportId)) return res.status(400).json({ message: 'Choose a valid report template.' });
   try {
-    const report = await ReportCard.findById(req.params.reportId)
-      .populate({ path: 'students', select: 'firstName middleName lastName stuNo standard marks' })
-      .lean();
+    const report = await ReportCard.findById(req.params.reportId).select('reportName standard').lean();
     if (!report) return res.status(404).json({ message: 'Report template not found.' });
-    const students = (report.students || []).filter(Boolean).map((student) => {
+    const roster = await Student.find({ standard: report.standard })
+      .select('firstName middleName lastName stuNo standard marks')
+      .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
+      .lean();
+    await ReportCard.updateOne(
+      { _id: report._id },
+      { $set: { students: roster.map((student) => student._id) } },
+    );
+    const students = roster.map((student) => {
       const result = (student.marks || []).find((item) => String(item.reportId || '') === String(report._id));
       return {
         name: [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ').trim(),

@@ -23,6 +23,7 @@ test('report templates preserve saved student marks and historical grading scale
   const User = require('../models/User');
   const Student = require('../models/Student');
   const ReportCard = require('../models/ReportCard');
+  const Subject = require('../models/Subject');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
   const server = app.listen(0);
@@ -117,6 +118,54 @@ test('report templates preserve saved student marks and historical grading scale
       { headers: { 'x-auth-token': token } },
     );
     assert.equal(forbidden.status, 403);
+  });
+
+  await t.test('templates include students admitted after creation and allow marks entry', async () => {
+    const templateResponse = await api('/api/reportCard/create', {
+      method: 'POST',
+      body: { reportName: 'New admission report ' + tag, standard: 'GUJ NR.', description: '20' },
+    });
+    assert.equal(templateResponse.status, 201);
+    const template = templateResponse.data.newReport;
+    assert.deepEqual(template.students, []);
+
+    const newStudent = await Student.create({
+      firstName: 'New',
+      middleName: 'Admission',
+      lastName: tag,
+      standard: 'GUJ NR.',
+      stuNo: 'RPT-NEW-' + tag,
+      batchYear: '2026-2027',
+    });
+    await Subject.create({ standard: 'GUJ NR.', subjects: ['Language', 'Numbers'] });
+
+    const rosterResponse = await api('/api/reportCard/' + template._id + '/roster');
+    assert.equal(rosterResponse.status, 200);
+    assert.equal(rosterResponse.data.students.length, 1);
+    assert.equal(String(rosterResponse.data.students[0]._id), String(newStudent._id));
+    assert.deepEqual(rosterResponse.data.subjects, ['Language', 'Numbers']);
+
+    const marksResponse = await api('/api/students/' + newStudent._id + '/' + template._id, {
+      method: 'POST',
+      body: { subjectData: [
+        { subject: 'Language', mark: 15, date: '2026-11-21' },
+        { subject: 'Numbers', mark: 15, date: '2026-11-21' },
+      ] },
+    });
+    assert.equal(marksResponse.status, 200);
+    assert.equal(marksResponse.data.total, 30);
+    assert.equal(marksResponse.data.percentage, 75);
+    assert.equal(marksResponse.data.grade, 'B');
+
+    const savedMarks = await api('/api/students/' + newStudent._id + '/' + template._id);
+    assert.equal(savedMarks.status, 200);
+    assert.equal(savedMarks.data.subjectData.length, 2);
+
+    const exportResponse = await api('/api/reportCard/' + template._id + '/students');
+    assert.equal(exportResponse.status, 200);
+    assert.equal(exportResponse.data.length, 1);
+    assert.equal(exportResponse.data[0].total, 30);
+    assert.ok(await ReportCard.exists({ _id: template._id, students: newStudent._id }));
   });
 
   await t.test('saved marks prevent deletion of their report template', async () => {
