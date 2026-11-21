@@ -328,7 +328,8 @@
   .teacher-workspace.is-collapsed .teacher-nav-link > span,
   .teacher-workspace.is-collapsed .teacher-nav-link > small,
   .teacher-workspace.is-collapsed .teacher-profile-copy,
-  .teacher-workspace.is-collapsed .teacher-signout-button { display:none; }
+  .teacher-workspace.is-collapsed .teacher-signout-button span { display:none; }
+  .teacher-workspace.is-collapsed .teacher-signout-button { display:flex; justify-content:center; width:42px; min-height:42px; margin:0 auto; padding:.55rem; }
   .teacher-workspace.is-collapsed .teacher-sidebar-toggle { margin-inline:auto; }
   .teacher-workspace.is-collapsed .teacher-navigation { padding-inline:0; gap:.6rem; }
   .teacher-workspace.is-collapsed .teacher-nav-group { gap:.3rem; }
@@ -416,6 +417,7 @@
 .teacher-feature-content .daily-report-form textarea { min-height:110px; line-height:1.6; }
 .teacher-feature-content .daily-report-form .btn-primary { min-width:175px; box-shadow:0 5px 14px rgba(57,83,177,.14); }
 .teacher-feature-content .daily-report-filters {
+  display:grid; align-items:end; gap:.65rem;
   grid-template-columns:repeat(3,minmax(0,1fr)) auto; padding:.8rem; margin:.8rem 0;
   border:1px solid #e9edf4; border-radius:11px; background:#fafbfe;
 }
