@@ -111,6 +111,15 @@ test('school administrators manually create teacher logins that can sign in with
     assert.equal(await Teacher.countDocuments({ Email: teacherEmail }), 1);
   });
 
+  await t.test('teacher accounts cannot be self-registered or created without administrator access', async () => {
+    const response = await api('/api/auth/register', {
+      method: 'POST',
+      body: { username: 'Self Registered', email: teacherEmail, password: teacherPassword, role: 'teacher' },
+    });
+    assert.equal(response.status, 401);
+    assert.equal(await User.countDocuments({ email: teacherEmail }), 0);
+  });
+
   await t.test('administrator creates an active teacher account directly, without invitation or verification', async () => {
     const response = await api('/api/auth/register', {
       token: adminToken,
@@ -210,109 +219,6 @@ test('school administrators manually create teacher logins that can sign in with
 
     const oldSession = await api('/api/auth/me', { token: teacherToken });
     assert.equal(oldSession.status, 401);
-  });
-
-  await t.test('wrong password is still rejected', async () => {
-    const response = await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: teacherEmail, password: 'IncorrectPassword123' },
-    });
-    assert.equal(response.status, 401);
-  });
-});
-, 'i') }), 1);
-  });
-
-  await t.test('teacher accounts cannot be self-registered or created without administrator access', async () => {
-    const response = await api('/api/auth/register', {
-      method: 'POST',
-      body: { username: 'Self Registered', email: teacherEmail, password: teacherPassword, role: 'teacher' },
-    });
-    assert.equal(response.status, 401);
-    assert.equal(await User.countDocuments({ email: teacherEmail }), 0);
-  });
-
-  await t.test('administrator creates an active teacher account directly, without invitation or verification', async () => {
-    const response = await api('/api/auth/register', {
-      token: adminToken,
-      method: 'POST',
-      body: { username: 'Teacher ' + tag, email: teacherEmail.toUpperCase(), password: teacherPassword, role: 'teacher' },
-    });
-    assert.equal(response.status, 201);
-    assert.equal(response.data.user.role, 'teacher');
-    assert.equal(response.data.user.status, 'active');
-    assert.equal(response.data.token, undefined);
-    assert.match(response.data.message, /immediately/);
-    assert.equal(await User.countDocuments({ email: teacherEmail }), 1);
-  });
-
-  let teacherToken;
-  await t.test('teacher signs in immediately with email ID and password; no email verification token is needed', async () => {
-    const response = await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: teacherEmail, password: teacherPassword },
-    });
-    assert.equal(response.status, 200);
-    assert.ok(response.data.token);
-    teacherToken = response.data.token;
-
-    const me = await api('/api/auth/me', { token: teacherToken });
-    assert.equal(me.status, 200);
-    assert.equal(me.data.user.email, teacherEmail);
-    assert.equal(me.data.user.role, 'teacher');
-  });
-
-  await t.test('teacher cannot create another account from the administrator-only endpoint', async () => {
-    const response = await api('/api/auth/register', {
-      token: teacherToken,
-      method: 'POST',
-      body: { username: 'Another Teacher', email: 'other-' + tag + '@example.test', password: teacherPassword, role: 'teacher' },
-    });
-    assert.equal(response.status, 403);
-  });
-
-  await t.test('only administrators and teachers can use the daily work report API', async () => {
-    const parentRead = await api('/api/dailyWorkReport', { token: parentToken });
-    const parentCreate = await api('/api/dailyWorkReport', {
-      token: parentToken,
-      method: 'POST',
-      body: {
-        TimeIn: '09:00',
-        TimeOut: '13:00',
-        subject: 'Classroom',
-        standard: 'Nursery',
-        dailyWorkReport: 'Parent account must not create a staff work report.',
-        totalStudents: 10,
-      },
-    });
-    assert.equal(parentRead.status, 403);
-    assert.equal(parentCreate.status, 403);
-    assert.equal(await DailyWorkReport.countDocuments({ user: parent._id }), 0);
-
-    const teacherCreate = await api('/api/dailyWorkReport', {
-      token: teacherToken,
-      method: 'POST',
-      body: {
-        TimeIn: '09:00',
-        TimeOut: '13:00',
-        subject: 'Language',
-        standard: 'Nursery',
-        branch: 'Main',
-        dailyWorkReport: 'Read a story and practised new words.',
-        totalStudents: 12,
-      },
-    });
-    assert.equal(teacherCreate.status, 201);
-    const teacherOwnReports = await api('/api/dailyWorkReport', { token: teacherToken });
-    assert.equal(teacherOwnReports.status, 200);
-    assert.equal(teacherOwnReports.data.length, 1);
-    assert.equal(teacherOwnReports.data[0].subject, 'Language');
-
-    const teacherAllReports = await api('/api/dailyWorkReport/all', { token: teacherToken });
-    assert.equal(teacherAllReports.status, 403);
-    const adminAllReports = await api('/api/dailyWorkReport/all', { token: adminToken });
-    assert.equal(adminAllReports.status, 200);
-    assert.equal(adminAllReports.data.length, 1);
   });
 
   await t.test('wrong password is still rejected', async () => {
