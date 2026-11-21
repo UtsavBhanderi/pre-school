@@ -14,6 +14,7 @@ test('resolves stored and multer upload paths only inside their upload folder', 
   assert.equal(resolveManagedUploadPath(root, path.join(root, 'new-image.jpg')), path.join(root, 'new-image.jpg'));
   assert.equal(resolveManagedUploadPath(root, '../secret.txt'), null);
   assert.equal(resolveManagedUploadPath(root, '/uploads/video/video.mp4'), null);
+  assert.equal(resolveManagedUploadPath(root, 'uploads/gallery\\\\image.jpg'), path.join(root, 'image.jpg'));
   assert.equal(resolveManagedUploadPath(root, path.join(path.dirname(root), 'outside.jpg')), null);
   assert.equal(resolveManagedUploadPath(root, 'nested/image.jpg'), null);
 });
