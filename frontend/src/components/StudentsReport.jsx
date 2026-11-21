@@ -18,6 +18,9 @@ const StudentsReport = () => {
 
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [outOfMarks, setOutOfMarks] = useState(0);
+  const [reportName, setReportName] = useState("");
+  const [loadingStudentId, setLoadingStudentId] = useState("");
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [marks, setMarks] = useState({});
@@ -41,19 +44,20 @@ const StudentsReport = () => {
     setLoading(true);
     setPageError("");
     try {
-      const [studentsRes, subjectsRes] = await Promise.all([
-        api.get(`/api/students/${standard}`),
-        api.get(`/api/subjects/${standard}`),
-      ]);
-      setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
-      setSubjects(Array.isArray(subjectsRes.data?.subjects) ? subjectsRes.data.subjects : []);
+      const { data } = await api.get(`/api/reportCard/${reportId}/roster`);
+      if (data?.report?.standard !== standard) {
+        throw new Error('This report template does not belong to the selected class.');
+      }
+      setStudents(Array.isArray(data.students) ? data.students : []);
+      setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+      setOutOfMarks(Number(data.report.outOfMarks) || 0);
+      setReportName(data.report.reportName || 'Student report');
     } catch (error) {
-      console.error("Unable to load class report data:", error);
-      setPageError(error.response?.data?.message || "Unable to load students and subjects for this report.");
-    } finally {
-      setLoading(false);
-    }
-  }, [standard]);
+      console.error('Unable to load report class data:', error);
+      setPageError(error.response?.data?.message || error.message || 'Unable to load the selected report template.');
+      setStudents([]); setSubjects([]); setOutOfMarks(0); setReportName('');
+    } finally { setLoading(false); }
+  }, [standard, reportId]);
 
   useEffect(() => {
     fetchData();
@@ -74,36 +78,27 @@ const StudentsReport = () => {
      EDIT STUDENT
   ================================ */
   const handleEdit = async (student) => {
+    if (loadingStudentId || saving) return;
     setSelectedStudent(student);
-    setMarks({});
-    setDates({});
-    setTotal(0);
-    setPercentage(0);
-    setGrade("");
-
+    setLoadingStudentId(student._id);
+    setMarks({}); setDates({}); setTotal(0); setPercentage(0); setGrade('');
+    setPageError(''); setPageSuccess('');
     try {
-      const { data } = await api.get(
-        `/api/students/${student._id}/${reportId}`
-      );
-
-      const m = {};
-      const d = {};
-
-      data.subjectData.forEach((s) => {
-        m[s.subject] = s.mark;
-        d[s.subject] = s.date;
+      const { data } = await api.get(`/api/students/${student._id}/${reportId}`);
+      const nextMarks = {}; const nextDates = {};
+      (data.subjectData || []).forEach((item) => {
+        nextMarks[item.subject] = item.mark;
+        nextDates[item.subject] = item.date || '';
       });
-
-      setMarks(m);
-      setDates(d);
-      setTotal(data.total);
-      setPercentage(data.percentage);
-      setGrade(data.grade);
-    } catch (err) {
-      if (err.response?.status !== 404) {
-        console.error(err);
+      setMarks(nextMarks); setDates(nextDates);
+      setTotal(data.total ?? 0); setPercentage(data.percentage ?? 0); setGrade(data.grade || 'E');
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        console.error('Unable to load saved marks:', error);
+        setPageError(error.response?.data?.message || 'Saved marks could not be loaded. Please try again.');
+        setSelectedStudent(null);
       }
-    }
+    } finally { setLoadingStudentId(''); }
   };
 
   /* ===============================
@@ -111,38 +106,36 @@ const StudentsReport = () => {
   ================================ */
   const handleSave = async () => {
     if (!selectedStudent || saving) return;
-    const invalidMark = subjects.find((subject) => {
-      const value = marks[subject];
-      return value !== "" && value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0);
-    });
-    if (invalidMark) {
-      setPageError("Marks must be zero or a positive number.");
+    if (!subjects.length || !outOfMarks) {
+      setPageError('This report has no valid subjects or maximum mark configured. Contact the administrator.');
       return;
     }
-
-    setSaving(true);
-    setPageError("");
-    setPageSuccess("");
+    const invalidSubject = subjects.find((subject) => {
+      const value = marks[subject];
+      if (value === '' || value === undefined || value === null) return true;
+      const mark = Number(value);
+      return !Number.isFinite(mark) || mark < 0 || mark > outOfMarks || Math.abs(mark * 100 - Math.round(mark * 100)) > 1e-7;
+    });
+    if (invalidSubject) {
+      setPageError('Enter a valid mark for every subject. Marks must be between 0 and ' + outOfMarks + ', with at most two decimal places.');
+      return;
+    }
+    setSaving(true); setPageError(''); setPageSuccess('');
     const subjectData = subjects.map((subject) => ({
       subject,
-      mark: Number(marks[subject]) || 0,
-      date: dates[subject] || "",
+      mark: Math.round(Number(marks[subject]) * 100) / 100,
+      date: dates[subject] || '',
     }));
-
     try {
       const response = await api.post(`/api/students/${selectedStudent._id}/${reportId}`, { subjectData });
-      setTotal(response.data.total);
-      setPercentage(response.data.percentage);
-      setGrade(response.data.grade);
+      setTotal(response.data.total); setPercentage(response.data.percentage); setGrade(response.data.grade);
       setSelectedStudent(null);
-      setPageSuccess("Marks saved successfully.");
+      setPageSuccess('Marks saved successfully.');
       await fetchData();
     } catch (error) {
-      console.error("Unable to save student marks:", error);
-      setPageError(error.response?.data?.message || "Unable to save these marks. Please try again.");
-    } finally {
-      setSaving(false);
-    }
+      console.error('Unable to save student marks:', error);
+      setPageError(error.response?.data?.message || 'Unable to save these marks. Please try again.');
+    } finally { setSaving(false); }
   };
 
   /* ===============================
@@ -174,7 +167,7 @@ const StudentsReport = () => {
       <div className="page-header">
         <div>
           <h2 className="mb-0">Student report cards</h2>
-          <p className="page-subtitle">Class: {standard}. Enter subject marks, save progress, or print a report card.</p>
+          <p className="page-subtitle">Class: {standard} · {reportName || "Student report"} · Out of {outOfMarks || "—"} per subject.</p>
         </div>
         <div className="page-actions">
           <button type="button" className="btn btn-outline-primary" onClick={fetchData} disabled={loading}>
@@ -202,7 +195,7 @@ const StudentsReport = () => {
             <tr><td colSpan={7}><div className="empty-state"><strong>No students found for this class</strong>Check the selected class or register a student before preparing report cards.</div></td></tr>
           ) : students.map((s, i) => {
             const report = s.marks?.find(
-              (m) => m.reportId.toString() === reportId
+              (m) => String(m.reportId || "") === reportId
             );
 
             return (
@@ -215,10 +208,12 @@ const StudentsReport = () => {
                 <td>{report?.grade ?? "-"}</td>
                 <td>
                   <button
+                    type="button"
                     className="btn btn-warning btn-sm me-2"
                     onClick={() => handleEdit(s)}
+                    disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks}
                   >
-                    Edit
+                    {loadingStudentId === s._id ? "Loading…" : "Edit"}
                   </button>
                   <button
                     className="btn btn-secondary btn-sm"
@@ -246,6 +241,7 @@ const StudentsReport = () => {
               </div>
 
               <div className="modal-body">
+                <p className="small text-secondary">Each subject is marked out of {outOfMarks}. Enter all marks before saving.</p>
                 <div className="table-responsive"><table className="table table-hover align-middle">
                   <thead>
                     <tr>
@@ -272,7 +268,8 @@ const StudentsReport = () => {
                             type="number"
                             className="form-control"
                             min="0"
-                            step="1"
+                            max={outOfMarks || undefined}
+                            step="0.01"
                             aria-label={"Marks for " + sub}
                             value={marks[sub] ?? ""}
                             onChange={(e) => setMarks((previous) => ({ ...previous, [sub]: e.target.value }))}
@@ -284,6 +281,7 @@ const StudentsReport = () => {
                 </table></div>
 
                 <div className="d-flex flex-wrap gap-3 mt-3">
+                  <span className="badge text-bg-light border px-3 py-2">Out of: {outOfMarks * subjects.length}</span>
                   <span className="badge text-bg-light border px-3 py-2">Total: {total}</span>
                   <span className="badge text-bg-light border px-3 py-2">Percentage: {percentage}%</span>
                   <span className="badge text-bg-light border px-3 py-2">Grade: {grade || "—"}</span>
@@ -291,7 +289,7 @@ const StudentsReport = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving || Boolean(loadingStudentId) || !subjects.length}>
                   {saving ? "Saving marks…" : "Save marks"}
                 </button>
                 <button type="button" className="btn btn-outline-secondary" onClick={() => setSelectedStudent(null)} disabled={saving}>
