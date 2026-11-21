@@ -27,6 +27,8 @@ const TeacherDashboard = () => {
   const [filter, setFilter] = useState(INITIAL_FILTER);
   const [loadingReports, setLoadingReports] = useState(true);
   const [savingReport, setSavingReport] = useState(false);
+  const [assignedStandard, setAssignedStandard] = useState("");
+  const [loadingAssignedClass, setLoadingAssignedClass] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
 
@@ -47,8 +49,28 @@ const TeacherDashboard = () => {
     if (user) fetchReports();
   }, [user, fetchReports]);
 
+  useEffect(() => {
+    if (user?.role !== 'teacher') return undefined;
+    const controller = new AbortController();
+    setLoadingAssignedClass(true);
+    axios.get(API_BASE_URL + '/api/attendance/teacher-class', { signal: controller.signal })
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        const standard = String(response.data?.standard || '').trim();
+        setAssignedStandard(standard);
+        setFormData((previous) => ({ ...previous, standard }));
+        if (!standard) setPageError('Your teacher profile does not have a class assigned. Contact the preschool administrator.');
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || axios.isCancel(error)) return;
+        setPageError(error.response?.data?.message || 'Your assigned class could not be loaded.');
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoadingAssignedClass(false); });
+    return () => controller.abort();
+  }, [user?.role]);
   const handleChange = (event) => {
     const { name, value } = event.target;
+    if (name === "standard" && user?.role === "teacher" && value !== assignedStandard) return;
     setFormData((previous) => ({ ...previous, [name]: value }));
     setPageError("");
     setPageSuccess("");
@@ -129,9 +151,15 @@ const TeacherDashboard = () => {
             </div>
             <div className="col-12 col-sm-6 col-lg-3">
               <label htmlFor="report-standard" className="form-label">Class / standard</label>
-              <select id="report-standard" name="standard" className="form-select" value={formData.standard} onChange={handleChange} required>
-                <option value="">Select class</option>
-                {STANDARDS.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
+              <select id="report-standard" name="standard" className="form-select" value={formData.standard} onChange={handleChange} required disabled={loadingAssignedClass || user?.role === "teacher"}>
+                {user?.role === "teacher" ? (
+                  assignedStandard ? <option value={assignedStandard}>{assignedStandard}</option> : <option value="">No class assigned</option>
+                ) : (
+                  <>
+                    <option value="">Select class</option>
+                    {STANDARDS.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
+                  </>
+                )}
               </select>
             </div>
             <div className="col-12 col-md-3">
