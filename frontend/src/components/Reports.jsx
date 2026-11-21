@@ -29,6 +29,8 @@ const Reports = () => {
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [exportingReportId, setExportingReportId] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState("");
+  const [deletingReportId, setDeletingReportId] = useState("");
 
   /* ===============================
      FETCH REPORTS
@@ -82,17 +84,18 @@ const Reports = () => {
      DELETE REPORT
   ================================ */
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this report?")) return;
-
+    if (deletingReportId) return;
+    setDeletingReportId(id); setPageError(''); setPageSuccess('');
     try {
       await api.delete(`/api/reportCard/${id}`);
-      setReports((prev) => prev.filter((r) => r._id !== id));
-      setPageSuccess("Report template deleted.");
-      setPageError("");
-    } catch (err) {
-      console.error("Error deleting report:", err);
-      setPageError(err.response?.data?.message || "Unable to delete the report template.");
-    }
+      setReports((previous) => previous.filter((report) => report._id !== id));
+      setConfirmDeleteId('');
+      setPageSuccess('Report template deleted.');
+    } catch (error) {
+      console.error('Unable to delete report template:', error);
+      setConfirmDeleteId('');
+      setPageError(error.response?.data?.message || 'Unable to delete the report template.');
+    } finally { setDeletingReportId(''); }
   };
 
   /* ===============================
@@ -244,12 +247,16 @@ const Reports = () => {
                   </button>
 
 
-                  <button
-                    className="btn btn-danger btn-sm me-2"
-                    onClick={() => handleDelete(report._id)}
-                  >
-                    Delete
-                  </button>
+                  {confirmDeleteId === report._id ? (
+                    <>
+                      <button type="button" className="btn btn-danger btn-sm me-1" onClick={() => handleDelete(report._id)} disabled={deletingReportId === report._id}>
+                        {deletingReportId === report._id ? "Deleting…" : "Confirm delete"}
+                      </button>
+                      <button type="button" className="btn btn-outline-secondary btn-sm me-2" onClick={() => setConfirmDeleteId("")} disabled={deletingReportId === report._id}>Cancel</button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-outline-danger btn-sm me-2" onClick={() => setConfirmDeleteId(report._id)} disabled={Boolean(deletingReportId)}>Delete</button>
+                  )}
 
                   <button
                     type="button"
