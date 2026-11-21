@@ -3,6 +3,28 @@ import axios from "axios";
 import { API_BASE_URL } from "../api.js";
 
 
+const parseCalendarDate = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  const dateOnly = text.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return date.getFullYear() === Number(year)
+      && date.getMonth() === Number(month) - 1
+      && date.getDate() === Number(day)
+      ? date
+      : null;
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const TEACHER_STANDARDS = [
+  "ENG Play Group", "ENG NR.", "ENG JR.", "ENG SR.",
+  "GUJ Play Group", "GUJ NR.", "GUJ JR.", "GUJ SR.",
+];
+
 function TeacherBirthday() {
   const linkone = API_BASE_URL;
   const [loading, setLoading] = useState(true);
@@ -77,7 +99,7 @@ function TeacherBirthday() {
       }
   
       if (filters.GR_No) {
-          filtered = filtered.filter(teacher => String(teacher.GR_No || '') === filters.GR_No);
+          filtered = filtered.filter(teacher => String(teacher.GR_No || '').toLowerCase().includes(filters.GR_No.toLowerCase()));
       }
   
       setFilteredTeachers(filtered);
