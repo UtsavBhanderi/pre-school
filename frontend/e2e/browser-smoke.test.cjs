@@ -886,7 +886,7 @@ test('single-school parent portal opens with family-scoped child information on 
   const moreSheet = page.getByRole('dialog', { name: 'More from your school' });
   await moreSheet.waitFor();
   await moreSheet.getByRole('button', { name: 'Calendar' }).click();
-  await page.getByRole('heading', { name: 'School calendar' }).waitFor();
+  await page.getByRole('heading', { name: 'School calendar' }).first().waitFor();
   assert.equal(await moreSheet.count(), 0, 'Choosing a More destination should close the mobile sheet.');
 
   const dimensions = await page.evaluate(() => ({
