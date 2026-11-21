@@ -5,6 +5,8 @@ const path = require('path');
 const mongoose = require("mongoose");
 const Student = require('../models/Student');
 const ReportCard = require("../models/ReportCard"); // to get Out Of Marks
+const Subject = require('../models/Subject');
+const { validateStudentReportMarks, calculateStudentReportResult } = require('../utils/studentReportMarks');
 const Fees = require("../models/Fee");
 
 const router = express.Router();
@@ -264,35 +266,31 @@ router.get('/:standard', async (req, res) => {
 
 router.get("/:studentId/:reportId", async (req, res) => {
   const { studentId, reportId } = req.params;
-
+  if (!mongoose.Types.ObjectId.isValid(studentId) || !mongoose.Types.ObjectId.isValid(reportId)) {
+    return res.status(400).json({ message: 'Choose a valid student and report.' });
+  }
   try {
-    if (
-      !mongoose.Types.ObjectId.isValid(studentId) ||
-      !mongoose.Types.ObjectId.isValid(reportId)
-    ) {
-      return res.status(400).json({ message: "Invalid ID" });
+    const [student, report] = await Promise.all([
+      Student.findById(studentId).select('standard marks').lean(),
+      ReportCard.findById(reportId).select('standard students').lean(),
+    ]);
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+    if (!report) return res.status(404).json({ message: 'Report template not found.' });
+    const isLinked = (report.students || []).some((id) => String(id) === String(studentId));
+    if (!isLinked || student.standard !== report.standard) {
+      return res.status(403).json({ message: 'This student is not included in the selected report template.' });
     }
-
-    const student = await Student.findById(studentId).lean();
-    if (!student) return res.status(404).json({ message: "Student not found" });
-
-    const report = student.marks?.find(
-      (m) => m.reportId.toString() === reportId
-    );
-
-    if (!report)
-      return res.status(404).json({ message: "No marks found" });
-
+    const result = (student.marks || []).find((item) => String(item.reportId || '') === reportId);
+    if (!result) return res.status(404).json({ message: 'No marks have been saved for this student yet.' });
     return res.json({
-      subjectData: report.subjectData || [],
-      total: report.total || 0,
-      percentage: report.percentage || 0,
-      grade: report.grade || "E",
+      subjectData: result.subjectData || [],
+      total: result.total ?? 0,
+      percentage: result.percentage ?? 0,
+      grade: result.grade || 'E',
     });
-
-  } catch (err) {
-    console.error("GET MARKS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+  } catch (error) {
+    console.error('Unable to load student marks:', error?.name || 'query_error');
+    return res.status(500).json({ message: 'Student marks could not be loaded.' });
   }
 });
 
@@ -301,70 +299,38 @@ router.get("/:studentId/:reportId", async (req, res) => {
 ===================================================== */
 router.post("/:studentId/:reportId", async (req, res) => {
   const { studentId, reportId } = req.params;
-  const { subjectData } = req.body;
-
+  if (!mongoose.Types.ObjectId.isValid(studentId) || !mongoose.Types.ObjectId.isValid(reportId)) {
+    return res.status(400).json({ message: 'Choose a valid student and report.' });
+  }
   try {
-    if (!Array.isArray(subjectData)) {
-      return res.status(400).json({ message: "Invalid subject data" });
+    const [student, report] = await Promise.all([
+      Student.findById(studentId),
+      ReportCard.findById(reportId).select('standard students description').lean(),
+    ]);
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+    if (!report) return res.status(404).json({ message: 'Report template not found.' });
+    const isLinked = (report.students || []).some((id) => String(id) === String(studentId));
+    if (!isLinked || student.standard !== report.standard) {
+      return res.status(403).json({ message: 'This student is not included in the selected report template.' });
     }
-
-    const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ message: "Student not found" });
-
+    const subjectConfig = await Subject.findOne({ standard: report.standard }).select('subjects').lean();
+    if (!subjectConfig) {
+      return res.status(409).json({ message: 'No subjects are configured for this class. Configure subjects before entering marks.' });
+    }
+    const validation = validateStudentReportMarks(req.body?.subjectData, subjectConfig.subjects, report.description);
+    if (!validation.valid) return res.status(400).json({ message: validation.message });
+    const subjectData = validation.value;
+    const result = calculateStudentReportResult(subjectData, report.description);
     if (!Array.isArray(student.marks)) student.marks = [];
-
-    // 🔹 TOTAL
-    const total = subjectData.reduce(
-      (sum, s) => sum + Number(s.mark || 0),
-      0
-    );
-
-    // 🔹 OUT OF MARKS
-    const report = await ReportCard.findById(reportId).lean();
-    const outOfMarks = Number(report?.description || 0);
-    const maxTotal = subjectData.length * outOfMarks;
-
-    // 🔹 PERCENTAGE
-    const percentage =
-      maxTotal > 0 ? Number(((total / maxTotal) * 100).toFixed(2)) : 0;
-
-    // 🔹 GRADE LOGIC
-    let grade = "E";
-    if (percentage >= 90) grade = "A+";
-    else if (percentage >= 80) grade = "A";
-    else if (percentage >= 70) grade = "B";
-    else if (percentage >= 60) grade = "C";
-    else if (percentage >= 50) grade = "D";
-
-    const reportIndex = student.marks.findIndex(
-      (m) => m.reportId.toString() === reportId
-    );
-
-    const reportPayload = {
-      reportId,
-      subjectData,
-      total,
-      percentage,
-      grade,
-    };
-
-    if (reportIndex === -1) {
-      student.marks.push(reportPayload);
-    } else {
-      student.marks[reportIndex] = reportPayload;
-    }
-
+    const reportIndex = student.marks.findIndex((item) => String(item.reportId || '') === reportId);
+    const reportPayload = { reportId, subjectData, ...result };
+    if (reportIndex === -1) student.marks.push(reportPayload);
+    else student.marks[reportIndex] = reportPayload;
     await student.save();
-
-    res.json({
-      message: "Marks saved successfully",
-      total,
-      percentage,
-      grade,
-    });
-  } catch (err) {
-    console.error("SAVE MARKS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.json({ message: 'Marks saved successfully.', ...result });
+  } catch (error) {
+    console.error('Unable to save student marks:', error?.name || 'save_error');
+    return res.status(500).json({ message: 'Student marks could not be saved. Please try again.' });
   }
 });
 
