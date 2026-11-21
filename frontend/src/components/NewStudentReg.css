@@ -31,3 +31,21 @@
 .student-register-page .present { background: #d4edda; color: #155724; }
 .student-register-page .absent { background: #f8d7da; color: #721c24; }
 .student-register-page .leave { background: #fff3cd; color: #856404; }
+
+
+/* Student profile attendance and academic report sections */
+.student-profile-attendance-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; margin:.7rem 0 1rem; }
+.student-profile-attendance-summary article { display:grid; gap:.2rem; min-width:0; padding:.8rem; border:1px solid #e5ebf3; border-radius:10px; background:#fff; }
+.student-profile-attendance-summary span { color:#76859a; font-size:.7rem; font-weight:700; }
+.student-profile-attendance-summary strong { color:#2d4260; font-size:1.2rem; font-weight:850; }
+.student-profile-attendance-table { border:1px solid #e4eaf2; border-radius:10px; background:#fff; }
+.student-profile-attendance-table .table { min-width:570px; }
+.student-profile-attendance-table thead th { color:#60718a; background:#f7f9fc; font-size:.7rem; text-transform:uppercase; }
+.student-profile-empty-state { display:grid; justify-items:center; gap:.2rem; padding:1.3rem 1rem; border:1px dashed #d4deeb; border-radius:10px; color:#8290a3; background:#fff; text-align:center; }
+.student-profile-empty-state strong { color:#405572; font-size:.83rem; }
+.student-profile-empty-state span { max-width:420px; font-size:.74rem; line-height:1.5; }
+@media(max-width:767.98px) {
+ .student-profile-attendance-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
+ .student-profile-attendance-summary article { padding:.65rem; }
+ .student-profile-attendance-summary strong { font-size:1.05rem; }
+}

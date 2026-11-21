@@ -8,6 +8,7 @@ const ReportCard = require("../models/ReportCard"); // to get Out Of Marks
 const Subject = require('../models/Subject');
 const { validateStudentReportMarks, calculateStudentReportResult } = require('../utils/studentReportMarks');
 const Fees = require("../models/Fee");
+const Attendance = require('../models/Attendance');
 const ParentAccount = require('../models/ParentAccount');
 const { hasFeePaymentHistory } = require('../utils/feeValidation');
 
@@ -292,15 +293,31 @@ router.get('/student-profile/:id', async (req, res) => {
   try {
     const studentId = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(studentId)) return res.status(400).json({ message: 'Invalid student ID.' });
-    const student = await Student.findById(studentId);
+    const student = await Student.findById(studentId).lean();
 
     if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+      return res.status(404).json({ message: 'Student not found.' });
     }
 
-    const feesData = await Fees.findOne({ stuNo: student.stuNo });
+    const savedReportIds = [...new Set((student.marks || [])
+      .map((mark) => String(mark?.reportId || ''))
+      .filter((id) => mongoose.Types.ObjectId.isValid(id)))];
 
-    //store selected fees fields in a new object
+    const [feesData, reports, attendanceRows] = await Promise.all([
+      Fees.findOne({ stuNo: student.stuNo }).lean(),
+      ReportCard.find({
+        $or: [
+          { students: studentId },
+          ...(savedReportIds.length ? [{ _id: { $in: savedReportIds } }] : []),
+        ],
+      }).sort({ createdAt: -1, _id: -1 }).lean(),
+      Attendance.find({ 'studentDetails.studentId': studentId })
+        .select('date standard studentDetails createdAt updatedAt')
+        .sort({ date: -1, updatedAt: -1, _id: -1 })
+        .limit(730)
+        .lean(),
+    ]);
+
     const fees = {
       studentName: feesData?.studentName || '',
       stuNo: feesData?.stuNo || '',
@@ -311,17 +328,49 @@ router.get('/student-profile/:id', async (req, res) => {
       discount: feesData?.discount || 0,
     };
 
-    const reports = await ReportCard.find({
-      students: studentId
-    });
+    // Legacy attendance records can contain duplicate student entries for a
+    // day. Keep the latest updated status for each calendar date.
+    const recordsByDate = new Map();
+    for (const record of attendanceRows) {
+      const date = record.date instanceof Date
+        ? record.date.toISOString().slice(0, 10)
+        : String(record.date || '').slice(0, 10);
+      if (!date || recordsByDate.has(date)) continue;
+      const detail = (record.studentDetails || []).find(
+        (item) => String(item.studentId?._id || item.studentId) === String(studentId),
+      );
+      if (!detail) continue;
+      recordsByDate.set(date, {
+        date,
+        className: record.standard || student.standard || '',
+        status: detail.status,
+        reason: detail.status === 'absent' ? String(detail.reason || '') : '',
+        recordedAt: record.updatedAt || record.createdAt || null,
+      });
+    }
+    const attendanceRecords = [...recordsByDate.values()].sort((a, b) => b.date.localeCompare(a.date));
+    const present = attendanceRecords.filter((record) => record.status === 'present').length;
+    const absent = attendanceRecords.filter((record) => record.status === 'absent').length;
+    const totalDays = attendanceRecords.length;
 
-    res.json({
+    return res.json({
       student,
       fees,
-      reports
+      reports,
+      attendance: {
+        summary: {
+          totalDays,
+          present,
+          absent,
+          percentage: totalDays ? Number(((present / totalDays) * 100).toFixed(1)) : 0,
+          lastRecordedOn: attendanceRecords[0]?.date || null,
+        },
+        records: attendanceRecords,
+      },
     });
-  } catch (err) {
-    res.status(500).json(err);
+  } catch (error) {
+    console.error('Unable to load student profile:', error?.name || 'profile_query_error');
+    return res.status(500).json({ message: 'The student profile could not be loaded. Please try again.' });
   }
 });
 

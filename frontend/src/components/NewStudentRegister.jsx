@@ -869,8 +869,7 @@ const NewStudentRegister = () => {
 
     const getReportMarks = (reportId) => {
         return profile?.student?.marks?.find(
-            (mark) =>
-                mark?.reportId?.toString() === reportId?.toString()
+            (mark) => String(mark?.reportId?._id || mark?.reportId || '') === String(reportId || '')
         );
     };
 
@@ -3164,10 +3163,49 @@ const NewStudentRegister = () => {
                                                     Attendance
                                                 </h5>
 
-                                                <div className="alert alert-secondary">
-                                                    Attendance data is not currently
-                                                    connected to the API.
-                                                </div>
+                                                {(() => {
+                                                    const attendance = profile.attendance || {};
+                                                    const summary = attendance.summary || {};
+                                                    const records = Array.isArray(attendance.records) ? attendance.records : [];
+                                                    return (
+                                                        <>
+                                                            <div className="student-profile-attendance-summary">
+                                                                <article><span>Days recorded</span><strong>{summary.totalDays || 0}</strong></article>
+                                                                <article><span>Present</span><strong className="text-success">{summary.present || 0}</strong></article>
+                                                                <article><span>Absent</span><strong className="text-danger">{summary.absent || 0}</strong></article>
+                                                                <article><span>Attendance rate</span><strong>{Number(summary.percentage || 0)}%</strong></article>
+                                                            </div>
+                                                            {records.length ? (
+                                                                <div className="table-responsive student-profile-attendance-table">
+                                                                    <table className="table table-hover align-middle mb-0">
+                                                                        <thead>
+                                                                            <tr><th>Date</th><th>Class</th><th>Status</th><th>Reason / note</th></tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {records.map((record, index) => (
+                                                                                <tr key={record.date + "-" + index}>
+                                                                                    <td>{dateToIndianFormat(record.date) || "—"}</td>
+                                                                                    <td>{record.className || profile.student.standard || "—"}</td>
+                                                                                    <td>
+                                                                                        <span className={"badge " + (record.status === "present" ? "text-bg-success" : "text-bg-danger")}>
+                                                                                            {record.status === "present" ? "Present" : "Absent"}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td>{record.status === "absent" ? (record.reason || "No reason recorded") : "—"}</td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="student-profile-empty-state">
+                                                                    <strong>No attendance history yet</strong>
+                                                                    <span>Attendance entries saved by the class teacher will appear here automatically.</span>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>

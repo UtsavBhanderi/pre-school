@@ -25,6 +25,7 @@ test('student deletion preserves parent, academic and paid-fee history', {
   const Fees = require('../models/Fee');
   const ReportCard = require('../models/ReportCard');
   const ParentAccount = require('../models/ParentAccount');
+  const Attendance = require('../models/Attendance');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
   const server = app.listen(0);
@@ -67,6 +68,61 @@ test('student deletion preserves parent, academic and paid-fee history', {
       new Promise((resolve) => server.close(resolve)),
     ]);
     await mongoose.disconnect();
+  });
+
+  await t.test('student profile returns linked academic reports and working attendance history', async () => {
+    const student = await Student.create({
+      firstName: 'Profile',
+      middleName: 'Academic',
+      lastName: 'Student',
+      standard: 'ENG JR.',
+      stuNo: 'PROFILE-' + tag,
+    });
+    const historicalReport = await ReportCard.create({
+      reportName: 'Historical report ' + tag,
+      standard: 'ENG JR.',
+      description: '100',
+      students: [],
+    });
+    student.marks.push({
+      reportId: historicalReport._id,
+      subjectData: [
+        { subject: 'English', mark: 82, date: '2026-11-19' },
+        { subject: 'Maths', mark: 91, date: '2026-11-19' },
+      ],
+      total: 173,
+      percentage: 86.5,
+      grade: 'A',
+    });
+    await student.save();
+
+    await Attendance.create([
+      {
+        date: new Date('2026-11-20T00:00:00.000Z'),
+        standard: 'ENG JR.',
+        studentDetails: [{ studentId: student._id, status: 'present', reason: '' }],
+      },
+      {
+        date: new Date('2026-11-19T00:00:00.000Z'),
+        standard: 'ENG JR.',
+        studentDetails: [{ studentId: student._id, status: 'absent', reason: 'Fever' }],
+      },
+    ]);
+
+    const response = await api('/api/students/student-profile/' + student._id);
+    assert.equal(response.status, 200);
+    assert.equal(response.data.reports.length, 1);
+    assert.equal(String(response.data.reports[0]._id), String(historicalReport._id));
+    assert.equal(response.data.student.marks[0].subjectData.length, 2);
+    assert.deepEqual(response.data.attendance.summary, {
+      totalDays: 2,
+      present: 1,
+      absent: 1,
+      percentage: 50,
+      lastRecordedOn: '2026-11-20',
+    });
+    assert.deepEqual(response.data.attendance.records.map((record) => record.status), ['present', 'absent']);
+    assert.equal(response.data.attendance.records[1].reason, 'Fever');
   });
 
   await t.test('paid fee history blocks student deletion', async () => {
