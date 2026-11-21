@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const { getAllVideos, createVideo, updateVideo, deleteVideo } = require('../controllers/videoController');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -19,7 +20,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const extension = path.extname(file.originalname || '').toLowerCase();
     const allowedExtensions = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv']);
-    if (!file.mimetype || !file.mimetype.startsWith('video/') || !allowedExtensions.has(extension)) {
+    if (!allowedExtensions.has(extension)) {
       return cb(new Error('Upload an MP4, WEBM, MOV, M4V or OGV video file.'));
     }
     cb(null, true);
@@ -27,8 +28,8 @@ const upload = multer({
 });
 
 router.get('/', getAllVideos);
-router.post('/', upload.single('file'), createVideo);
-router.put('/:id', upload.single('file'), updateVideo);
+router.post('/', upload.single('file'), verifyUploadContent('video'), createVideo);
+router.put('/:id', upload.single('file'), verifyUploadContent('video'), updateVideo);
 router.delete('/:id', deleteVideo);
 
 module.exports = router;

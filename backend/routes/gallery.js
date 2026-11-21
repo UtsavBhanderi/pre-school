@@ -4,6 +4,7 @@ const path = require('path');
 const { addPhoto, getPhotos, updatePhoto, deletePhoto, updateSequence } = require('../controllers/galleryController');
 
 const router = express.Router();
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -20,7 +21,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const extension = path.extname(file.originalname || '').toLowerCase();
     const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-    if (!file.mimetype || !file.mimetype.startsWith('image/') || !allowedExtensions.has(extension)) {
+    if (!allowedExtensions.has(extension)) {
       return cb(new Error('Gallery uploads must be JPG, PNG, WEBP or GIF images.'));
     }
     cb(null, true);
@@ -28,8 +29,8 @@ const upload = multer({
 });
 
 router.get('/', getPhotos);
-router.post('/', upload.single('photo'), addPhoto);
-router.put('/:id', upload.single('photo'), updatePhoto);
+router.post('/', upload.single('photo'), verifyUploadContent('gallery'), addPhoto);
+router.put('/:id', upload.single('photo'), verifyUploadContent('gallery'), updatePhoto);
 router.delete('/:id', deletePhoto);
 router.put('/sequence/:id', updateSequence);
 

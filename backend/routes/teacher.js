@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const Teacher = require('../models/Teacher');
 const router = express.Router();
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, path.join(__dirname, '../uploads/teachers'));
@@ -19,7 +20,7 @@ const upload = multer({
     fileFilter: (req, file, cb) => {
         const extension = path.extname(file.originalname || '').toLowerCase();
         const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-        if (!file.mimetype || !file.mimetype.startsWith('image/') || !allowedExtensions.has(extension)) {
+        if (!allowedExtensions.has(extension)) {
             return cb(new Error('Teacher photographs must be JPG, PNG, WEBP or GIF images.'));
         }
         cb(null, true);
@@ -38,7 +39,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create a new teacher
-router.post('/', upload.fields([{ name: 'selfPhoto' }, { name: 'motherPhoto' }, { name: 'fatherPhoto' }]), async (req, res) => {
+router.post('/', upload.fields([{ name: 'selfPhoto' }, { name: 'motherPhoto' }, { name: 'fatherPhoto' }]), verifyUploadContent('teachers'), async (req, res) => {
     try {
         const batchYear = new Date().getFullYear() + '-' + (new Date().getFullYear() + 1);
 
@@ -63,7 +64,7 @@ router.put('/:id', upload.fields([
     { name: 'selfPhoto', maxCount: 1 },
     { name: 'motherPhoto', maxCount: 1 },
     { name: 'fatherPhoto', maxCount: 1 },
-]), async (req, res) => {
+]), verifyUploadContent('teachers'), async (req, res) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: 'Invalid teacher ID.' });

@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const mongoose = require('mongoose');
 const PDF = require('../models/Pdf');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const router = express.Router();
 const uploadRoot = path.resolve(__dirname, '../uploads/pdf');
@@ -47,7 +48,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', upload.single('file'), async (req, res) => {
+router.post('/', upload.single('file'), verifyUploadContent('pdf'), async (req, res) => {
   try {
     const { title, standard, subject, chapter, url } = req.body;
     const trimmedTitle = String(title || '').trim();
@@ -70,7 +71,7 @@ router.post('/', upload.single('file'), async (req, res) => {
   }
 });
 
-router.put('/:id', upload.single('file'), async (req, res) => {
+router.put('/:id', upload.single('file'), verifyUploadContent('pdf'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid PDF resource ID.' });

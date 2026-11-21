@@ -10,6 +10,7 @@ const Fees = require("../models/Fee");
 const router = express.Router();
 // const { Student, Sequence } = require('../models/Student');
 const Sequence = require('../models/sequence');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -28,7 +29,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const extension = path.extname(file.originalname || '').toLowerCase();
     const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-    if (!file.mimetype || !file.mimetype.startsWith('image/') || !allowedExtensions.has(extension)) {
+    if (!allowedExtensions.has(extension)) {
       return cb(new Error('Student and parent photographs must be JPG, PNG, WEBP or GIF images.'));
     }
     cb(null, true);
@@ -110,7 +111,7 @@ router.post('/', upload.fields([
   { name: 'studentPhoto', maxCount: 1 },
   { name: 'motherPhoto', maxCount: 1 },
   { name: 'fatherPhoto', maxCount: 1 },
-]), async (req, res) => {
+]), verifyUploadContent('students'), async (req, res) => {
   try {
     const { firstName, middleName, lastName, standard } = req.body;
     if (!String(firstName || '').trim()) {
@@ -148,7 +149,7 @@ router.put('/:id', upload.fields([
   { name: 'studentPhoto', maxCount: 1 },
   { name: 'motherPhoto', maxCount: 1 },
   { name: 'fatherPhoto', maxCount: 1 },
-]), async (req, res) => {
+]), verifyUploadContent('students'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid student ID.' });
