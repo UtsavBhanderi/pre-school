@@ -175,7 +175,7 @@ test('teacher accounts cannot open administrator dashboard routes', async () => 
   await page.locator('#login-password').fill('teacher-initial-password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
-  await page.waitForURL(/\\/teacher-dashboard$/);
+  await page.waitForURL((url) => url.pathname.endsWith("/teacher-dashboard"));
   await page.goto(BASE_URL + '/dashboard/subjects');
   await page.waitForURL((url) => url.pathname.endsWith("/login"));
   assert.ok(new URL(page.url()).pathname.endsWith("/login"));
@@ -216,7 +216,7 @@ test('invalid credentials show a readable error and keep the user on login', asy
   await page.getByRole('button', { name: 'Sign in securely' }).click();
 
   await page.getByRole('alert').getByText('Invalid email or password.').waitFor();
-  assert.match(page.url(), /\/login$/);
+  assert.ok(new URL(page.url()).pathname.endsWith("/login"));
   await page.close();
 });
 
