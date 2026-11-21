@@ -168,6 +168,21 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await page.close();
 });
 
+test('teacher accounts cannot open administrator dashboard routes', async () => {
+  const page = await browser.newPage();
+  await mockSchoolApi(page, { userRole: 'teacher' });
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
+  await page.locator('#login-password').fill('teacher-initial-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+
+  await page.waitForURL(/\\/teacher-dashboard$/);
+  await page.goto(BASE_URL + '/dashboard/subjects');
+  await page.waitForURL(/\\/login$/);
+  assert.match(page.url(), /\\/login$/);
+  await page.close();
+});
+
 test('invalid credentials show a readable error and keep the user on login', async () => {
   const page = await browser.newPage();
   await mockSchoolApi(page, { rejectLogin: true });

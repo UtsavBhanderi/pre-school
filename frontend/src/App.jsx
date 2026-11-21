@@ -81,7 +81,7 @@ const App = () => (
         <Route
           path="/dashboard"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={["admin"]}>
               <LayoutAdmin />
             </PrivateRoute>
           }
