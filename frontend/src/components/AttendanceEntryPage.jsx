@@ -16,54 +16,66 @@ const AttendanceEntryPage = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const linkone = API_BASE_URL;
 
-  // Fetch students based on selected standard
+  // Load a roster for exactly the selected class/date. Abort stale requests so a slow
+  // response can never replace the roster for a newer selection.
   useEffect(() => {
-    if (standard) {
-      fetchStudentsByStandard(standard, selectedDate);
-    } else {
+    if (!standard) {
       setStudents([]);
       setAttendanceData([]);
-      setStatistics({ present: 0, absent: 0 });
+      setStatistics({ present: 0, absent: 0, unmarked: 0 });
+      setErrors({});
+      setHasUnsavedChanges(false);
+      setLoadingStudents(false);
+      return undefined;
     }
-  }, [standard, selectedDate]);
 
-  const fetchStudentsByStandard = async (standard, date) => {
+    const controller = new AbortController();
     setLoadingStudents(true);
     setPageError("");
     setPageSuccess("");
-    try {
-      const response = await axios.get(
-        `${linkone}` + "/api/attendance/students",
-        { params: { standard, date: date ? formatDate(date) : undefined } }
-      );
-      setStudents(response.data);
+    setStudents([]);
+    setAttendanceData([]);
+    setStatistics({ present: 0, absent: 0, unmarked: 0 });
+    setErrors({});
 
-      // Initialize attendanceData with default "present" status for each student
-      const initialAttendance = response.data.map((student) => ({
+    axios.get(linkone + "/api/attendance/students", {
+      params: { standard, date: selectedDate ? formatDate(selectedDate) : undefined },
+      signal: controller.signal,
+    }).then((response) => {
+      if (controller.signal.aborted) return;
+      const roster = Array.isArray(response.data) ? response.data : [];
+      setStudents(roster);
+      // Existing saved statuses are retained; new students start unmarked rather than
+      // being silently recorded as present.
+      const initialAttendance = roster.map((student) => ({
         studentId: student._id,
-        status: student.attendanceStatus || "present",
+        status: student.attendanceStatus || "",
         reason: student.attendanceReason || "",
         attendanceRecordId: student.attendanceRecordId || "",
       }));
       setAttendanceData(initialAttendance);
       calculateStatistics(initialAttendance);
       setHasUnsavedChanges(false);
-    } catch (error) {
+    }).catch((error) => {
+      if (controller.signal.aborted || axios.isCancel(error)) return;
       console.error("Error fetching students:", error);
       setPageError(error.response?.data?.message || "Unable to load students for this class.");
       setStudents([]);
       setAttendanceData([]);
-      setStatistics({ present: 0, absent: 0 });
+      setStatistics({ present: 0, absent: 0, unmarked: 0 });
       setHasUnsavedChanges(false);
-    } finally {
-      setLoadingStudents(false);
-    }
-  };
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoadingStudents(false);
+    });
+
+    return () => controller.abort();
+  }, [standard, selectedDate]);
 
   const calculateStatistics = (data) => {
     const present = data.filter((item) => item.status === "present").length;
     const absent = data.filter((item) => item.status === "absent").length;
-    setStatistics({ present, absent });
+    const unmarked = data.filter((item) => !["present", "absent"].includes(item.status)).length;
+    setStatistics({ present, absent, unmarked });
   };
 
   // const handleStatusChange = (studentId, newStatus) => {
@@ -104,6 +116,7 @@ const AttendanceEntryPage = () => {
       return updatedData;
     });
     setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
+    setErrors((prevErrors) => ({ ...prevErrors, [studentId]: undefined }));
     setHasUnsavedChanges(true);
   };
   const formatDate = (value) => {
@@ -125,6 +138,10 @@ const AttendanceEntryPage = () => {
       setPageError("Choose the date before submitting attendance.");
       return;
     }
+    if (statistics.unmarked > 0) {
+      setPageError("Mark every child as present or absent before saving attendance.");
+      return;
+    }
     if (!validateForm()) {
       setPageError("Please add a reason for each student marked absent.");
       return;
@@ -143,7 +160,7 @@ const AttendanceEntryPage = () => {
       setStandard("");
       setStudents([]);
       setAttendanceData([]);
-      setStatistics({ present: 0, absent: 0 });
+      setStatistics({ present: 0, absent: 0, unmarked: 0 });
       setErrors({});
     } catch (error) {
       console.error("Error submitting attendance:", error);
@@ -161,7 +178,7 @@ const AttendanceEntryPage = () => {
       reason: "",
     })));
     setErrors({});
-    setStatistics({ present: students.length, absent: 0 });
+    setStatistics({ present: students.length, absent: 0, unmarked: 0 });
     setHasUnsavedChanges(true);
     setPageError("");
     setPageSuccess("");
@@ -226,7 +243,7 @@ const AttendanceEntryPage = () => {
         </div>
         <p>
           Total Students: {students.length} | Present: {statistics.present} |
-          Absent: {statistics.absent}
+          Absent: {statistics.absent} | Not marked: {statistics.unmarked}
         </p>
       </div>
       {/* Standard Dropdown */}
@@ -347,6 +364,7 @@ const AttendanceEntryPage = () => {
                       )?.status === "present"
                     }
                     onChange={() => handleStatusChange(student._id, "present")}
+                    disabled={loadingStudents || submittingAttendance}
                   />
                 </td>
                 <td>
@@ -361,6 +379,7 @@ const AttendanceEntryPage = () => {
                       )?.status === "absent"
                     }
                     onChange={() => handleStatusChange(student._id, "absent")}
+                    disabled={loadingStudents || submittingAttendance}
                   />
                 </td>
 
@@ -370,6 +389,7 @@ const AttendanceEntryPage = () => {
                     type="text"
                     className="form-control"
                     placeholder="Required when absent"
+                    maxLength={200}
                     value={attendanceData.find((item) => item.studentId === student._id)?.reason || ""}
                     onChange={(e) =>
                       handleReasonChange(student._id, e.target.value)
@@ -404,7 +424,7 @@ const AttendanceEntryPage = () => {
         <button
           type="button"
           className="btn btn-primary mt-3"
-          disabled={submittingAttendance || loadingStudents || !selectedDate || !standard}
+          disabled={submittingAttendance || loadingStudents || !selectedDate || !standard || statistics.unmarked > 0}
           onClick={handleSubmitAttendance}
         >
           {submittingAttendance ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Saving attendance…</> : "Save attendance"}

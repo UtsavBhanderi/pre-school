@@ -20,11 +20,13 @@ const AttendancePage = () => {
 
   // Fetch attendance data on mount and when date or standard changes
   useEffect(() => {
-    fetchAttendance();
+    const controller = new AbortController();
+    fetchAttendance(controller.signal);
+    return () => controller.abort();
   }, [date, standard, middleName, stuNo, status]);
 
   // Fetch attendance records with optional date and standard filters
-  const fetchAttendance = async () => {
+  const fetchAttendance = async (signal) => {
     setLoadingRecords(true);
     setPageError("");
     try {
@@ -39,6 +41,7 @@ const AttendancePage = () => {
         `${linkone}` + "/api/attendance/attendances",
         {
           params,
+          signal,
         }
       );
       setAttendanceData(response.data);
@@ -53,12 +56,13 @@ const AttendancePage = () => {
       }));
       calculateStatistics(initialAttendance);
     } catch (error) {
+      if (signal?.aborted || axios.isCancel(error)) return;
       console.error("Error fetching attendance data:", error);
       setPageError(error.response?.data?.message || "Unable to load attendance records.");
       setAttendanceData([]);
       setStatistics({ present: 0, absent: 0 });
     } finally {
-      setLoadingRecords(false);
+      if (!signal?.aborted) setLoadingRecords(false);
     }
   };
 
