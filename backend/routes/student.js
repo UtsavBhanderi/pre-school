@@ -199,11 +199,16 @@ router.put('/:id', upload.fields([
 
 // Delete a student
 router.delete('/:id', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid student ID.' });
+  }
   try {
-    await Student.findByIdAndDelete(req.params.id);
-    res.status(200).send('Student deleted successfully');
+    const deletedStudent = await Student.findByIdAndDelete(req.params.id);
+    if (!deletedStudent) return res.status(404).json({ message: 'Student not found.' });
+    return res.json({ message: 'Student record deleted successfully.' });
   } catch (error) {
-    res.status(400).send(error);
+    console.error('Student deletion failed:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'Unable to delete student record.' });
   }
 });
 
@@ -225,6 +230,7 @@ router.get('/birthdays', async (req, res) => {
 router.get('/student-profile/:id', async (req, res) => {
   try {
     const studentId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(studentId)) return res.status(400).json({ message: 'Invalid student ID.' });
     const student = await Student.findById(studentId);
 
     if (!student) {

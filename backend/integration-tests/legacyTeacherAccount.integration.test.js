@@ -200,6 +200,24 @@ test('school administrators manually create teacher logins that can sign in with
     assert.equal(adminAllReports.data.length, 1);
   });
 
+  await t.test('deleting a teacher profile also revokes the linked login session', async () => {
+    const teacher = await Teacher.findOne({ Email: teacherEmail }).select('_id').lean();
+    assert.ok(teacher);
+    const response = await api('/api/teachers/' + teacher._id, {
+      token: adminToken,
+      method: 'DELETE',
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.data.loginAccessRevoked, true);
+
+    const storedUser = await User.findOne({ email: teacherEmail }).select('status authVersion').lean();
+    assert.equal(storedUser.status, 'suspended');
+    assert.equal(storedUser.authVersion, 1);
+
+    const oldSession = await api('/api/auth/me', { token: teacherToken });
+    assert.equal(oldSession.status, 401);
+  });
+
   await t.test('wrong password is still rejected', async () => {
     const response = await api('/api/auth/login', {
       method: 'POST',

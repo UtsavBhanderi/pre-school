@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const Teacher = require('../models/Teacher');
+const User = require('../models/User');
 const router = express.Router();
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 const { TEACHER_PROFILE_FIELDS, pickProfileFields } = require('../utils/legacyProfileFields');
@@ -126,9 +127,28 @@ router.delete('/:id', async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: 'Invalid teacher ID.' });
         }
-        const teacher = await Teacher.findByIdAndDelete(req.params.id);
+        const teacher = await Teacher.findById(req.params.id);
         if (!teacher) return res.status(404).json({ message: 'Teacher not found.' });
-        return res.json({ message: 'Teacher deleted successfully.' });
+
+        // Deleting a teacher profile is an offboarding action. Revoke the
+        // linked teacher login before removing its class-to-account mapping.
+        let loginAccessRevoked = false;
+        const teacherEmail = String(teacher.Email || '').trim().toLowerCase();
+        if (teacherEmail) {
+            const result = await User.updateOne(
+                { email: teacherEmail, role: 'teacher' },
+                { $set: { status: 'suspended' }, $inc: { authVersion: 1 } },
+            );
+            loginAccessRevoked = result.matchedCount > 0;
+        }
+
+        await teacher.deleteOne();
+        return res.json({
+            message: loginAccessRevoked
+                ? 'Teacher profile deleted and linked login access suspended.'
+                : 'Teacher profile deleted.',
+            loginAccessRevoked,
+        });
     } catch (error) {
         console.error('Teacher deletion failed:', error);
         return res.status(500).json({ message: 'Unable to delete teacher.' });
