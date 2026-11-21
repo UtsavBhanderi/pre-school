@@ -23,6 +23,8 @@ test('school administrators manually create teacher logins that can sign in with
   const User = require('../models/User');
   const DailyWorkReport = require('../models/DailyWorkReport');
   const Teacher = require('../models/Teacher');
+  const Student = require('../models/Student');
+  const Attendance = require('../models/Attendance');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
   const server = app.listen(0);
@@ -157,6 +159,43 @@ test('school administrators manually create teacher logins that can sign in with
       body: { username: 'Another Teacher', email: 'other-' + tag + '@example.test', password: teacherPassword, role: 'teacher' },
     });
     assert.equal(response.status, 403);
+  });
+
+  await t.test('attendance history is scoped to the teacher assigned class before records are loaded', async () => {
+    const nurseryStudent = await Student.create({
+      firstName: 'Nursery',
+      middleName: tag,
+      standard: 'Nursery',
+      stuNo: 'ATT-N-' + tag,
+    });
+    const juniorStudent = await Student.create({
+      firstName: 'Junior',
+      middleName: tag,
+      standard: 'ENG JR.',
+      stuNo: 'ATT-J-' + tag,
+    });
+    await Attendance.create({
+      date: new Date('2026-11-21T00:00:00.000Z'),
+      studentDetails: [
+        { studentId: nurseryStudent._id, status: 'present' },
+        { studentId: juniorStudent._id, status: 'absent', reason: 'Sick' },
+      ],
+    });
+
+    const teacherView = await api('/api/attendance/attendances?date=2026-11-21&standard=Nursery', { token: teacherToken });
+    assert.equal(teacherView.status, 200);
+    assert.equal(teacherView.data.length, 1);
+    assert.equal(teacherView.data[0].studentDetails.length, 1);
+    assert.equal(String(teacherView.data[0].studentDetails[0].studentId._id), String(nurseryStudent._id));
+
+    const forbiddenClass = await api('/api/attendance/attendances?date=2026-11-21&standard=ENG%20JR.', { token: teacherToken });
+    assert.equal(forbiddenClass.status, 403);
+
+    const adminView = await api('/api/attendance/attendances?date=2026-11-21&standard=ENG%20JR.', { token: adminToken });
+    assert.equal(adminView.status, 200);
+    assert.equal(adminView.data.length, 1);
+    assert.equal(adminView.data[0].studentDetails.length, 1);
+    assert.equal(String(adminView.data[0].studentDetails[0].studentId._id), String(juniorStudent._id));
   });
 
   await t.test('only administrators and teachers can use the daily work report API', async () => {

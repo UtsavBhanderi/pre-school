@@ -139,7 +139,18 @@ router.get('/attendances', async (req, res) => {
     dayStart.setUTCHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart);
     dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
-    const attendances = await Attendance.find({ date: { $gte: dayStart, $lt: dayEnd } })
+    // Restrict the database query to students in the requested class. The
+    // post-population filter below remains as a second boundary for legacy rows.
+    const classStudents = await Student.find({ standard })
+      .select('_id')
+      .lean();
+    if (!classStudents.length) return res.json([]);
+    const classStudentIds = classStudents.map((student) => student._id);
+
+    const attendances = await Attendance.find({
+      date: { $gte: dayStart, $lt: dayEnd },
+      'studentDetails.studentId': { $in: classStudentIds },
+    })
       .sort({ date: -1, updatedAt: -1, _id: -1 })
       .populate({ path: 'studentDetails.studentId', model: 'Student', select: 'stuNo firstName middleName lastName standard' });
     const searchName = String(middleName || '').trim().toLowerCase();
