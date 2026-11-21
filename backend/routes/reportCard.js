@@ -36,8 +36,19 @@ router.get('/', async (_req, res) => {
 router.delete('/:id', async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid report template.' });
   try {
-    const report = await ReportCard.findByIdAndDelete(req.params.id);
+    const report = await ReportCard.findById(req.params.id).select('_id').lean();
     if (!report) return res.status(404).json({ message: 'Report template not found.' });
+
+    const hasSavedMarks = await Student.exists({ 'marks.reportId': report._id });
+    if (hasSavedMarks) {
+      return res.status(409).json({
+        code: 'REPORT_HISTORY_PRESERVED',
+        message: 'This report has saved student marks and cannot be deleted. Keep it so historical results remain available.',
+      });
+    }
+
+    const deleted = await ReportCard.findOneAndDelete({ _id: report._id });
+    if (!deleted) return res.status(404).json({ message: 'Report template not found.' });
     return res.json({ message: 'Report template deleted.' });
   } catch (error) {
     console.error('Unable to delete report template:', error?.name || 'database_error');
@@ -50,6 +61,15 @@ router.put('/:id', async (req, res) => {
   try {
     const report = await ReportCard.findById(req.params.id);
     if (!report) return res.status(404).json({ message: 'Report template not found.' });
+    const hasSavedMarks = await Student.exists({ 'marks.reportId': report._id });
+    if (hasSavedMarks
+      && Object.prototype.hasOwnProperty.call(req.body || {}, 'description')
+      && String(req.body.description).trim() !== String(report.description).trim()) {
+      return res.status(409).json({
+        code: 'REPORT_MARKS_ALREADY_RECORDED',
+        message: 'The maximum mark cannot be changed after student marks have been saved. Create a new report template for a different marking scale.',
+      });
+    }
     const payload = {
       reportName: Object.prototype.hasOwnProperty.call(req.body || {}, 'reportName') ? req.body.reportName : report.reportName,
       standard: report.standard,
