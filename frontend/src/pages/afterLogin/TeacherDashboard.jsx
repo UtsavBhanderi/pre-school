@@ -99,7 +99,7 @@ const TeacherDashboard = () => {
         dailyWorkReport: formData.dailyWorkReport.trim(),
         totalStudents,
       });
-      setFormData(INITIAL_FORM);
+      setFormData({ ...INITIAL_FORM, standard: user?.role === "teacher" ? assignedStandard : "" });
       setPageSuccess("Your daily work report was submitted successfully.");
       await fetchReports();
     } catch (error) {
@@ -172,8 +172,8 @@ const TeacherDashboard = () => {
             </div>
           </div>
           <div className="d-flex justify-content-end mt-3">
-            <button type="submit" className="btn btn-primary" disabled={savingReport}>
-              {savingReport ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Submitting…</> : "Submit work report"}
+            <button type="submit" className="btn btn-primary" disabled={savingReport || loadingAssignedClass || (user?.role === "teacher" && !assignedStandard)}>
+              {savingReport ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Submitting…</> : loadingAssignedClass ? "Loading class…" : "Submit work report"}
             </button>
           </div>
         </form>
