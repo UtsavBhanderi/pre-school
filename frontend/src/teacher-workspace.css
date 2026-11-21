@@ -215,3 +215,45 @@
 @media (prefers-reduced-motion: reduce) {
   .teacher-sidebar,.teacher-quick-action { transition:none; }
 }
+
+
+/* Mobile-first teacher workspace refinements */
+.teacher-mobile-nav { display:none; }
+.teacher-workspace button:focus-visible { outline:3px solid rgba(118,145,239,.58); outline-offset:3px; }
+.teacher-feature-content .page-card,.teacher-feature-content .card {
+  border:1px solid #e4eaf3; border-radius:14px; background:#fff;
+  box-shadow:0 5px 20px rgba(31,49,86,.035);
+}
+.teacher-feature-content .form-control,.teacher-feature-content .form-select,.teacher-feature-content textarea {
+  min-height:44px; border-color:#d9e2ef; border-radius:10px; font-size:.9rem;
+}
+.teacher-feature-content textarea { min-height:100px; }
+.teacher-feature-content .btn { min-height:40px; padding-inline:.85rem; border-radius:9px; font-weight:750; }
+.teacher-feature-content .table-responsive { border:1px solid #e4eaf3; border-radius:12px; background:#fff; }
+.teacher-feature-content .table { margin-bottom:0; }
+.teacher-feature-content .table thead th { background:#f5f7fc; color:#586982; font-size:.72rem; text-transform:uppercase; white-space:nowrap; }
+@media (max-width:650px) {
+  .teacher-workspace { padding-bottom:calc(70px + env(safe-area-inset-bottom)); }
+  .teacher-main-content { padding-bottom:1.5rem; }
+  .teacher-mobile-nav {
+    position:fixed; z-index:22; right:0; bottom:0; left:0;
+    display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.1rem;
+    padding:.35rem .25rem calc(.35rem + env(safe-area-inset-bottom));
+    border-top:1px solid #dfe6f0; background:rgba(255,255,255,.97);
+    box-shadow:0 -8px 26px rgba(27,43,77,.09); backdrop-filter:blur(14px);
+  }
+  .teacher-mobile-nav button {
+    display:flex; min-width:0; min-height:53px; flex-direction:column; align-items:center; justify-content:center;
+    gap:.12rem; padding:.25rem .08rem; border:0; border-radius:9px; color:#718098; background:transparent;
+    font-size:.58rem; font-weight:750; line-height:1.15; white-space:nowrap;
+  }
+  .teacher-mobile-nav button svg { font-size:1.2rem; }
+  .teacher-mobile-nav button.active { color:#3655c6; background:#edf2ff; }
+  .teacher-mobile-nav button:focus-visible { outline-offset:-2px; }
+  .teacher-menu-button { width:42px; height:42px; border-radius:12px; }
+  .teacher-topbar { min-height:60px; }
+  .teacher-page-heading h1 { font-size:1.4rem; }
+  .teacher-feature-content .row { --bs-gutter-y:.85rem; }
+  .teacher-feature-content .form-label { margin-bottom:.35rem; font-size:.82rem; }
+  .teacher-feature-content .table-responsive > .table { min-width:650px; }
+}

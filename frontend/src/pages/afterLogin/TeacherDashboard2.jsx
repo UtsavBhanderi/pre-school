@@ -41,6 +41,7 @@ const NAV_GROUPS = [
 ];
 
 const ALL_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
+const MOBILE_NAV_ITEMS = ALL_ITEMS.filter((item) => ["home", "attendance", "reports", "communication", "notices"].includes(item.id));
 const localDateKey = (value = new Date()) => {
   const date = new Date(value);
   return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
@@ -225,6 +226,20 @@ export default function TeacherDashboard() {
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
 
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [sidebarOpen]);
+
   const navigateTo = (pageId) => {
     setActivePage(pageId);
     setSidebarOpen(false);
@@ -312,6 +327,14 @@ export default function TeacherDashboard() {
 
         <footer className="teacher-workspace-footer"><span>{user?.email || "Your teacher account"}</span><span>Need access help? Contact your school administrator.</span></footer>
       </div>
+      <nav className="teacher-mobile-nav" aria-label="Teacher quick navigation">
+        {MOBILE_NAV_ITEMS.map(({ id, label, Icon }) => (
+          <button type="button" key={id} className={activePage === id ? "active" : ""} onClick={() => navigateTo(id)} aria-current={activePage === id ? "page" : undefined}>
+            <Icon aria-hidden="true" />
+            <span>{id === "communication" ? "Parents" : id === "reports" ? "Daily report" : id === "attendance" ? "Attendance" : label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

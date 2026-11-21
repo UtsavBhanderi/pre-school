@@ -5,7 +5,7 @@ import {
   MdCampaign, MdCalendarMonth, MdAssessment, MdRefresh, MdLogout,
   MdShield, MdCheckCircle, MdErrorOutline, MdHistory,
   MdReceiptLong, MdArrowForward, MdEventAvailable, MdMenuBook,
-  MdOutlineAccountCircle, MdForum,
+  MdOutlineAccountCircle, MdForum, MdMenu,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -24,6 +24,9 @@ const PARENT_NAV = [
   { id: "reports", label: "Reports", title: "Learning reports", Icon: MdAssessment },
   { id: "security", label: "Sign-in help", title: "How parent sign-in works", Icon: MdShield },
 ];
+
+const MOBILE_PARENT_NAV = PARENT_NAV.filter((item) => ["overview", "children", "attendance", "fees", "engagement"].includes(item.id));
+const MORE_PARENT_NAV = PARENT_NAV.filter((item) => !MOBILE_PARENT_NAV.some((primary) => primary.id === item.id));
 
 const localDate = (date) => {
   const value = new Date(date);
@@ -78,6 +81,7 @@ function EmptyState({ title, detail }) {
 export default function LegacyParentPortal() {
   const { user, logout } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState("overview");
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [summary, setSummary] = useState(null);
   const [children, setChildren] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -146,6 +150,20 @@ export default function LegacyParentPortal() {
 
   const childNameList = useMemo(() => new Map(children.map((child) => [child.id, child.name])), [children]);
 
+  const chooseMobileTab = (tabId) => {
+    setActiveTab(tabId);
+    setMobileMoreOpen(false);
+  };
+
+  useEffect(() => {
+    if (!mobileMoreOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMobileMoreOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMoreOpen]);
+
   const logoutAndNavigate = () => {
     logout();
     window.location.assign("/login");
@@ -175,6 +193,38 @@ export default function LegacyParentPortal() {
           <button type="button" className="legacy-parent-signout" onClick={logoutAndNavigate}><MdLogout /> Sign out</button>
         </div>
       </aside>
+
+      <nav className="legacy-parent-mobile-nav" aria-label="Family quick navigation">
+        {MOBILE_PARENT_NAV.map(({ id, label, Icon }) => (
+          <button type="button" key={id} className={activeTab === id ? "active" : ""} onClick={() => chooseMobileTab(id)} aria-current={activeTab === id ? "page" : undefined}>
+            <Icon aria-hidden="true" />
+            <span>{id === "overview" ? "Home" : id === "engagement" ? "Homework" : label}</span>
+          </button>
+        ))}
+        <button type="button" className={mobileMoreOpen || MORE_PARENT_NAV.some((item) => item.id === activeTab) ? "active" : ""} onClick={() => setMobileMoreOpen((open) => !open)} aria-expanded={mobileMoreOpen} aria-controls="parent-mobile-more">
+          <MdMenu aria-hidden="true" /><span>More</span>
+        </button>
+      </nav>
+
+      {mobileMoreOpen && (
+        <>
+          <button type="button" className="legacy-parent-mobile-more-backdrop" aria-label="Close more navigation" onClick={() => setMobileMoreOpen(false)} />
+          <section className="legacy-parent-mobile-more" id="parent-mobile-more" role="dialog" aria-modal="true" aria-labelledby="parent-mobile-more-title">
+            <div className="legacy-parent-mobile-more-heading">
+              <div><strong id="parent-mobile-more-title">More from your school</strong><small>Choose another family service</small></div>
+              <button type="button" onClick={() => setMobileMoreOpen(false)} aria-label="Close more navigation">×</button>
+            </div>
+            <div className="legacy-parent-mobile-more-grid">
+              {MORE_PARENT_NAV.map(({ id, label, Icon }) => (
+                <button type="button" key={id} className={activeTab === id ? "active" : ""} onClick={() => chooseMobileTab(id)}>
+                  <Icon aria-hidden="true" /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="legacy-parent-mobile-signout" onClick={logoutAndNavigate}><MdLogout aria-hidden="true" /> Sign out</button>
+          </section>
+        </>
+      )}
 
       <main className="legacy-parent-main">
         <header className="legacy-parent-topbar">

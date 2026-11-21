@@ -116,3 +116,77 @@
   .legacy-parent-stat strong { font-size: 1.2rem; }
   .legacy-parent-topbar h1 { font-size: 1.2rem; }
 }
+
+
+/* Parent portal mobile-first navigation and touch targets */
+.legacy-parent-mobile-nav,.legacy-parent-mobile-more,.legacy-parent-mobile-more-backdrop { display:none; }
+.legacy-parent-portal button:focus-visible { outline:3px solid rgba(70,101,208,.5); outline-offset:2px; }
+.legacy-parent-main { max-width:1600px; }
+.legacy-parent-card,.legacy-parent-child-card,.legacy-parent-stat { box-shadow:0 4px 16px rgba(28,48,84,.025); }
+.legacy-parent-primary-btn,.legacy-parent-secondary-btn,.legacy-parent-refresh,
+.legacy-parent-form input,.legacy-parent-filters input { min-height:42px; }
+@media (max-width:700px) {
+  .legacy-parent-portal { display:block; min-width:320px; padding-bottom:calc(69px + env(safe-area-inset-bottom)); }
+  .legacy-parent-sidebar { display:none !important; }
+  .legacy-parent-mobile-nav {
+    position:fixed; z-index:100; right:0; bottom:0; left:0;
+    display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:.08rem;
+    padding:.32rem .2rem calc(.32rem + env(safe-area-inset-bottom));
+    border-top:1px solid #dfe6f0; background:rgba(255,255,255,.97);
+    box-shadow:0 -8px 26px rgba(30,49,83,.1); backdrop-filter:blur(14px);
+  }
+  .legacy-parent-mobile-nav button {
+    display:flex; min-width:0; min-height:54px; flex-direction:column; align-items:center; justify-content:center;
+    gap:.12rem; padding:.22rem .04rem; border:0; border-radius:8px; color:#718098; background:transparent;
+    font-size:.59rem; font-weight:750; line-height:1.15; white-space:nowrap;
+  }
+  .legacy-parent-mobile-nav button svg { font-size:1.16rem; }
+  .legacy-parent-mobile-nav button.active { color:#3152b6; background:#edf2ff; }
+  .legacy-parent-main { padding:.85rem .7rem 1.1rem; }
+  .legacy-parent-topbar { align-items:flex-start; gap:.6rem; margin-bottom:.9rem; }
+  .legacy-parent-topbar h1 { font-size:1.25rem; line-height:1.25; }
+  .legacy-parent-topbar p { max-width:250px; font-size:.69rem; }
+  .legacy-parent-top-actions { flex:0 0 auto; flex-direction:column; align-items:stretch; gap:.3rem; }
+  .legacy-parent-refresh { min-height:36px; padding:.32rem .5rem; font-size:.66rem; }
+  .legacy-parent-welcome { gap:.6rem; border-radius:13px; }
+  .legacy-parent-welcome h2 { font-size:1.18rem; }
+  .legacy-parent-welcome p { font-size:.72rem; }
+  .legacy-parent-stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
+  .legacy-parent-stat { min-height:100px; padding:.72rem; }
+  .legacy-parent-stat strong { font-size:1.24rem; }
+  .legacy-parent-mobile-more-backdrop {
+    position:fixed; z-index:90; inset:0; display:block; width:100%; height:100%;
+    padding:0; border:0; border-radius:0; background:rgba(15,29,54,.38);
+  }
+  .legacy-parent-mobile-more {
+    position:fixed; z-index:105; right:.55rem; bottom:calc(68px + env(safe-area-inset-bottom)); left:.55rem;
+    display:block; padding:1rem; border:1px solid #e0e7f1; border-radius:16px;
+    background:#fff; box-shadow:0 18px 55px rgba(21,39,74,.2);
+  }
+  .legacy-parent-mobile-more-heading { display:flex; align-items:center; justify-content:space-between; gap:.8rem; margin-bottom:.8rem; }
+  .legacy-parent-mobile-more-heading > div { display:grid; gap:.15rem; }
+  .legacy-parent-mobile-more-heading strong { color:#263b59; font-size:.92rem; font-weight:850; }
+  .legacy-parent-mobile-more-heading small { color:#8491a4; font-size:.7rem; }
+  .legacy-parent-mobile-more-heading > button { width:34px; height:34px; border:1px solid #e4eaf2; border-radius:9px; color:#586a83; background:#fff; font-size:1.25rem; }
+  .legacy-parent-mobile-more-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
+  .legacy-parent-mobile-more-grid button {
+    display:flex; align-items:center; gap:.55rem; min-width:0; min-height:48px; padding:.55rem .65rem;
+    border:1px solid #e6ebf3; border-radius:10px; color:#52647e; background:#fbfcff; text-align:left;
+    font-size:.72rem; font-weight:750;
+  }
+  .legacy-parent-mobile-more-grid button svg { flex:0 0 auto; color:#4a62bd; font-size:1.1rem; }
+  .legacy-parent-mobile-more-grid button.active { border-color:#cbd6f6; color:#2e4da9; background:#eef2ff; }
+  .legacy-parent-mobile-signout { display:flex; align-items:center; gap:.45rem; min-height:42px; margin-top:.7rem; padding:.45rem .3rem; border:0; color:#98515b; background:transparent; font-size:.74rem; font-weight:800; }
+  .legacy-parent-table-wrap { max-width:100%; }
+  .legacy-parent-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; padding:.65rem; gap:.55rem; }
+  .legacy-parent-filters label { min-width:0; }
+  .legacy-parent-filters input { width:100%; min-width:0; }
+  .legacy-parent-form { max-width:none; padding:.85rem; }
+  .legacy-parent-footer { gap:.3rem; }
+}
+@media (max-width:380px) {
+  .legacy-parent-topbar { flex-direction:column; }
+  .legacy-parent-top-actions { width:100%; flex-direction:row; }
+  .legacy-parent-top-actions > button { flex:1 1 0; }
+  .legacy-parent-mobile-nav button { font-size:.55rem; }
+}
