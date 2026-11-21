@@ -5,10 +5,27 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const Attendance = require('../models/Attendance');
 const Student = require('../models/Student');
+const { getLegacyTeacherScope } = require('../utils/legacyTeacherClass');
 const { reconcileAttendanceEntries } = require('../utils/attendanceReconciliation');
 const { parseDateOnly: parseDateOnlyShared, parseDateInput: parseDateInputShared, getUtcDayBounds: getUtcDayBoundsShared } = require('../utils/dateOnly');
 
 const VALID_STATUSES = new Set(['present', 'absent']);
+
+async function getRequestClassScope(req, res, requestedStandard) {
+  try {
+    const scope = await getLegacyTeacherScope(req.user, requestedStandard);
+    if (!scope.allowed) {
+      res.status(403).json({ code: scope.code, message: scope.message });
+      return null;
+    }
+    return scope;
+  } catch (error) {
+    console.error('Unable to verify teacher class access:', error?.name || 'profile_lookup_error');
+    res.status(503).json({ message: 'Your classroom access could not be verified. Please try again.' });
+    return null;
+  }
+}
+
 
 const getUtcDayBounds = (value) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -39,10 +56,19 @@ const toDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+router.get('/teacher-class', async (req, res) => {
+  if (req.user?.role !== 'teacher') return res.status(403).json({ message: 'This endpoint is only for teacher accounts.' });
+  const scope = await getRequestClassScope(req, res);
+  if (!scope) return;
+  return res.json({ standard: scope.standard });
+});
 router.get('/students', async (req, res) => {
-  const standard = String(req.query.standard || '').trim();
+  const requestedStandard = String(req.query.standard || '').trim();
   const dateText = String(req.query.date || '').trim();
-  if (!standard) return res.status(400).json({ message: 'A standard is required.' });
+  if (!requestedStandard) return res.status(400).json({ message: 'A standard is required.' });
+  const scope = await getRequestClassScope(req, res, requestedStandard);
+  if (!scope) return;
+  const standard = scope.standard || requestedStandard;
 
   const attendanceDate = dateText ? parseDateOnlyShared(dateText) : null;
   if (dateText && !attendanceDate) {
@@ -100,7 +126,11 @@ router.get('/students', async (req, res) => {
 
 router.get('/attendances', async (req, res) => {
   try {
-    const { date, standard, middleName, stuNo, status } = req.query;
+    const { date, standard: requestedStandard, middleName, stuNo, status } = req.query;
+    const scope = await getRequestClassScope(req, res, requestedStandard);
+    if (!scope) return;
+    const standard = scope.standard || String(requestedStandard || '').trim();
+    if (!standard) return res.status(400).json({ message: 'Choose a class to view attendance records.' });
     if (!date) return res.status(400).json({ message: 'Choose a date to view attendance records.' });
     const parsedDate = parseDateInputShared(date);
     if (!parsedDate) return res.status(400).json({ message: 'Choose a valid attendance date.' });
@@ -136,6 +166,8 @@ router.get('/attendances', async (req, res) => {
 
 router.post('/attendance', async (req, res) => {
   try {
+    const scope = await getRequestClassScope(req, res);
+    if (!scope) return;
     const inputDate = parseDateInputShared(req.body.date);
     const studentDetails = req.body.studentDetails;
 
@@ -166,9 +198,14 @@ router.post('/attendance', async (req, res) => {
       }
     }
 
-    const existingStudents = await Student.countDocuments({ _id: { $in: [...uniqueStudentIds] } });
-    if (existingStudents !== uniqueStudentIds.size) {
+    const existingStudents = await Student.find({ _id: { $in: [...uniqueStudentIds] } })
+      .select('_id standard')
+      .lean();
+    if (existingStudents.length !== uniqueStudentIds.size) {
       return res.status(400).json({ message: 'One or more students do not exist.' });
+    }
+    if (scope.isTeacher && existingStudents.some((student) => String(student.standard || '').trim() !== scope.standard)) {
+      return res.status(403).json({ code: 'TEACHER_CLASS_FORBIDDEN', message: 'Attendance can only be saved for students in your assigned class (' + scope.standard + ').' });
     }
 
     // Reconcile with records already saved for this day. Re-submitting a class
@@ -213,6 +250,8 @@ router.post('/attendance', async (req, res) => {
 
 router.put('/attendances/:attendanceId/student/:studentId', async (req, res) => {
   try {
+    const scope = await getRequestClassScope(req, res);
+    if (!scope) return;
     const { attendanceId, studentId } = req.params;
     const status = String(req.body.status || '').trim();
     const reason = String(req.body.reason || '').trim();
@@ -232,6 +271,12 @@ router.put('/attendances/:attendanceId/student/:studentId', async (req, res) => 
 
     const detail = attendance.studentDetails.find((entry) => String(entry.studentId) === studentId);
     if (!detail) return res.status(404).json({ message: 'Student is not part of this attendance record.' });
+    if (scope.isTeacher) {
+      const student = await Student.findById(studentId).select('standard').lean();
+      if (!student || String(student.standard || '').trim() !== scope.standard) {
+        return res.status(403).json({ code: 'TEACHER_CLASS_FORBIDDEN', message: 'You can only change attendance for your assigned class (' + scope.standard + ').' });
+      }
+    }
 
     detail.status = status;
     detail.reason = status === 'absent' ? reason : '';
