@@ -156,6 +156,13 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await page.locator('.teacher-quick-action.violet').click();
   await page.getByRole('heading', { name: 'Parent communication' }).first().waitFor();
 
+  const teacherMobileNav = page.locator('.teacher-mobile-nav');
+  assert.equal(await teacherMobileNav.isVisible(), true, 'Teacher quick navigation should be visible on a phone.');
+  assert.equal(await teacherMobileNav.locator('button').count(), 5, 'The teacher mobile dock should show five primary destinations.');
+  const noticesLink = teacherMobileNav.locator('button').filter({ hasText: 'Notices' });
+  await noticesLink.click();
+  assert.ok((await noticesLink.getAttribute('class')).includes('active'), 'Selecting a mobile destination should update the active state.');
+
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,
@@ -871,6 +878,16 @@ test('single-school parent portal opens with family-scoped child information on 
   await page.getByRole('heading', { name: 'Aarav Patel' }).waitFor();
   assert.equal(await page.getByRole('button', { name: /Attendance/ }).count(), 1);
   assert.equal(await page.getByRole('button', { name: /Fees/ }).count(), 1);
+
+  const parentMobileNav = page.locator('.legacy-parent-mobile-nav');
+  assert.equal(await parentMobileNav.isVisible(), true, 'Parent quick navigation should be visible on a phone.');
+  assert.equal(await parentMobileNav.locator('button').count(), 6, 'The parent mobile dock should show five primary destinations plus More.');
+  await parentMobileNav.getByRole('button', { name: 'More' }).click();
+  const moreSheet = page.getByRole('dialog', { name: 'More from your school' });
+  await moreSheet.waitFor();
+  await moreSheet.getByRole('button', { name: 'Calendar' }).click();
+  await page.getByRole('heading', { name: 'School calendar' }).waitFor();
+  assert.equal(await moreSheet.count(), 0, 'Choosing a More destination should close the mobile sheet.');
 
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
