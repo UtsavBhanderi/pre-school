@@ -85,7 +85,9 @@ function validatePaymentHistoryUpdate(existingRecord = {}, incomingDetails = [])
 
 function hasFeePaymentHistory(record = {}) {
   const totalPaid = Number(record.totalFeesPaid || 0);
+  const openingBalancePaid = Number(record.openingBalancePaid || 0);
   return (Number.isFinite(totalPaid) && totalPaid > 0)
+    || (Number.isFinite(openingBalancePaid) && openingBalancePaid > 0)
     || (Array.isArray(record.paymentDetails) && record.paymentDetails.length > 0);
 }
 
