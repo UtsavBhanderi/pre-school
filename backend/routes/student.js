@@ -14,10 +14,17 @@ const router = express.Router();
 const Sequence = require('../models/sequence');
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 const { STUDENT_PROFILE_FIELDS, pickProfileFields } = require('../utils/legacyProfileFields');
+const { removeManagedUploadFile } = require('../utils/uploadFileStorage');
+const uploadRoot = path.resolve(__dirname, '../uploads/students');
+
+async function cleanupRequestUploads(req) {
+  const files = Object.values(req.files || {}).flat().filter(Boolean);
+  await Promise.all(files.map((file) => removeManagedUploadFile(uploadRoot, file.path)));
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/students');
+    const uploadDir = uploadRoot;
     fs.mkdir(uploadDir, { recursive: true }, (error) => cb(error, uploadDir));
   },
   filename: (req, file, cb) => {
@@ -28,7 +35,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 3, fields: 50, parts: 53 },
   fileFilter: (req, file, cb) => {
     const extension = path.extname(file.originalname || '').toLowerCase();
     const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
@@ -142,6 +149,7 @@ router.post('/', upload.fields([
     await newStudent.save();
     return res.status(201).json({ message: 'Student registered successfully', student: newStudent });
   } catch (error) {
+    await cleanupRequestUploads(req);
     console.error('Student registration failed:', error);
     const status = error.code === 11000 ? 409 : 400;
     return res.status(status).json({ message: status === 409 ? 'A record with this student number already exists.' : 'Unable to register student.' });
@@ -156,6 +164,7 @@ router.put('/:id', upload.fields([
 ]), verifyUploadContent('students'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      await cleanupRequestUploads(req);
       return res.status(400).json({ message: 'Invalid student ID.' });
     }
 
@@ -165,9 +174,11 @@ router.put('/:id', upload.fields([
     if (files.motherPhoto?.[0]) updatedStudent.motherPhoto = `uploads/students/${files.motherPhoto[0].filename}`;
     if (files.fatherPhoto?.[0]) updatedStudent.fatherPhoto = `uploads/students/${files.fatherPhoto[0].filename}`;
     if (updatedStudent.parentEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(updatedStudent.parentEmail)) {
+      await cleanupRequestUploads(req);
       return res.status(400).json({ message: 'Enter a valid parent email address.' });
     }
     if (Object.keys(updatedStudent).length === 0) {
+      await cleanupRequestUploads(req);
       return res.status(400).json({ message: 'No supported student details were provided to update.' });
     }
 
@@ -177,9 +188,10 @@ router.put('/:id', upload.fields([
       { new: true, runValidators: true }
     );
 
-    if (!student) return res.status(404).json({ message: 'Student not found.' });
+    if (!student) { await cleanupRequestUploads(req); return res.status(404).json({ message: 'Student not found.' }); }
     return res.status(200).json({ message: 'Student updated successfully', student });
   } catch (error) {
+    await cleanupRequestUploads(req);
     console.error('Student update failed:', error);
     return res.status(400).json({ message: 'Unable to update student.' });
   }
