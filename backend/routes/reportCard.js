@@ -4,6 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const ReportCard = require('../models/ReportCard');
 const Student = require('../models/Student');
+const Subject = require('../models/Subject');
 const { validateReportTemplate } = require('../utils/reportTemplateValidation');
 
 const router = express.Router();
@@ -66,6 +67,30 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.get('/:reportId/roster', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.reportId)) {
+    return res.status(400).json({ message: 'Choose a valid report template.' });
+  }
+  try {
+    const report = await ReportCard.findById(req.params.reportId).lean();
+    if (!report) return res.status(404).json({ message: 'Report template not found.' });
+    const [students, subjectConfig] = await Promise.all([
+      Student.find({ _id: { $in: report.students || [] }, standard: report.standard })
+        .select('firstName middleName lastName stuNo standard marks')
+        .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
+        .lean(),
+      Subject.findOne({ standard: report.standard }).select('subjects').lean(),
+    ]);
+    return res.json({
+      report: { _id: report._id, reportName: report.reportName, standard: report.standard, outOfMarks: Number(report.description) },
+      students,
+      subjects: Array.isArray(subjectConfig?.subjects) ? subjectConfig.subjects : [],
+    });
+  } catch (error) {
+    console.error('Unable to load report roster:', error?.name || 'query_error');
+    return res.status(500).json({ message: 'The report class list could not be loaded.' });
+  }
+});
 router.get('/:reportId/students', async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.reportId)) return res.status(400).json({ message: 'Choose a valid report template.' });
   try {
