@@ -28,6 +28,7 @@ const Reports = () => {
   const [loadingReports, setLoadingReports] = useState(true);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
+  const [exportingReportId, setExportingReportId] = useState("");
 
   /* ===============================
      FETCH REPORTS
@@ -118,27 +119,20 @@ const Reports = () => {
   };
 
   const handleExcel = async (reportId) => {
+    if (exportingReportId) return;
+    setExportingReportId(reportId); setPageError(""); setPageSuccess("");
     try {
-      const { data } = await api.get(
-        `/api/reportCard/${reportId}/students`
-      );
-
+      const { data } = await api.get("/api/reportCard/" + reportId + "/students");
       const formattedData = data.map((student) => ({
-        Name: student.name,
-        RollNo: student.stuNo,
-        Standard: student.standard,
-        ...(Array.isArray(student.marks)
-          ? student.marks.reduce(
-              (acc, m) => ({ ...acc, [m.subject]: m.mark }),
-              {}
-            )
-          : {}),
+        Name: student.name, GR_Number: student.stuNo, Standard: student.standard,
+        ...(Array.isArray(student.marks) ? student.marks.reduce((acc, mark) => ({ ...acc, [mark.subject]: mark.mark }), {}) : {}),
+        Total: student.total ?? "", Percentage: student.percentage ?? "", Grade: student.grade || "",
       }));
-
-      exportToExcel(formattedData, "Student_Report");
+      exportToExcel(formattedData, "Student_Report"); setPageSuccess("Student report exported successfully.");
     } catch (err) {
       console.error("Error exporting Excel:", err);
-    }
+      setPageError(err.response?.data?.message || "Student report could not be exported.");
+    } finally { setExportingReportId(""); }
   };
 
   /* ===============================
@@ -193,7 +187,11 @@ const Reports = () => {
           <div className="col">
             <label>Out Of Marks</label>
             <input
-              type="text"
+              type="number"
+              min="1"
+              max="10000"
+              step="any"
+              inputMode="decimal"
               className="form-control"
               value={outOfMarks}
               onChange={(e) => setOutOfMarks(e.target.value)}
@@ -254,10 +252,12 @@ const Reports = () => {
                   </button>
 
                   <button
+                    type="button"
                     className="btn btn-info btn-sm"
                     onClick={() => handleExcel(report._id)}
+                    disabled={Boolean(exportingReportId)}
                   >
-                    Excel
+                    {exportingReportId === report._id ? "Preparing…" : "Export"}
                   </button>
                 </td>
               </tr>
