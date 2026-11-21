@@ -56,16 +56,25 @@ function verifyUploadContent(directory) {
   return async function verifyRequestUploads(req, res, next) {
     const files = requestFiles(req);
     if (!files.length) return next();
+
     let invalidFile = false;
     try {
-      invalidFile = files.some((file) => !matchesUploadSignature(directory, file.originalname || file.filename, readFileHeader(file.path)));
+      invalidFile = files.some((file) => !matchesUploadSignature(
+        directory,
+        file.originalname || file.filename,
+        readFileHeader(file.path),
+      ));
     } catch {
       invalidFile = true;
     }
+
     if (!invalidFile) return next();
     await Promise.all(files.map((file) => fs.promises.unlink(file.path).catch(() => {})));
     const typeLabel = directory === 'pdf' ? 'PDF document' : directory === 'video' ? 'supported video format' : 'supported image format';
-    return res.status(415).json({ code: 'UPLOAD_CONTENT_TYPE_MISMATCH', message: 'The selected file does not contain a valid ' + typeLabel + '.' });
+    return res.status(415).json({
+      code: 'UPLOAD_CONTENT_TYPE_MISMATCH',
+      message: 'The selected file does not contain a valid ' + typeLabel + '.',
+    });
   };
 }
 

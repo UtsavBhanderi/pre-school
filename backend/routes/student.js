@@ -11,6 +11,7 @@ const router = express.Router();
 // const { Student, Sequence } = require('../models/Student');
 const Sequence = require('../models/sequence');
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

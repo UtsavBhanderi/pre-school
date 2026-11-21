@@ -7,6 +7,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const PDF = require('../models/Pdf');
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const router = express.Router();
 const uploadRoot = path.resolve(__dirname, '../uploads/pdf');

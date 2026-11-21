@@ -12,7 +12,6 @@ test('student admission schema retains school fields submitted by the registrati
     schoolName: 'Blooming Buds Preschool',
     schoolBoard: 'GSEB',
   });
-
   const savedShape = student.toObject();
   assert.equal(savedShape.nationality, 'Indian');
   assert.equal(savedShape.schoolName, 'Blooming Buds Preschool');
@@ -27,7 +26,6 @@ test('student contact numbers preserve leading zeroes as strings', () => {
     EmergencyPhoneNumber: '09870001122',
     studentAadharNo: '001234567890',
   });
-
   assert.equal(student.FatherMobileNumber, '09876543210');
   assert.equal(student.FatherPhoneNumber, '02611234567');
   assert.equal(student.EmergencyPhoneNumber, '09870001122');
@@ -43,7 +41,6 @@ test('teacher contact numbers and driving licence preserve exact digits', () => 
     EmergencyPhoneNumber: '09870000002',
     drivingLicence: 'GJ0520200012345',
   });
-
   assert.equal(teacher.RegisterPhoneNumber, '09876543210');
   assert.equal(teacher.MotherMobileNumber, '09870000001');
   assert.equal(teacher.FatherMobileNumber, '02611234567');

@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const { getAllVideos, createVideo, updateVideo, deleteVideo } = require('../controllers/videoController');
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

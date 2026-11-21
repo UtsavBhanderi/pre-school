@@ -5,6 +5,7 @@ const { addPhoto, getPhotos, updatePhoto, deletePhoto, updateSequence } = requir
 
 const router = express.Router();
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

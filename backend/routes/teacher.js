@@ -5,6 +5,7 @@ const path = require('path');
 const Teacher = require('../models/Teacher');
 const router = express.Router();
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
+const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, path.join(__dirname, '../uploads/teachers'));
