@@ -115,9 +115,18 @@ const Fees = () => {
   };
 
   const handleEdit = (fees) => {
-    setFormData(fees);
-    setEditMode(true);
-    setEditId(fees._id);
+    setFormData({
+      studentName: fees.studentName || "",
+      studentPhoneNumber: fees.studentPhoneNumber || "",
+      batchYear: fees.batchYear || "",
+      standard: fees.standard || "",
+      totalStandardFees: Number(fees.totalStandardFees) || 0,
+      totalFeesPaid: Number(fees.totalFeesPaid) || 0,
+      paymentDetails: Array.isArray(fees.paymentDetails) ? fees.paymentDetails.map((payment) => ({ ...payment })) : [],
+      discount: Number(fees.discount) || 0,
+    });
+    setEditMode(true); setEditId(fees._id); setPageError(""); setPageSuccess("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = (id) => {
@@ -150,21 +159,15 @@ const Fees = () => {
       setDeleteId(null);
     } catch (error) {
       console.error("Unable to delete fee record:", error);
-      alert(error.response?.data?.message || "Unable to delete fee record.");
+      setPageError(error.response?.data?.message || "Unable to delete fee record.");
     }
   };
 
   const handlePaymentDetailChange = (index, e) => {
     const { name, value } = e.target;
     const updatedPaymentDetails = formData.paymentDetails.map((detail, detailIndex) => detailIndex === index ? { ...detail, [name]: value } : detail);
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      paymentDetails: updatedPaymentDetails,
-      totalFeesPaid: updatedPaymentDetails.reduce(
-        (acc, detail) => acc + parseFloat(detail.amount || 0),
-        0
-      ),
-    }));
+    const totalFeesPaid = Math.round(updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0) * 100) / 100;
+    setFormData((prevFormData) => ({ ...prevFormData, paymentDetails: updatedPaymentDetails, totalFeesPaid }));
   };
 
   const addPaymentDetail = () => {
@@ -186,10 +189,7 @@ const Fees = () => {
     setFormData((prevFormData) => ({
       ...prevFormData,
       paymentDetails: updatedPaymentDetails,
-      totalFeesPaid: updatedPaymentDetails.reduce(
-        (acc, detail) => acc + parseFloat(detail.amount || 0),
-        0
-      ),
+      totalFeesPaid: Math.round(updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0) * 100) / 100,
     }));
   };
 
@@ -388,10 +388,12 @@ const Fees = () => {
                 required
               />
             </div>
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Parent / guardian mobile number</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 name="studentPhoneNumber"
                 value={formData.studentPhoneNumber}
                 onChange={handleInputChange}
@@ -400,7 +402,7 @@ const Fees = () => {
               />
             </div>
 
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>School year</label>
               <select
                 name="batchYear"
@@ -419,7 +421,7 @@ const Fees = () => {
               </select>
             </div>
 
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Class</label>
               <select
                 name="standard"
@@ -441,7 +443,7 @@ const Fees = () => {
               <h3>2. Fee summary</h3>
               <p>Check the class fee, amount already paid and remaining balance. These totals update automatically.</p>
             </div>
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Total class fees (₹)</label>
               <input
                 type="number"
@@ -452,7 +454,7 @@ const Fees = () => {
                 readOnly
               />
             </div>
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Total paid so far (₹)</label>
               <input
                 type="number"
@@ -463,7 +465,7 @@ const Fees = () => {
                 readOnly
               />
             </div>
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Balance still due (₹)</label>
               <input
                 type="number"
@@ -472,7 +474,7 @@ const Fees = () => {
                 readOnly
               />
             </div>
-            <div className="form-group col-3">
+            <div className="form-group col-12 col-md-6 col-xl-3">
               <label>Discount (₹)</label>
               <input
                 type="number"
@@ -480,7 +482,8 @@ const Fees = () => {
                 name="discount"
                 value={formData.discount}
                 min="0"
-                step="1"
+                max={formData.totalStandardFees}
+                step="0.01"
                 onChange={handleInputChange}
               />
             </div>
@@ -532,8 +535,8 @@ const Fees = () => {
                       type="number"
                       name="amount"
                       value={detail.amount}
-                      min="1"
-                      step="1"
+                      min="0.01"
+                      step="0.01"
                       required
                       aria-label={`Payment amount ${index + 1}`}
                       onChange={(e) => handlePaymentDetailChange(index, e)}
