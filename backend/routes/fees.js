@@ -216,11 +216,38 @@ router.delete('/delete/:id', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid fee record ID.' });
     }
-    const deleted = await Fees.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Fee record not found.' });
-    return res.json({ message: 'Fee record deleted.' });
+
+    // A paid fee record is part of the school's financial history. Do not
+    // allow a profile-screen cleanup action to erase receipts or payment data.
+    const existing = await Fees.findById(req.params.id).select('totalFeesPaid paymentDetails').lean();
+    if (!existing) return res.status(404).json({ message: 'Fee record not found.' });
+    if (hasFeePaymentHistory(existing)) {
+      return res.status(409).json({
+        code: 'FEE_PAYMENT_HISTORY_PRESERVED',
+        message: 'This fee record contains payment history and cannot be deleted. Keep it for financial records.',
+      });
+    }
+
+    // Re-check the unpaid condition atomically so a concurrent payment update
+    // cannot be lost between the read above and deletion.
+    const deleted = await Fees.findOneAndDelete({
+      _id: req.params.id,
+      $and: [
+        { $or: [{ totalFeesPaid: { $lte: 0 } }, { totalFeesPaid: { $exists: false } }] },
+        { $or: [{ paymentDetails: { $size: 0 } }, { paymentDetails: { $exists: false } }, { paymentDetails: null }] },
+      ],
+    });
+    if (!deleted) {
+      const stillExists = await Fees.exists({ _id: req.params.id });
+      if (!stillExists) return res.status(404).json({ message: 'Fee record not found.' });
+      return res.status(409).json({
+        code: 'FEE_RECORD_CHANGED',
+        message: 'The fee record changed while you were deleting it. Refresh the page and try again.',
+      });
+    }
+    return res.json({ message: 'Unpaid fee record deleted.' });
   } catch (error) {
-    console.error('Failed to delete fee record:', error);
+    console.error('Failed to delete fee record:', error?.name || 'database_error');
     return res.status(500).json({ message: 'Unable to delete fee record.' });
   }
 });

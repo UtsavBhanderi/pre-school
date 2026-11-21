@@ -40,6 +40,12 @@ function normalizePaymentDetails(details) {
   return { valid: true, value: paymentDetails };
 }
 
+function hasFeePaymentHistory(record = {}) {
+  const totalPaid = Number(record.totalFeesPaid || 0);
+  return (Number.isFinite(totalPaid) && totalPaid > 0)
+    || (Array.isArray(record.paymentDetails) && record.paymentDetails.length > 0);
+}
+
 function validateFeeAmounts(input = {}) {
   const total = parseFeeAmount(input.totalStandardFees, 'Total class fees');
   if (!total.valid) return total;
@@ -61,4 +67,4 @@ function validateFeeAmounts(input = {}) {
   return { valid: true, value: { totalStandardFees: total.value, discount: discount.value, paymentDetails, totalFeesPaid } };
 }
 
-module.exports = { MAX_FEE_AMOUNT, parseFeeAmount, validPaymentDate, normalizePaymentDetails, validateFeeAmounts };
+module.exports = { MAX_FEE_AMOUNT, parseFeeAmount, validPaymentDate, normalizePaymentDetails, validateFeeAmounts, hasFeePaymentHistory };

@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseFeeAmount, validPaymentDate, normalizePaymentDetails, validateFeeAmounts } = require('../utils/feeValidation');
+const { parseFeeAmount, validPaymentDate, normalizePaymentDetails, validateFeeAmounts, hasFeePaymentHistory } = require('../utils/feeValidation');
 
 test('fee amounts accept non-negative values with up to two decimal places', () => {
   assert.deepEqual(parseFeeAmount('1250.50', 'Payment'), { valid: true, value: 1250.5 });
@@ -34,4 +34,11 @@ test('discount cannot exceed class fees and payment entries determine total paid
   assert.equal(result.valid, true);
   assert.equal(result.value.totalFeesPaid, 1500.5);
   assert.equal(validateFeeAmounts({ totalStandardFees: 100, discount: 101 }).valid, false);
+});
+
+test('fee records with payment history must be retained for financial audit', () => {
+  assert.equal(hasFeePaymentHistory({ totalFeesPaid: 0, paymentDetails: [] }), false);
+  assert.equal(hasFeePaymentHistory({ totalFeesPaid: 100, paymentDetails: [] }), true);
+  assert.equal(hasFeePaymentHistory({ totalFeesPaid: 0, paymentDetails: [{ amount: 1 }] }), true);
+  assert.equal(hasFeePaymentHistory({}), false);
 });
