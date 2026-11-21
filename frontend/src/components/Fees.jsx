@@ -854,17 +854,17 @@ const Fees = () => {
             <div className="modal-dialog">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title">Confirm Delete</h5>
+                  <h5 className="modal-title">Delete unpaid fee record</h5>
                   <button
                     type="button"
-                    className="close"
+                    className="btn-close"
+                    aria-label="Close delete confirmation"
                     onClick={() => setDeleteId(null)}
-                  >
-                    <span>&times;</span>
-                  </button>
+                  />
                 </div>
                 <div className="modal-body">
-                  <p>Are you sure you want to delete this record?</p>
+                  <p className="mb-2">Are you sure you want to delete this fee record?</p>
+                  <p className="text-muted small mb-0">Fee records with payment history cannot be deleted. They are retained for receipts and financial records.</p>
                 </div>
                 <div className="modal-footer">
                   <button
@@ -879,7 +879,7 @@ const Fees = () => {
                     className="btn btn-danger"
                     onClick={confirmDelete}
                   >
-                    Delete
+                    Delete unpaid record
                   </button>
                 </div>
               </div>
