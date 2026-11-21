@@ -1,95 +1,85 @@
-// backend/controllers/videoController.js
-const Video = require('../models/Video');
-const path = require('path');
-const fs = require('fs');
+'use strict';
 
-exports.getAllVideos = async (req, res) => {
+const mongoose = require('mongoose');
+const path = require('path');
+const Video = require('../models/Video');
+const { removeManagedUploadFile } = require('../utils/uploadFileStorage');
+
+const uploadRoot = path.resolve(__dirname, '../uploads/video');
+const videoFilePath = (file) => file ? 'uploads/video/' + file.filename : '';
+const cleanText = (value, maxLength) => typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
+const validExternalUrl = (value) => {
+  if (!value) return true;
   try {
-    const videos = await Video.find();
-    res.json(videos);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch { return false; }
+};
+
+exports.getAllVideos = async (_req, res) => {
+  try {
+    const videos = await Video.find().sort({ standard: 1, subject: 1, title: 1 }).lean();
+    return res.json(videos);
+  } catch (error) {
+    console.error('Unable to load videos:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'Video resources could not be loaded.' });
   }
 };
 
 exports.createVideo = async (req, res) => {
-  const { title, standard, subject, chapter, url } = req.body;
-  let filePath = '';
-  if (req.file) {
-    filePath = `uploads/video/${req.file.filename}`;
-  }
-
-  const video = new Video({
-    title,
-    standard,
-    subject,
-    chapter,
-    url,
-    filePath,
-  });
-
+  const title = cleanText(req.body?.title, 120);
+  const standard = cleanText(req.body?.standard, 60);
+  const subject = cleanText(req.body?.subject, 80);
+  const chapter = cleanText(req.body?.chapter, 120);
+  const url = cleanText(req.body?.url, 2048);
+  if (!title) { await removeManagedUploadFile(uploadRoot, req.file?.path); return res.status(400).json({ message: 'A video title is required.' }); }
+  if (!req.file && !url) return res.status(400).json({ message: 'Upload a video or provide a resource URL.' });
+  if (!validExternalUrl(url)) { await removeManagedUploadFile(uploadRoot, req.file?.path); return res.status(400).json({ message: 'Enter a valid HTTP or HTTPS video URL.' }); }
   try {
-    const newVideo = await video.save();
-    res.status(201).json(newVideo);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    const video = await Video.create({ title, standard, subject, chapter, url: req.file ? '' : url, filePath: videoFilePath(req.file) });
+    return res.status(201).json(video);
+  } catch (error) {
+    await removeManagedUploadFile(uploadRoot, req.file?.path);
+    console.error('Unable to create video resource:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'The video resource could not be saved.' });
   }
 };
 
 exports.updateVideo = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) { await removeManagedUploadFile(uploadRoot, req.file?.path); return res.status(400).json({ message: 'Choose a valid video resource.' }); }
   try {
     const video = await Video.findById(req.params.id);
-    if (!video) {
-      return res.status(404).json({ message: 'Video not found' });
-    }
-
-    const { title, standard, subject, chapter, url } = req.body;
-    video.title = title ?? video.title;
-    video.standard = standard ?? video.standard;
-    video.subject = subject ?? video.subject;
-    video.chapter = chapter ?? video.chapter;
-
-    if (req.file) {
-      if (video.filePath) {
-        const oldPath = path.resolve(__dirname, '..', video.filePath);
-        const uploadRoot = path.resolve(__dirname, '../uploads/video');
-        if (oldPath.startsWith(uploadRoot) && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      video.filePath = `uploads/video/${req.file.filename}`;
-      video.url = '';
-    } else if (typeof url === 'string' && url.trim()) {
-      video.url = url.trim();
-      video.filePath = '';
-    }
-
-    const updatedVideo = await video.save();
-    return res.json(updatedVideo);
-  } catch (err) {
-    console.error('Video resource update failed:', err);
-    return res.status(400).json({ message: 'Unable to update video resource.' });
+    if (!video) { await removeManagedUploadFile(uploadRoot, req.file?.path); return res.status(404).json({ message: 'Video resource not found.' }); }
+    const previousFilePath = video.filePath;
+    const title = req.body?.title === undefined ? video.title : cleanText(req.body.title, 120);
+    const url = req.body?.url === undefined ? video.url : cleanText(req.body.url, 2048);
+    if (!title) { await removeManagedUploadFile(uploadRoot, req.file?.path); return res.status(400).json({ message: 'A video title is required.' }); }
+    if (!validExternalUrl(url)) { await removeManagedUploadFile(uploadRoot, req.file?.path); return res.status(400).json({ message: 'Enter a valid HTTP or HTTPS video URL.' }); }
+    video.title = title;
+    if (req.body?.standard !== undefined) video.standard = cleanText(req.body.standard, 60);
+    if (req.body?.subject !== undefined) video.subject = cleanText(req.body.subject, 80);
+    if (req.body?.chapter !== undefined) video.chapter = cleanText(req.body.chapter, 120);
+    if (req.file) { video.filePath = videoFilePath(req.file); video.url = ''; }
+    else if (req.body?.url !== undefined) { video.url = url; video.filePath = ''; }
+    await video.save();
+    if (previousFilePath && (req.file || (req.body?.url !== undefined && video.url))) await removeManagedUploadFile(uploadRoot, previousFilePath);
+    return res.json(video);
+  } catch (error) {
+    await removeManagedUploadFile(uploadRoot, req.file?.path);
+    console.error('Video resource update failed:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'The video resource could not be updated.' });
   }
 };
 
 exports.deleteVideo = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid video resource.' });
   try {
-    const video = await Video.findById(req.params.id);
-    if (!video) {
-      return res.status(404).json({ message: 'Video not found' });
-    }
-
-    // Delete the video file if it exists
-    if (video.filePath) {
-      const filePath = path.join(__dirname, '..', video.filePath);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-
-    // Use findByIdAndDelete to delete the document
-    await Video.findByIdAndDelete(req.params.id);
-
-    res.json({ message: 'Video deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const video = await Video.findByIdAndDelete(req.params.id);
+    if (!video) return res.status(404).json({ message: 'Video resource not found.' });
+    if (video.filePath) await removeManagedUploadFile(uploadRoot, video.filePath);
+    return res.json({ message: 'Video resource deleted successfully.' });
+  } catch (error) {
+    console.error('Video resource deletion failed:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'The video resource could not be deleted.' });
   }
 };
