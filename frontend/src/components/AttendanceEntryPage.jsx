@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../api.js";
+import { AuthContext } from "../context/AuthContext.jsx";
 
 const AttendanceEntryPage = () => {
   const [students, setStudents] = useState([]);
@@ -14,7 +15,32 @@ const AttendanceEntryPage = () => {
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [teacherStandard, setTeacherStandard] = useState("");
+  const [loadingTeacherScope, setLoadingTeacherScope] = useState(false);
+  const { user } = useContext(AuthContext);
   const linkone = API_BASE_URL;
+
+  useEffect(() => {
+    if (user?.role !== 'teacher') {
+      setTeacherStandard(''); setLoadingTeacherScope(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    setLoadingTeacherScope(true);
+    axios.get(linkone + '/api/attendance/teacher-class', { signal: controller.signal })
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        const assignedClass = String(response.data?.standard || '').trim();
+        setTeacherStandard(assignedClass); setStandard(assignedClass);
+        if (!assignedClass) setPageError('Your teacher profile does not have a class assigned. Contact the preschool administrator.');
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || axios.isCancel(error)) return;
+        setPageError(error.response?.data?.message || 'Your assigned class could not be loaded. Contact the preschool administrator.');
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoadingTeacherScope(false); });
+    return () => controller.abort();
+  }, [user?.role]);
 
   // Load a roster for exactly the selected class/date. Abort stale requests so a slow
   // response can never replace the roster for a newer selection.
@@ -94,6 +120,7 @@ const AttendanceEntryPage = () => {
   };
 
   const handleStandardChange = (value) => {
+    if (user?.role === "teacher" && value !== teacherStandard) return;
     if (!confirmDiscardAttendanceChanges()) return;
     setHasUnsavedChanges(false);
     setStandard(value);
@@ -221,6 +248,9 @@ const AttendanceEntryPage = () => {
         <strong>Before saving:</strong>
         <span>Check every child’s status. Add a reason for each absence. Changes are not saved until you press “Save attendance”.</span>
       </div>
+      {user?.role === "teacher" && !loadingTeacherScope && (
+        <div className="small text-secondary mb-3" role="status">Attendance access is limited to your assigned class.</div>
+      )}
       {/* Attendance Summary */}
       <div className="page-card mb-4">
         <div className="section-heading mt-0"><h3>Class totals</h3><span className="muted small">Updates as you mark attendance</span></div>
@@ -255,16 +285,23 @@ const AttendanceEntryPage = () => {
             onChange={(e) => handleStandardChange(e.target.value)}
             className="form-select"
             aria-label="Select class for attendance"
+            disabled={user?.role === "teacher" || loadingTeacherScope}
           >
-            <option value="">Choose a class</option>
-            <option value="ENG Play Group">ENG Play Group</option>
-            <option value="ENG NR.">ENG NR.</option>
-            <option value="ENG JR.">ENG JR.</option>
-            <option value="ENG SR.">ENG SR.</option>
-            <option value="GUJ Play Group">GUJ Play Group</option>
-            <option value="GUJ NR.">GUJ NR.</option>
-            <option value="GUJ JR.">GUJ JR.</option>
-            <option value="GUJ SR.">GUJ SR.</option>
+            {user?.role === "teacher" ? (
+              teacherStandard ? <option value={teacherStandard}>{teacherStandard}</option> : <option value="">No class assigned</option>
+            ) : (
+              <>
+                <option value="">Choose a class</option>
+                <option value="ENG Play Group">ENG Play Group</option>
+                <option value="ENG NR.">ENG NR.</option>
+                <option value="ENG JR.">ENG JR.</option>
+                <option value="ENG SR.">ENG SR.</option>
+                <option value="GUJ Play Group">GUJ Play Group</option>
+                <option value="GUJ NR.">GUJ NR.</option>
+                <option value="GUJ JR.">GUJ JR.</option>
+                <option value="GUJ SR.">GUJ SR.</option>
+              </>
+            )}
           </select>
         </div>
 
@@ -429,7 +466,7 @@ const AttendanceEntryPage = () => {
         <button
           type="button"
           className="btn btn-primary mt-3"
-          disabled={submittingAttendance || loadingStudents || !selectedDate || !standard || statistics.unmarked > 0}
+          disabled={submittingAttendance || loadingStudents || loadingTeacherScope || !selectedDate || !standard || (user?.role === "teacher" && standard !== teacherStandard) || statistics.unmarked > 0}
           onClick={handleSubmitAttendance}
         >
           {submittingAttendance ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Saving attendance…</> : "Save attendance"}
