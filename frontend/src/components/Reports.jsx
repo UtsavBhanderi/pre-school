@@ -188,7 +188,7 @@ const Reports = () => {
           </div>
 
           <div className="col">
-            <label>Out Of Marks</label>
+            <label>Maximum marks</label>
             <input
               type="number"
               min="1"
@@ -222,7 +222,7 @@ const Reports = () => {
               <th>#</th>
               <th>Report Name</th>
               <th>Standard</th>
-              <th>Out Of Marks</th>
+              <th>Maximum marks</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -249,6 +249,7 @@ const Reports = () => {
 
                   {confirmDeleteId === report._id ? (
                     <>
+                      <span className="d-block small text-muted mb-1">Templates with saved student marks are protected from deletion.</span>
                       <button type="button" className="btn btn-danger btn-sm me-1" onClick={() => handleDelete(report._id)} disabled={deletingReportId === report._id}>
                         {deletingReportId === report._id ? "Deleting…" : "Confirm delete"}
                       </button>
