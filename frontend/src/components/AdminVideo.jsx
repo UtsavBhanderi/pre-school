@@ -186,7 +186,7 @@ const AdminVideo = () => {
               required
             />
           </div>
-          <div className="mb-3 col-md-3">
+          <div className="mb-3 col-12 col-md-6 col-xl-3">
             <label className="form-label">Standard</label>
             <input
               type="text"
@@ -261,12 +261,15 @@ const AdminVideo = () => {
             <div className="mb-3 col-md-3">
               <label className="form-label">File</label>
               <input
+                id="video-resource-file"
                 type="file"
-                accept="video/*"
+                accept=".mp4,.webm,.mov,.m4v,.ogv,video/mp4,video/webm,video/quicktime"
                 className="form-control"
                 onChange={handleFileChange}
-                required
+                required={!editingVideo}
               />
+              <small className="form-text">MP4, WEBM, MOV, M4V or OGV · maximum file size 100 MB</small>
+              {formData.file && <small className="d-block text-secondary mt-1">{formData.file.name}</small>}
             </div>
           )}
         </div>

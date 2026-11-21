@@ -259,9 +259,10 @@ const AdminPdf = () => {
               />
             </div>
           ) : (
-            <div className="mb-3 col-4">
-              <label className="form-label">File</label>
+            <div className="mb-3 col-12 col-md-6 col-xl-4">
+              <label className="form-label" htmlFor="pdf-resource-file">File</label>
               <input
+                id="pdf-resource-file"
                 type="file"
                 name="file"
                 accept=".pdf,application/pdf"
@@ -269,6 +270,8 @@ const AdminPdf = () => {
                 onChange={handleFileChange}
                 required={!editingPdf}
               />
+              <small className="form-text">PDF only · maximum file size 20 MB</small>
+              {formData.file && <small className="d-block text-secondary mt-1">{formData.file.name}</small>}
             </div>
           )}
         </div>

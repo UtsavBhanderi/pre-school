@@ -336,7 +336,7 @@ const NewStudentRegister = () => {
             bloodGroup: studentData.bloodGroup || "",
             religion: studentData.religion || "",
             cast: studentData.cast || "",
-            //   nationality: studentData.nationality || "",
+            nationality: studentData.nationality || "",
             motherTongue: studentData.motherTongue || "",
             address: studentData.address || "",
             phoneNumber: studentData.phoneNumber || "",
@@ -1692,23 +1692,19 @@ const NewStudentRegister = () => {
                                 </div>
 
                                 <div className="row">
-                                    {/* <div className="mb-3 col-md-4">
-                    <label
-                      htmlFor="nationality"
-                      className="form-label"
-                    >
-                      Nationality
-                    </label>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="nationality"
-                      name="nationality"
-                      value={student.nationality}
-                      onChange={handleChange}
-                    />
-                  </div> */}
+                                    <div className="mb-3 col-12 col-md-4">
+                                        <label htmlFor="nationality" className="form-label">Nationality</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            id="nationality"
+                                            name="nationality"
+                                            value={student.nationality}
+                                            onChange={handleChange}
+                                            maxLength={60}
+                                            autoComplete="country-name"
+                                        />
+                                    </div>
 
                                     <div className="mb-3 col-md-4">
                                         <label
