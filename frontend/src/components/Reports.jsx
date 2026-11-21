@@ -293,7 +293,10 @@ const Reports = () => {
                   {exportingReportId === report._id ? "Preparing…" : "Export"}
                 </button>
                 {confirmDeleteId === report._id ? (
-                  <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(report._id)} disabled={deletingReportId === report._id}>Confirm delete</button>
+                  <>
+                    <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(report._id)} disabled={deletingReportId === report._id}>{deletingReportId === report._id ? "Deleting…" : "Confirm delete"}</button>
+                    <button type="button" className="btn btn-light" onClick={() => setConfirmDeleteId("")} disabled={deletingReportId === report._id}>Cancel</button>
+                  </>
                 ) : (
                   <button type="button" className="btn btn-light text-danger" onClick={() => setConfirmDeleteId(report._id)} disabled={Boolean(deletingReportId)}>Delete</button>
                 )}

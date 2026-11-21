@@ -160,8 +160,13 @@ export default function LegacyParentPortal() {
     const closeOnEscape = (event) => {
       if (event.key === "Escape") setMobileMoreOpen(false);
     };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, [mobileMoreOpen]);
 
   const logoutAndNavigate = () => {

@@ -220,11 +220,15 @@ const StudentsReport = () => {
             const report = s.marks?.find(
               (m) => String(m.reportId || "") === reportId
             );
+            const isInSelectedClass = s.standard === standard;
 
             return (
               <tr key={s._id}>
                 <td>{i + 1}</td>
-                <td className="fw-semibold">{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ") || "—"}</td>
+                <td className="fw-semibold">
+                  {[s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ") || "—"}
+                  {!isInSelectedClass && <small className="d-block text-muted">Now in {s.standard}</small>}
+                </td>
                 <td>{s.stuNo}</td>
                 <td>{report?.total ?? "-"}</td>
                 <td>{report?.percentage ?? "-"}</td>
@@ -234,9 +238,10 @@ const StudentsReport = () => {
                     type="button"
                     className="btn btn-warning btn-sm me-2"
                     onClick={() => handleEdit(s)}
-                    disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks}
+                    disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks || !isInSelectedClass}
+                    title={!isInSelectedClass ? "This child has moved to another class. Historical marks remain available for printing." : "Enter or update this student's marks"}
                   >
-                    {loadingStudentId === s._id ? "Loading…" : "Edit"}
+                    {loadingStudentId === s._id ? "Loading…" : isInSelectedClass ? "Edit" : "Read only"}
                   </button>
                   <button
                     type="button"
@@ -256,13 +261,14 @@ const StudentsReport = () => {
       <div className="report-student-mobile-list">
         {loading ? <div className="report-mobile-empty">Loading students…</div> : students.map((student) => {
           const saved = student.marks?.find((item) => String(item.reportId || "") === reportId);
+          const isInSelectedClass = student.standard === standard;
           const name = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "Student";
           const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
           return (
             <article className="report-student-mobile-card" key={student._id}>
               <div className="report-student-mobile-heading">
                 <span className="report-student-avatar">{initials}</span>
-                <div><strong>{name}</strong><small>GR No. {student.stuNo || "—"}</small></div>
+                <div><strong>{name}</strong><small>GR No. {student.stuNo || "—"}{!isInSelectedClass ? " · Now in " + student.standard : ""}</small></div>
               </div>
               <div className="report-student-mobile-result">
                 <div><span>Total</span><strong>{saved?.total ?? "—"}</strong></div>
@@ -270,8 +276,8 @@ const StudentsReport = () => {
                 <div><span>Grade</span><strong>{saved?.grade || "—"}</strong></div>
               </div>
               <div className="report-student-mobile-actions">
-                <button type="button" className="btn btn-primary" onClick={() => handleEdit(student)} disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks}>
-                  {loadingStudentId === student._id ? "Loading…" : saved ? "Edit marks" : "Enter marks"}
+                <button type="button" className="btn btn-primary" onClick={() => handleEdit(student)} disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks || !isInSelectedClass} title={!isInSelectedClass ? "Historical result is read-only after a class transfer" : undefined}>
+                  {loadingStudentId === student._id ? "Loading…" : !isInSelectedClass ? "Read only" : saved ? "Edit marks" : "Enter marks"}
                 </button>
                 <button type="button" className="btn btn-outline-secondary" onClick={() => handlePrintPreview(student)} disabled={!saved}>Print</button>
               </div>
