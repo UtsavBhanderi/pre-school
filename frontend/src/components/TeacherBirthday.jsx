@@ -6,7 +6,7 @@ import { API_BASE_URL } from "../api.js";
 const parseCalendarDate = (value) => {
   if (!value) return null;
   const text = String(value).trim();
-  const dateOnly = text.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+  const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnly) {
     const [, year, month, day] = dateOnly;
     const date = new Date(Number(year), Number(month) - 1, Number(day));
@@ -73,8 +73,8 @@ function TeacherBirthday() {
       if (filters.date || filters.dob) {
         const { start, end } = getStartAndEndDates(filters.date || filters.dob);
         filtered = filtered.filter((teacher) => {
-            const birthday = new Date(teacher.dob);
-            if (!teacher.dob || Number.isNaN(birthday.getTime())) return false;
+            const birthday = parseCalendarDate(teacher.dob);
+            if (!birthday) return false;
 
             // Compare recurring birthdays by month/day, including ranges crossing
             // December to January.
