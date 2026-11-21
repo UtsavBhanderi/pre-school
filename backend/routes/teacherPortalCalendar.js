@@ -36,7 +36,7 @@ router.get('/calendar', async (req, res) => {
         { $or: [{ end: null }, { end: { $gte: range.from } }] },
         { $or: [{ audience: { $in: ['all', 'teachers'] } }, { audience: { $exists: false } }] },
       ],
-    }).select('title start end color audience').sort({ start: 1 }).limit(250).lean();
+    }).select('title description start end color audience allDay location').sort({ start: 1 }).limit(250).lean();
 
     return res.json({
       events: events.map((event) => ({

@@ -56,9 +56,10 @@ after(async () => {
   }
 });
 
-async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin' } = {}) {
+async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', requestObserver = null } = {}) {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
+    requestObserver?.(request);
     const url = new URL(request.url());
     let status = 200;
     let body = {};
@@ -163,6 +164,11 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await noticesLink.click();
   assert.ok((await noticesLink.getAttribute('class')).includes('active'), 'Selecting a mobile destination should update the active state.');
 
+  await menuButton.click();
+  await page.locator('.teacher-navigation').getByRole('button', { name: 'School calendar' }).click();
+  await page.getByRole('heading', { name: 'School calendar' }).waitFor();
+  await page.getByText('No upcoming school events').waitFor();
+
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,
@@ -248,6 +254,29 @@ test('successful administrator login reaches the task-first dashboard', async ()
     dimensions.document <= dimensions.viewport + 1,
     'The dashboard should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
   );
+  await page.close();
+});
+
+test('report-card pages send the authenticated session token', async () => {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const reportRequests = [];
+  await mockSchoolApi(page, {
+    requestObserver: (request) => {
+      if (new URL(request.url()).pathname.startsWith('/api/reportCard')) {
+        reportRequests.push({ path: new URL(request.url()).pathname, token: request.headers()['x-auth-token'] || '' });
+      }
+    },
+  });
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('admin@example.com');
+  await page.locator('#login-password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL(/\/dashboard\/home$/);
+  await page.goto(BASE_URL + '/dashboard/createReport');
+  await page.getByRole('heading', { name: 'Report cards' }).waitFor();
+  await page.waitForFunction(() => document.querySelector('.report-create-form'));
+  assert.ok(reportRequests.some((request) => request.path === '/api/reportCard' && request.token === 'browser-smoke-token'),
+    'The report-card list request must include the signed-in session token.');
   await page.close();
 });
 
