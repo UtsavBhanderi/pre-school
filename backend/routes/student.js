@@ -13,6 +13,7 @@ const router = express.Router();
 // const { Student, Sequence } = require('../models/Student');
 const Sequence = require('../models/sequence');
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
+const { STUDENT_PROFILE_FIELDS, pickProfileFields } = require('../utils/legacyProfileFields');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -115,7 +116,8 @@ router.post('/', upload.fields([
   { name: 'fatherPhoto', maxCount: 1 },
 ]), verifyUploadContent('students'), async (req, res) => {
   try {
-    const { firstName, middleName, lastName, standard } = req.body;
+    const profileData = pickProfileFields(req.body, STUDENT_PROFILE_FIELDS);
+    const { firstName, middleName, lastName, standard } = profileData;
     if (!String(firstName || '').trim()) {
       return res.status(400).json({ message: 'Student first name is required.' });
     }
@@ -125,11 +127,11 @@ router.post('/', upload.fields([
 
     const stuNo = await generateStudentNumber(firstName, middleName, lastName);
     const year = new Date().getFullYear();
-    const batchYear = req.body.batchYear || `${year}-${year + 1}`;
+    const batchYear = profileData.batchYear || `${year}-${year + 1}`;
     const files = req.files || {};
 
     const newStudent = new Student({
-      ...req.body,
+      ...profileData,
       ...(files.studentPhoto?.[0] && { studentPhoto: `uploads/students/${files.studentPhoto[0].filename}` }),
       ...(files.motherPhoto?.[0] && { motherPhoto: `uploads/students/${files.motherPhoto[0].filename}` }),
       ...(files.fatherPhoto?.[0] && { fatherPhoto: `uploads/students/${files.fatherPhoto[0].filename}` }),
@@ -157,11 +159,17 @@ router.put('/:id', upload.fields([
       return res.status(400).json({ message: 'Invalid student ID.' });
     }
 
-    const updatedStudent = { ...req.body };
+    const updatedStudent = pickProfileFields(req.body, STUDENT_PROFILE_FIELDS);
     const files = req.files || {};
     if (files.studentPhoto?.[0]) updatedStudent.studentPhoto = `uploads/students/${files.studentPhoto[0].filename}`;
     if (files.motherPhoto?.[0]) updatedStudent.motherPhoto = `uploads/students/${files.motherPhoto[0].filename}`;
     if (files.fatherPhoto?.[0]) updatedStudent.fatherPhoto = `uploads/students/${files.fatherPhoto[0].filename}`;
+    if (updatedStudent.parentEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(updatedStudent.parentEmail)) {
+      return res.status(400).json({ message: 'Enter a valid parent email address.' });
+    }
+    if (Object.keys(updatedStudent).length === 0) {
+      return res.status(400).json({ message: 'No supported student details were provided to update.' });
+    }
 
     const student = await Student.findByIdAndUpdate(
       req.params.id,
