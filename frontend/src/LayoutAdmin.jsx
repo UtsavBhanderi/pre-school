@@ -54,6 +54,7 @@ const COMMANDS = [
 
 export default function LayoutAdmin() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const commandInputRef = useRef(null);
@@ -110,7 +111,7 @@ export default function LayoutAdmin() {
   };
 
   return (
-    <div className="admin-layout">
+    <div className={"admin-layout" + (sidebarCollapsed ? " is-sidebar-collapsed" : "")}>
       {menuOpen && (
         <button
           type="button"
@@ -120,7 +121,7 @@ export default function LayoutAdmin() {
         />
       )}
 
-      <SideNav isOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
+      <SideNav isOpen={menuOpen} isCollapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((collapsed) => !collapsed)} onNavigate={() => setMenuOpen(false)} />
 
       <div className="admin-main">
         <header className="admin-topbar">

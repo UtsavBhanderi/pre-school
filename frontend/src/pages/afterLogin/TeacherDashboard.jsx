@@ -126,16 +126,16 @@ const TeacherDashboard = () => {
   );
 
   return (
-    <div>
+    <div className="teacher-daily-report-page">
       {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
       {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
 
-      <section className="page-card mb-4">
+      <section className="page-card daily-report-form-card mb-4">
         <div className="section-heading mt-0">
-          <h3>Submit daily work report</h3>
+          <div><h3>Submit daily work report</h3><p>Capture the teaching time and classroom activities completed today.</p></div>
           <span className="muted small">Signed in as {user?.username || "teacher"}</span>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form className="daily-report-form" onSubmit={handleSubmit}>
           <div className="row g-3">
             <div className="col-12 col-sm-6 col-lg-3">
               <label htmlFor="report-time-in" className="form-label">Time in</label>
@@ -179,7 +179,7 @@ const TeacherDashboard = () => {
         </form>
       </section>
 
-      <section className="page-card mb-4">
+      <section className="page-card daily-report-history-card mb-4">
         <div className="section-heading mt-0">
           <div>
             <h3>Your submitted reports</h3>
@@ -190,7 +190,7 @@ const TeacherDashboard = () => {
           </button>
         </div>
 
-        <div className="filter-panel">
+        <div className="filter-panel daily-report-filters">
           <div>
             <label htmlFor="my-report-date" className="form-label">Date</label>
             <input id="my-report-date" type="date" name="date" className="form-control" value={filter.date} onChange={handleFilterChange} />
@@ -211,13 +211,13 @@ const TeacherDashboard = () => {
           </div>
         </div>
 
-        <div className="d-flex flex-wrap gap-3 mb-3">
-          <div className="badge text-bg-light border px-3 py-2">{filteredReports.length} report{filteredReports.length === 1 ? "" : "s"}</div>
-          <div className="badge text-bg-light border px-3 py-2">Total time: {totalHours.toFixed(2)} hours</div>
+        <div className="d-flex flex-wrap gap-3 mb-3 daily-report-metrics">
+          <div className="badge text-bg-light border px-3 py-2 daily-report-metric">{filteredReports.length} report{filteredReports.length === 1 ? "" : "s"}</div>
+          <div className="badge text-bg-light border px-3 py-2 daily-report-metric">Total time: {totalHours.toFixed(2)} hours</div>
         </div>
 
-        <div className="table-responsive">
-          <table className="table table-hover align-middle">
+        <div className="table-responsive daily-report-table-wrap">
+          <table className="table table-hover align-middle daily-report-table">
             <thead>
               <tr>
                 <th scope="col">#</th><th scope="col">Date</th><th scope="col">Time in</th><th scope="col">Time out</th><th scope="col">Subject / activity</th><th scope="col">Class</th><th scope="col">Work summary</th><th scope="col">Students</th><th scope="col">Hours</th>

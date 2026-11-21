@@ -235,7 +235,7 @@ const AttendanceEntryPage = () => {
   };
 
   return (
-    <div>
+    <div className="teacher-attendance-page">
       {pageError && <div className="alert alert-danger" role="alert">{pageError}</div>}
       {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
       <div className="page-header">
@@ -252,35 +252,29 @@ const AttendanceEntryPage = () => {
         <div className="small text-secondary mb-3" role="status">Attendance access is limited to your assigned class.</div>
       )}
       {/* Attendance Summary */}
-      <div className="page-card mb-4">
-        <div className="section-heading mt-0"><h3>Class totals</h3><span className="muted small">Updates as you mark attendance</span></div>
-
-        <div className="progress mb-3">
-          <div
-            className="progress-bar bg-success"
-            style={{
-              width: `${students.length ? (statistics.present / students.length) * 100 : 0}%`,
-            }}
-          >
-            {statistics.present} Present
-          </div>
-          <div
-            className="progress-bar bg-danger"
-            style={{ width: `${students.length ? (statistics.absent / students.length) * 100 : 0}%` }}
-          >
-            {statistics.absent} Absent
-          </div>
+      <section className="page-card attendance-summary-card mb-4" aria-label="Attendance progress">
+        <div className="section-heading mt-0">
+          <div><h3>Class totals</h3><p>Live progress as you mark each child</p></div>
+          <span className="attendance-date-chip">{selectedDate ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(selectedDate) : "Choose a date"}</span>
         </div>
-        <p>
-          Total Students: {students.length} | Present: {statistics.present} |
-          Absent: {statistics.absent} | Not marked: {statistics.unmarked}
-        </p>
-      </div>
+        <div className="attendance-stat-grid">
+          <div className="attendance-stat total"><span>Total children</span><strong>{students.length}</strong></div>
+          <div className="attendance-stat present"><span>Present</span><strong>{statistics.present}</strong></div>
+          <div className="attendance-stat absent"><span>Absent</span><strong>{statistics.absent}</strong></div>
+          <div className="attendance-stat pending"><span>Not marked</span><strong>{statistics.unmarked}</strong></div>
+        </div>
+        <div className="attendance-progress-track" role="progressbar" aria-label="Attendance marked" aria-valuemin="0" aria-valuemax={students.length || 1} aria-valuenow={statistics.present + statistics.absent}>
+          <div className="attendance-progress-present" style={{ width: `${students.length ? (statistics.present / students.length) * 100 : 0}%` }} />
+          <div className="attendance-progress-absent" style={{ width: `${students.length ? (statistics.absent / students.length) * 100 : 0}%` }} />
+        </div>
+        <div className="attendance-progress-legend"><span><i className="present" />Present</span><span><i className="absent" />Absent</span><span><i className="pending" />Not marked</span></div>
+      </section>
       {/* Standard Dropdown */}
-      <div className="page-card mb-4"><div className="row g-3">
+      <section className="page-card attendance-selection-card mb-4"><div className="row g-3">
         <div className="form-group col-12 col-md-6 col-lg-3">
-          <label>Class</label>
+          <label htmlFor="teacher-attendance-class">Class</label>
           <select
+            id="teacher-attendance-class"
             value={standard}
             onChange={(e) => handleStandardChange(e.target.value)}
             className="form-select"
@@ -307,7 +301,7 @@ const AttendanceEntryPage = () => {
 
         {/* Date Picker */}
         <div className="form-group col-12 col-md-6 col-lg-3 d-flex flex-column">
-          <label>Attendance date</label>
+          <label htmlFor="teacher-attendance-date">Attendance date</label>
           {/* <DatePicker
             selected={selectedDate}
             onChange={(date) => setSelectedDate(date)}
@@ -316,6 +310,7 @@ const AttendanceEntryPage = () => {
           /> */}
 
             <input
+              id="teacher-attendance-date"
               type="date"
               value={selectedDate ? formatDate(selectedDate) : ""}
               onChange={(e) => handleDateChange(e.target.value)}
@@ -331,7 +326,7 @@ const AttendanceEntryPage = () => {
           /> */}
 
         </div>
-      </div></div>
+      </div></section>
 
       {standard && selectedDate && attendanceData.some((item) => item.attendanceRecordId) && (
         <div className="alert alert-info d-flex align-items-start gap-2" role="status">
@@ -375,7 +370,7 @@ const AttendanceEntryPage = () => {
       ) : standard && students.length === 0 ? (
         <div className="page-card"><div className="empty-state"><strong>No students found for this class</strong>Choose another class or contact the administrator if this seems incorrect.</div></div>
       ) : students.length > 0 && (
-        <div className="table-responsive"><table className="table mt-0 table-hover align-middle">
+        <div className="table-responsive attendance-roster-card"><table className="table mt-0 table-hover align-middle teacher-attendance-table">
           <thead>
             <tr>
               <th>#</th>
@@ -394,35 +389,25 @@ const AttendanceEntryPage = () => {
                 <td>{[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "—"}</td>
                 <td>{student.standard}</td>
                 <td>{student.stuNo}</td>
-                <td>
-                  <input
-                    type="radio"
-                    name={`attendance-${student._id}`}
-                    value="present"
-                    aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} present`}
-                    checked={
-                      attendanceData.find(
-                        (att) => att.studentId === student._id
-                      )?.status === "present"
-                    }
-                    onChange={() => handleStatusChange(student._id, "present")}
-                    disabled={loadingStudents || submittingAttendance}
-                  />
+                <td className="attendance-choice-cell">
+                  <label className="attendance-choice present">
+                    <input type="radio" name={`attendance-${student._id}`} value="present"
+                      aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} present`}
+                      checked={attendanceData.find((att) => att.studentId === student._id)?.status === "present"}
+                      onChange={() => handleStatusChange(student._id, "present")}
+                      disabled={loadingStudents || submittingAttendance} />
+                    <span>Present</span>
+                  </label>
                 </td>
-                <td>
-                  <input
-                    type="radio"
-                    name={`attendance-${student._id}`}
-                    value="absent"
-                    aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} absent`}
-                    checked={
-                      attendanceData.find(
-                        (att) => att.studentId === student._id
-                      )?.status === "absent"
-                    }
-                    onChange={() => handleStatusChange(student._id, "absent")}
-                    disabled={loadingStudents || submittingAttendance}
-                  />
+                <td className="attendance-choice-cell">
+                  <label className="attendance-choice absent">
+                    <input type="radio" name={`attendance-${student._id}`} value="absent"
+                      aria-label={`Mark ${[student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ")} absent`}
+                      checked={attendanceData.find((att) => att.studentId === student._id)?.status === "absent"}
+                      onChange={() => handleStatusChange(student._id, "absent")}
+                      disabled={loadingStudents || submittingAttendance} />
+                    <span>Absent</span>
+                  </label>
                 </td>
 
                 <td>
@@ -463,14 +448,17 @@ const AttendanceEntryPage = () => {
 
       {/* Submit Button */}
       {students.length > 0 && (
-        <button
+        <div className="attendance-submit-row">
+          <div><strong>{statistics.unmarked ? `${statistics.unmarked} children still need a status` : "Ready to save attendance"}</strong><span>Review the register before saving. You can correct entries later.</span></div>
+          <button
           type="button"
-          className="btn btn-primary mt-3"
+          className="btn btn-primary attendance-save-button"
           disabled={submittingAttendance || loadingStudents || loadingTeacherScope || !selectedDate || !standard || (user?.role === "teacher" && standard !== teacherStandard) || statistics.unmarked > 0}
           onClick={handleSubmitAttendance}
         >
           {submittingAttendance ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Saving attendance…</> : "Save attendance"}
-        </button>
+          </button>
+        </div>
       )}
     </div>
   );

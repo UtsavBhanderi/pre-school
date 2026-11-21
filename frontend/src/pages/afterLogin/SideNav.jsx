@@ -6,6 +6,7 @@ import {
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
   MdHome, MdHelpOutline, MdCampaign, MdExpandMore, MdDashboard, MdForum,
+  MdChevronLeft, MdChevronRight,
 } from "react-icons/md";
 
 const navigation = [
@@ -62,6 +63,7 @@ function SidebarLink({ to, label, icon: Icon, onNavigate }) {
         to={to}
         end
         onClick={onNavigate}
+        title={label}
         className={({ isActive }) => "sidebar-nav-link" + (isActive ? " active" : "")}
       >
         <span className="sidebar-icon" aria-hidden="true"><Icon /></span>
@@ -71,19 +73,22 @@ function SidebarLink({ to, label, icon: Icon, onNavigate }) {
   );
 }
 
-export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
+export default function SideNav({ isOpen = false, isCollapsed = false, onToggleCollapse = () => {}, onNavigate = () => {} }) {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const displayName = user?.username || user?.name || "School administrator";
 
   return (
-    <aside className={"admin-sidebar" + (isOpen ? " is-open" : "")} aria-label="Main navigation">
+    <aside className={"admin-sidebar" + (isOpen ? " is-open" : "") + (isCollapsed ? " is-collapsed" : "")} aria-label="Main navigation">
       <div className="sidebar-brand">
         <div className="sidebar-brand-mark" aria-hidden="true">S</div>
-        <div>
+        <div className="sidebar-brand-copy">
           <div className="sidebar-brand-title">Pre-School</div>
           <div className="sidebar-brand-subtitle">School workspace</div>
         </div>
+        <button type="button" className="sidebar-collapse-toggle" onClick={onToggleCollapse} aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {isCollapsed ? <MdChevronRight aria-hidden="true" /> : <MdChevronLeft aria-hidden="true" />}
+        </button>
       </div>
 
       <nav className="sidebar-simple-nav" aria-label="School tasks">
@@ -133,7 +138,7 @@ export default function SideNav({ isOpen = false, onNavigate = () => {} }) {
       <div className="sidebar-user">
         <div className="sidebar-user-name" title={displayName}>{displayName}</div>
         <div className="sidebar-user-role">{user?.role || "admin"} account</div>
-        <button type="button" onClick={logout} className="btn sidebar-logout d-flex align-items-center gap-2">
+        <button type="button" onClick={logout} className="btn sidebar-logout d-flex align-items-center gap-2" title="Sign out">
           <MdLogout size={19} />
           <span>Sign out</span>
         </button>

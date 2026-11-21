@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   MdSchool, MdDashboard, MdFactCheck, MdAssignment, MdForum, MdCampaign,
   MdHelpOutline, MdMenu, MdClose, MdLogout, MdArrowForward, MdCalendarToday, MdCalendarMonth,
-  MdRefresh, MdCheckCircle, MdAccessTime, MdNotifications, MdPerson,
+  MdRefresh, MdCheckCircle, MdAccessTime, MdNotifications, MdPerson, MdChevronLeft, MdChevronRight,
 } from "react-icons/md";
 import { IoAnalyticsOutline } from "react-icons/io5";
 import { AuthContext } from "../../context/AuthContext";
@@ -193,6 +193,7 @@ export default function TeacherDashboard() {
   const navigate = useNavigate();
   const [activePage, setActivePage] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
   const [reports, setReports] = useState([]);
@@ -256,12 +257,13 @@ export default function TeacherDashboard() {
   const pageSubtitle = useMemo(() => activeItem.description, [activeItem]);
 
   return (
-    <div className="teacher-workspace">
+    <div className={"teacher-workspace" + (sidebarCollapsed ? " is-collapsed" : "")}>
       {sidebarOpen && <button type="button" className="teacher-sidebar-backdrop" aria-label="Close teacher navigation" onClick={() => setSidebarOpen(false)} />}
-      <aside className={"teacher-sidebar " + (sidebarOpen ? "is-open" : "")} aria-label="Teacher workspace navigation">
+      <aside className={"teacher-sidebar " + (sidebarOpen ? "is-open" : "") + (sidebarCollapsed ? " is-collapsed" : "")} aria-label="Teacher workspace navigation">
         <div className="teacher-brand">
           <span className="teacher-brand-mark"><MdSchool aria-hidden="true" /></span>
           <span className="teacher-brand-copy"><strong>Pre-School</strong><small>Teacher workspace</small></span>
+          <button type="button" className="teacher-sidebar-toggle" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? <MdChevronRight /> : <MdChevronLeft />}</button>
           <button type="button" className="teacher-sidebar-close" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}><MdClose /></button>
         </div>
 
@@ -271,7 +273,7 @@ export default function TeacherDashboard() {
             <div className="teacher-nav-group" key={group.label}>
               <div className="teacher-nav-group-label">{group.label}</div>
               {group.items.map(({ id, label, Icon }) => (
-                <button type="button" key={id} className={"teacher-nav-link " + (activePage === id ? "active" : "")} onClick={() => navigateTo(id)} aria-current={activePage === id ? "page" : undefined}>
+                <button type="button" key={id} title={label} className={"teacher-nav-link " + (activePage === id ? "active" : "")} onClick={() => navigateTo(id)} aria-current={activePage === id ? "page" : undefined}>
                   <Icon aria-hidden="true" /><span>{label}</span>{id === "communication" && complaints.filter((item) => item.status !== "resolved").length > 0 && <small>{complaints.filter((item) => item.status !== "resolved").length}</small>}
                 </button>
               ))}
@@ -282,9 +284,9 @@ export default function TeacherDashboard() {
         <div className="teacher-sidebar-bottom">
           <div className="teacher-sidebar-profile">
             <span className="teacher-profile-avatar">{initials(teacherName)}</span>
-            <span className="teacher-profile-copy"><strong>{teacherName}</strong><small>{user?.email || "Teacher account"}</small></span>
+            <span className="teacher-profile-copy" title={teacherName}><strong>{teacherName}</strong><small>{user?.email || "Teacher account"}</small></span>
           </div>
-          <button type="button" className="teacher-signout-button" onClick={signOut}><MdLogout aria-hidden="true" /> Sign out</button>
+          <button type="button" className="teacher-signout-button" onClick={signOut} title="Sign out"><MdLogout aria-hidden="true" /> Sign out</button>
         </div>
       </aside>
 
