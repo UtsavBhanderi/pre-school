@@ -49,21 +49,6 @@ const AuthProvider = ({ children }) => {
     return () => { active = false; };
   }, [requestUserData]);
 
-  const register = async (userData) => {
-    const existingToken = localStorage.getItem("token");
-    const { data } = await axios.post(`${API_BASE_URL}/api/auth/register`, userData, {
-      headers: existingToken ? { "x-auth-token": existingToken } : {},
-    });
-
-    if (existingToken) return fetchUserData(existingToken);
-    if (!data.token) throw new Error("Registration did not return an authentication token.");
-
-    const nextUser = await requestUserData(data.token);
-    localStorage.setItem("token", data.token);
-    setUser(nextUser);
-    return nextUser;
-  };
-
   const login = async (credentials) => {
     // A deliberate sign-in replaces any previous browser identity. Clear it
     // before starting so a failed attempt cannot leave another user's session.
@@ -103,7 +88,7 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, setSession, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, setSession, loading }}>
       {children}
     </AuthContext.Provider>
   );

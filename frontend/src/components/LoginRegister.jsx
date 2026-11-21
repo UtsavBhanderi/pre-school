@@ -1,39 +1,18 @@
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { MdAdminPanelSettings, MdArrowBack } from 'react-icons/md';
 
-const Register = () => {
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    role: 'user'
-  });
-
-  const { register } = useContext(AuthContext);
-
-  const { username, email, password, role } = formData;
-
-  const onChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const onSubmit = (e) => {
-    e.preventDefault();
-    register(formData);
-  };
-
+export default function LoginRegister() {
   return (
-    <form onSubmit={onSubmit}>
-      <input type="text" name="username" value={username} onChange={onChange} placeholder="Username" required />
-      <input type="email" name="email" value={email} onChange={onChange} placeholder="Email" required />
-      <input type="password" name="password" value={password} onChange={onChange} placeholder="Password" required />
-      <select name="role" value={role} onChange={onChange}>
-        <option value="user">User</option>
-        <option value="admin">Admin</option>
-      </select>
-      <button type="submit">Register</button>
-    </form>
+    <main className="container py-5">
+      <section className="page-card mx-auto text-center" style={{ maxWidth: 560 }}>
+        <div className="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary p-3 mb-3">
+          <MdAdminPanelSettings size={30} aria-hidden="true" />
+        </div>
+        <h1 className="h3">Accounts are managed by your school</h1>
+        <p className="text-secondary mb-4">For safety, teachers and administrators cannot create their own accounts here. Ask your preschool administrator to create your login and share your sign-in details privately.</p>
+        <Link className="btn btn-primary" to="/login"><MdArrowBack className="me-2" aria-hidden="true" />Back to sign in</Link>
+      </section>
+    </main>
   );
-};
-
-export default Register;
+}
