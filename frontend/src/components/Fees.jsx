@@ -221,6 +221,8 @@ const Fees = () => {
     stuNo: "",
     studentName: "",
     standard: "",
+    batchYear: "",
+    paymentStatus: "",
   });
   const handleFilterChange = (e) => {
     setFilter({ ...filter, [e.target.name]: e.target.value });
@@ -234,12 +236,16 @@ const Fees = () => {
   );
 
   // const filteredfeesData = feesData;
-  const filteredfeesData = feesData.filter(
-    (pdf) =>
-      String(pdf.stuNo ?? "").includes(filter.stuNo) &&
-      String(pdf.studentName ?? "").toLowerCase().includes(filter.studentName.toLowerCase()) &&
-      String(pdf.standard ?? "").includes(filter.standard)
-  );
+  const filteredfeesData = feesData.filter((pdf) => {
+    const balance = getRemainingBalance(pdf);
+    const paid = Number(pdf.totalFeesPaid) || 0;
+    const status = balance <= 0 ? "paid" : paid > 0 ? "partial" : "pending";
+    return String(pdf.stuNo ?? "").toLowerCase().includes(filter.stuNo.toLowerCase())
+      && String(pdf.studentName ?? "").toLowerCase().includes(filter.studentName.toLowerCase())
+      && String(pdf.standard ?? "").includes(filter.standard)
+      && String(pdf.batchYear ?? "").includes(filter.batchYear)
+      && (!filter.paymentStatus || status === filter.paymentStatus);
+  });
 
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [allChecked, setAllChecked] = useState(false);
@@ -262,7 +268,7 @@ const Fees = () => {
     // );
 
     const worksheet = XLSX.utils.json_to_sheet(
-      feesData.map((student) => ({
+      filteredfeesData.map((student) => ({
         // const worksheet = XLSX.utils.json_to_sheet(
         //   filteredStudentsExcel.map((student) => ({
         // studentPhoto: "/" + student.studentPhoto,
@@ -297,7 +303,7 @@ const Fees = () => {
       type: "array",
     });
     const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, "students.xlsx");
+    saveAs(data, "fee_register_filtered.xlsx");
   };
   function exportToExcelConfirm() {
     setPageError("");
@@ -615,7 +621,7 @@ const Fees = () => {
                 className="btn btn-outline-primary"
                 onClick={exportToExcelConfirm}
               >
-                Export all
+                Export filtered
               </button>
               <button
                 type="button"
@@ -654,6 +660,20 @@ const Fees = () => {
           </div>
 
           <div className="col">
+            <select name="batchYear" value={filter.batchYear} onChange={handleFilterChange} className="form-select" aria-label="Filter by school year">
+              <option value="">All school years</option>
+              {[...new Set(feesData.map((fee) => fee.batchYear).filter(Boolean))].sort().map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </div>
+          <div className="col">
+            <select name="paymentStatus" value={filter.paymentStatus} onChange={handleFilterChange} className="form-select" aria-label="Filter by payment status">
+              <option value="">All payment statuses</option>
+              <option value="pending">Unpaid</option>
+              <option value="partial">Partially paid</option>
+              <option value="paid">Fully paid</option>
+            </select>
+          </div>
+          <div className="col">
             <select
               name="standard"
               placeholder="Standard"
@@ -673,6 +693,11 @@ const Fees = () => {
               <option value="GUJ SR.">GUJ SR.</option>
             </select>
           </div>
+        </div>
+        <div className="overview-stat-grid mb-3" aria-label="Filtered fee totals">
+          <section className="overview-stat-card"><div className="overview-stat-label">Students in view</div><div className="overview-stat-value">{filteredfeesData.length}</div></section>
+          <section className="overview-stat-card"><div className="overview-stat-label">Total collected</div><div className="overview-stat-value">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(filteredfeesData.reduce((sum, fee) => sum + (Number(fee.totalFeesPaid) || 0), 0))}</div></section>
+          <section className="overview-stat-card"><div className="overview-stat-label">Outstanding balance</div><div className="overview-stat-value">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(filteredfeesData.reduce((sum, fee) => sum + getRemainingBalance(fee), 0))}</div></section>
         </div>
         <div className="section-heading"><h3>Fee records</h3><span className="muted small">{filteredfeesData.length} records</span></div>
         <div className="table-responsive">
