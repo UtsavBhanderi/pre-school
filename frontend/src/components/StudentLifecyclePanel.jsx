@@ -106,7 +106,7 @@ export default function StudentLifecyclePanel({ students = [], onRefresh }) {
                 </select>
               </div>
               <div className="col-12 col-md-6"><label className="form-label" htmlFor="lifecycle-year">Academic year</label>
-                <input id="lifecycle-year" className="form-control" value={targetBatchYear} onChange={(event) => setTargetBatchYear(event.target.value)} placeholder="2026-2027" pattern="\\d{4}-\\d{4}" maxLength="9" required disabled={!selected} />
+                <input id="lifecycle-year" className="form-control" value={targetBatchYear} onChange={(event) => setTargetBatchYear(event.target.value)} placeholder="2026-2027" pattern="\d{4}-\d{4}" maxLength="9" required disabled={!selected} />
               </div>
             </>}
             <div className="col-12 col-lg-6"><label className="form-label" htmlFor="lifecycle-reason">Reason</label>
@@ -132,7 +132,7 @@ export default function StudentLifecyclePanel({ students = [], onRefresh }) {
                 </select>
               </div>
               <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-source-year">Current academic year</label>
-                <input id="bulk-source-year" className="form-control" value={bulkSourceYear} onChange={(event) => { setBulkSourceYear(event.target.value); setBulkConfirm(false); }} placeholder="2026-2027" pattern="\\d{4}-\\d{4}" maxLength="9" required />
+                <input id="bulk-source-year" className="form-control" value={bulkSourceYear} onChange={(event) => { setBulkSourceYear(event.target.value); setBulkConfirm(false); }} placeholder="2026-2027" pattern="\d{4}-\d{4}" maxLength="9" required />
               </div>
               <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-target-class">Promote to class</label>
                 <select id="bulk-target-class" className="form-select" value={bulkTargetStandard} onChange={(event) => { setBulkTargetStandard(event.target.value); setBulkConfirm(false); }} required>
@@ -140,7 +140,7 @@ export default function StudentLifecyclePanel({ students = [], onRefresh }) {
                 </select>
               </div>
               <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-target-year">New academic year</label>
-                <input id="bulk-target-year" className="form-control" value={bulkTargetYear} onChange={(event) => { setBulkTargetYear(event.target.value); setBulkConfirm(false); }} placeholder="2027-2028" pattern="\\d{4}-\\d{4}" maxLength="9" required />
+                <input id="bulk-target-year" className="form-control" value={bulkTargetYear} onChange={(event) => { setBulkTargetYear(event.target.value); setBulkConfirm(false); }} placeholder="2027-2028" pattern="\d{4}-\d{4}" maxLength="9" required />
               </div>
               <div className="col-12 col-md-4"><label className="form-label" htmlFor="bulk-date">Effective date</label>
                 <input id="bulk-date" className="form-control" type="date" value={bulkDate} onChange={(event) => setBulkDate(event.target.value)} required />
