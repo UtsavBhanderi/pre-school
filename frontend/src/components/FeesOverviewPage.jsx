@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../api.js";
 import { Link } from "react-router-dom";
+import "./fee-collection-print.css";
 
 const SUMMARY_LABELS = {
   today: "Today",
@@ -295,10 +296,10 @@ const FeesOverviewPage = () => {
       </table></div>
 
 
-      <section className="page-card mt-4" aria-label="Date range collection report">
+      <section className="page-card mt-4 fee-collection-report" aria-label="Date range collection report">
         <div className="section-heading mt-0">
           <div><h3>Collection report</h3><p className="page-subtitle">Review payments actually received in a date range, grouped by payment method.</p></div>
-          <button type="button" className="btn btn-outline-primary btn-sm" onClick={exportCollectionReport} disabled={!collectionReport?.entries?.length}>Export CSV</button>
+          <div className="d-flex gap-2 no-print"><button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => window.print()} disabled={!collectionReport}>Print report</button><button type="button" className="btn btn-outline-primary btn-sm" onClick={exportCollectionReport} disabled={!collectionReport?.entries?.length}>Export CSV</button></div>
         </div>
         <div className="row g-3 align-items-end mb-3">
           <div className="col-12 col-sm-4"><label className="form-label" htmlFor="fee-report-start">From</label><input id="fee-report-start" type="date" className="form-control" value={reportStart} max={reportEnd} onChange={(event) => setReportStart(event.target.value)} /></div>
