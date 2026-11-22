@@ -65,7 +65,7 @@ function validatePaymentHistoryUpdate(existingRecord = {}, incomingDetails = [])
       String(previous.date || '').trim() !== String(incoming.date || '').trim()
       || String(previous.time || '').trim() !== String(incoming.time || '').trim()
       || previousAmount !== incomingAmount
-      || String(previous.method || '') !== String(incoming.method || '')
+      || String(previous.method || 'cash') !== String(incoming.method || 'cash')
       || String(previous.reference || '') !== String(incoming.reference || '')
     ) {
       return { valid: false, code: 'PAYMENT_HISTORY_IMMUTABLE', message: 'Previously recorded payments cannot be changed. Add a new payment entry instead.' };
