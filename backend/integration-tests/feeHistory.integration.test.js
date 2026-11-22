@@ -198,6 +198,27 @@ test('fee history is append-only and legacy paid balances remain intact', {
     assert.ok(await Fees.exists({ _id: legacy._id }));
   });
 
+
+  await t.test('collection report groups recorded payments by date and method', async () => {
+    await Fees.create({ studentName: 'Report Family ' + tag, standard: 'Nursery', batchYear: '2026-2027', stuNo: 'REPORT-' + tag, totalStandardFees: 1000, totalFeesPaid: 175, totalFeesRemaining: 825, paymentDetails: [
+      { date: '11/22/2026', time: '09:00 AM', amount: 100, method: 'cash' },
+      { date: '11/22/2026', time: '10:00 AM', amount: 75, method: 'upi', reference: 'UPI-REPORT' },
+      { date: '11/23/2026', time: '09:00 AM', amount: 25, method: 'card' },
+    ] });
+    const response = await api('/api/fees/collection-report?startDate=2026-11-22&endDate=2026-11-22');
+    assert.equal(response.status, 200);
+    assert.equal(response.data.total, 175);
+    assert.equal(response.data.paymentCount, 2);
+    assert.deepEqual(response.data.byMethod.map((item) => [item.method, item.total]), [['cash', 100], ['upi', 75]]);
+    assert.equal(response.data.entries.find((entry) => entry.method === 'upi').reference, 'UPI-REPORT');
+  });
+
+  await t.test('collection report validates date ranges', async () => {
+    assert.equal((await api('/api/fees/collection-report?startDate=2026-02-30&endDate=2026-03-01')).status, 400);
+    assert.equal((await api('/api/fees/collection-report?startDate=2026-11-23&endDate=2026-11-22')).status, 400);
+    assert.equal((await api('/api/fees/collection-report?startDate=2025-01-01&endDate=2026-11-22')).status, 400);
+  });
+
   await t.test('an unpaid fee record can still be deleted', async () => {
     const unpaid = await Fees.create({
       studentName: 'Unpaid Family ' + tag,

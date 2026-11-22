@@ -331,6 +331,51 @@ router.get('/fees-collection-data', async (req, res) => {
   }
 });
 
+
+router.get('/collection-report', async (req, res) => {
+  const startValue = String(req.query.startDate || '').trim();
+  const endValue = String(req.query.endDate || '').trim();
+  const parseDate = (value) => {
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+  };
+  const start = parseDate(startValue), end = parseDate(endValue);
+  if (!start || !end) return res.status(400).json({ message: 'Choose valid start and end dates.' });
+  if (start > end) return res.status(400).json({ message: 'Start date must be on or before the end date.' });
+  const days = Math.floor((Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) / 86400000) + 1;
+  if (days > 366) return res.status(400).json({ message: 'Choose a date range of 366 days or fewer.' });
+  start.setHours(0, 0, 0, 0);
+  const endExclusive = new Date(end); endExclusive.setDate(endExclusive.getDate() + 1); endExclusive.setHours(0, 0, 0, 0);
+  try {
+    const [result] = await Fees.aggregate([
+      { $unwind: '$paymentDetails' },
+      { $project: {
+        studentName: 1, stuNo: 1, standard: 1,
+        payment: {
+          date: { $dateFromString: { dateString: { $toString: '$paymentDetails.date' }, format: '%m/%d/%Y', onError: null, onNull: null } },
+          amount: { $convert: { input: '$paymentDetails.amount', to: 'double', onError: 0, onNull: 0 } },
+          method: { $ifNull: ['$paymentDetails.method', 'cash'] },
+          reference: { $ifNull: ['$paymentDetails.reference', ''] },
+        },
+      } },
+      { $match: { 'payment.date': { $gte: start, $lt: endExclusive } } },
+      { $sort: { 'payment.date': 1, studentName: 1 } },
+      { $facet: {
+        totals: [{ $group: { _id: null, total: { $sum: '$payment.amount' }, count: { $sum: 1 } } }],
+        methods: [{ $group: { _id: '$payment.method', total: { $sum: '$payment.amount' }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }],
+        entries: [{ $limit: 5000 }, { $project: { _id: 0, studentName: 1, stuNo: 1, standard: 1, date: '$payment.date', amount: '$payment.amount', method: '$payment.method', reference: '$payment.reference' } }],
+      } },
+    ]);
+    const total = result?.totals?.[0] || { total: 0, count: 0 };
+    return res.json({ startDate: startValue, endDate: endValue, total: asAmount(total.total), paymentCount: total.count, truncated: total.count > 5000, byMethod: (result?.methods || []).map((item) => ({ method: item._id || 'cash', total: asAmount(item.total), count: item.count })), entries: result?.entries || [] });
+  } catch (error) {
+    console.error('Failed to generate fee collection report:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'Unable to generate the collection report.' });
+  }
+});
+
 router.get('/fees-by-date', async (req, res) => {
   const value = String(req.query.date || '').trim();
   const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);

@@ -24,6 +24,10 @@ const FeesOverviewPage = () => {
   const [studentDetails, setStudentDetails] = useState(null); // To hold individual student details
   const [selectedDateData, setSelectedDateData] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
+  const [reportStart, setReportStart] = useState(new Date().toISOString().slice(0, 10));
+  const [reportEnd, setReportEnd] = useState(new Date().toISOString().slice(0, 10));
+  const [collectionReport, setCollectionReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dateLoading, setDateLoading] = useState(false);
   const [pageError, setPageError] = useState("");
@@ -128,6 +132,36 @@ const FeesOverviewPage = () => {
     }
   };
 
+
+
+  const loadCollectionReport = async () => {
+    setPageError("");
+    if (!reportStart || !reportEnd || reportStart > reportEnd) {
+      setPageError("Choose a valid date range. The start date must be on or before the end date.");
+      return;
+    }
+    setReportLoading(true);
+    try {
+      const response = await axios.get(linkone + "/api/fees/collection-report", { params: { startDate: reportStart, endDate: reportEnd } });
+      setCollectionReport(response.data || null);
+    } catch (error) {
+      setCollectionReport(null);
+      setPageError(error.response?.data?.message || "Unable to generate the collection report.");
+    } finally { setReportLoading(false); }
+  };
+
+  const exportCollectionReport = () => {
+    if (!collectionReport?.entries?.length) return;
+    const quote = (value) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+    const rows = [["Payment date", "Student", "GR No.", "Class", "Amount (INR)", "Method", "Reference"],
+      ...collectionReport.entries.map((entry) => [entry.date ? new Date(entry.date).toLocaleDateString("en-IN") : "", entry.studentName, entry.stuNo, entry.standard, entry.amount, entry.method, entry.reference])];
+    const blob = new Blob(["\\uFEFF" + rows.map((row) => row.map(quote).join(",")).join("\\r\\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "fee-collection-" + collectionReport.startDate + "-to-" + collectionReport.endDate + ".csv";
+    document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  };
 
   // define a reusable function
   function calculateSum(arr) {
@@ -259,6 +293,34 @@ const FeesOverviewPage = () => {
           {/* <td><strong>{totals.totalDiscountFees}</strong></td> */}
         </tbody>
       </table></div>
+
+
+      <section className="page-card mt-4" aria-label="Date range collection report">
+        <div className="section-heading mt-0">
+          <div><h3>Collection report</h3><p className="page-subtitle">Review payments actually received in a date range, grouped by payment method.</p></div>
+          <button type="button" className="btn btn-outline-primary btn-sm" onClick={exportCollectionReport} disabled={!collectionReport?.entries?.length}>Export CSV</button>
+        </div>
+        <div className="row g-3 align-items-end mb-3">
+          <div className="col-12 col-sm-4"><label className="form-label" htmlFor="fee-report-start">From</label><input id="fee-report-start" type="date" className="form-control" value={reportStart} max={reportEnd} onChange={(event) => setReportStart(event.target.value)} /></div>
+          <div className="col-12 col-sm-4"><label className="form-label" htmlFor="fee-report-end">To</label><input id="fee-report-end" type="date" className="form-control" value={reportEnd} min={reportStart} onChange={(event) => setReportEnd(event.target.value)} /></div>
+          <div className="col-12 col-sm-4"><button type="button" className="btn btn-primary w-100" onClick={loadCollectionReport} disabled={reportLoading}>{reportLoading ? "Generating…" : "Generate report"}</button></div>
+        </div>
+        {collectionReport && <>
+          <div className="overview-stat-grid mb-3">
+            <section className="overview-stat-card"><div className="overview-stat-label">Total collection</div><div className="overview-stat-value">{formatCurrency(collectionReport.total)}</div></section>
+            <section className="overview-stat-card"><div className="overview-stat-label">Payment entries</div><div className="overview-stat-value">{Number(collectionReport.paymentCount || 0).toLocaleString("en-IN")}</div></section>
+          </div>
+          <div className="table-responsive mb-3"><table className="table table-sm table-bordered align-middle"><thead><tr><th>Payment method</th><th>Entries</th><th>Total collected</th></tr></thead><tbody>
+            {collectionReport.byMethod.map((item) => <tr key={item.method}><td>{({ cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", card: "Card", cheque: "Cheque", other: "Other" })[item.method] || "Not specified"}</td><td>{item.count}</td><td>{formatCurrency(item.total)}</td></tr>)}
+            {!collectionReport.byMethod.length && <tr><td colSpan={3} className="text-center text-muted">No payments in this period.</td></tr>}
+          </tbody></table></div>
+          {collectionReport.truncated && <div className="alert alert-warning">Summary totals are complete. The detail table and CSV include the first 5,000 entries; narrow the date range for a complete detail export.</div>}
+          <div className="table-responsive"><table className="table table-hover table-sm align-middle"><thead><tr><th>Date</th><th>Student</th><th>GR No.</th><th>Class</th><th>Amount</th><th>Method</th><th>Reference</th></tr></thead><tbody>
+            {collectionReport.entries.map((entry, index) => <tr key={entry.stuNo + "-" + index}><td>{entry.date ? new Date(entry.date).toLocaleDateString("en-IN") : "—"}</td><td>{entry.studentName || "—"}</td><td>{entry.stuNo || "—"}</td><td>{entry.standard || "—"}</td><td>{formatCurrency(entry.amount)}</td><td>{entry.method || "cash"}</td><td>{entry.reference || "—"}</td></tr>)}
+            {!collectionReport.entries.length && <tr><td colSpan={7} className="text-center text-muted">No payments found for this date range.</td></tr>}
+          </tbody></table></div>
+        </>}
+      </section>
 
       <section className="page-card mt-4">
         <div className="section-heading mt-0">
