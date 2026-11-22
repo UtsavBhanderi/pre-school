@@ -110,6 +110,11 @@ test('single-school parents can sign in with GR/email plus registered mobile and
       parentEmail: 'other-' + tag + '@example.test',
       FatherName: 'Other Parent', FatherMobileNumber: 9123456789,
     },
+    {
+      stuNo: 'GR-' + tag + '-004', firstName: 'Phone', lastName: 'Fields Only',
+      standard: 'Nursery', parentEmail: 'phone-fields-' + tag + '@example.test',
+      phoneNumber: '9000000000', EmergencyPhoneNumber: '9111111111',
+    },
   ]);
   createdStudentIds.push(...students.map((student) => student._id));
 
@@ -132,6 +137,31 @@ test('single-school parents can sign in with GR/email plus registered mobile and
     });
     assert.equal(response.status, 404);
     assert.equal(response.data.code, 'PARENT_RECORD_NOT_MATCHED');
+    assert.equal(await ParentAccount.countDocuments({}), 0);
+    assert.equal(await User.countDocuments({ role: 'parent' }), 0);
+  });
+
+  await t.test('student and emergency contact phone numbers cannot activate a parent account', async () => {
+    const studentPhone = await api('/api/parent-access/login', {
+      method: 'POST',
+      body: {
+        schoolSlug: 'family-access-school',
+        identifier: students[3].stuNo,
+        phone: students[3].phoneNumber,
+      },
+    });
+    const emergencyPhone = await api('/api/parent-access/login', {
+      method: 'POST',
+      body: {
+        schoolSlug: 'family-access-school',
+        identifier: students[3].stuNo,
+        phone: students[3].EmergencyPhoneNumber,
+      },
+    });
+    assert.equal(studentPhone.status, 404);
+    assert.equal(studentPhone.data.code, 'PARENT_RECORD_NOT_MATCHED');
+    assert.equal(emergencyPhone.status, 404);
+    assert.equal(emergencyPhone.data.code, 'PARENT_RECORD_NOT_MATCHED');
     assert.equal(await ParentAccount.countDocuments({}), 0);
     assert.equal(await User.countDocuments({ role: 'parent' }), 0);
   });

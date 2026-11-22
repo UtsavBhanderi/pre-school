@@ -8,6 +8,7 @@ Set these backend environment variables before restarting the API:
 
 ```env
 SINGLE_SCHOOL_NAME=Your Preschool Name
+SCHOOL_TIME_ZONE=Asia/Kolkata
 FRONTEND_URL=https://your-school-domain.example
 ```
 
@@ -39,7 +40,7 @@ At `/parent-access/<school-slug>`, the parent enters only:
 - The child's exact GR/admission number **or** the registered parent email saved in the school record.
 - The parent's registered mobile number.
 
-The school does not need to create a parent login manually, send an invitation, or ask the parent to register. The backend checks the submitted details against the saved student/family record. When they match, it creates or reuses the family account, links eligible siblings that share the same saved parent email and matching mobile, and signs the parent in.
+The school does not need to create a parent login manually, send an invitation, or ask the parent to register. `SCHOOL_TIME_ZONE` controls the school-local date shown in parent attendance summaries; it defaults to `Asia/Kolkata`. The backend checks the submitted details against the saved student/family record. When they match, it creates or reuses the family account, links eligible siblings that share the same saved parent email and matching mobile, and signs the parent in.
 
 The same link can be shared with every family. Parents can sign in again using any linked child's GR/admission number (or the saved parent email) and the same registered mobile. A separately invented parent email or password is not part of this single-school sign-in flow.
 
@@ -56,9 +57,9 @@ The current matching fields are:
 | --- | --- |
 | GR/admission number | `stuNo` |
 | Registered parent email | `parentEmail` |
-| Registered mobile | `phoneNumber`, `FatherMobileNumber`, `FatherPhoneNumber`, or `EmergencyPhoneNumber` |
+| Registered parent mobile | `FatherMobileNumber` or `FatherPhoneNumber` |
 
-The phone comparison accepts a 10-digit Indian mobile number, a leading zero, or the `+91` country prefix. The underlying saved number still needs to be correct.
+The phone comparison accepts a 10-digit Indian mobile number, a leading zero, or the `+91` country prefix. The underlying saved parent number still needs to be correct. The student's own `phoneNumber` and `EmergencyPhoneNumber` are deliberately not accepted as parent credentials.
 
 Siblings are linked automatically only when the stored parent email and registered phone match as well. Repeated sign-ins for the same family reuse the existing account. If a linked child's registered mobile changes, sign-in is blocked until the preschool office updates and verifies the family contact record; it does not create a second account for that child.
 

@@ -40,6 +40,7 @@ Copy `.env.example` to `.env` and set:
 - `MONGO_URI`: MongoDB connection string for this preschool's database.
 - `JWT_SECRET`: a strong, private random secret.
 - `SINGLE_SCHOOL_NAME`: the name shown on the parent portal.
+- `SCHOOL_TIME_ZONE`: IANA timezone used for school-day reporting (default `Asia/Kolkata`).
 - `FRONTEND_ORIGIN`: allowed frontend origin.
 - `FRONTEND_URL`: public frontend origin used to generate the parent portal link.
 - `API_PUBLIC_URL`: canonical public API origin for signed private media links.
