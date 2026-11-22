@@ -99,6 +99,21 @@ test('school administrators manually create teacher logins that can sign in with
     assert.deepEqual(readiness.data, { status: 'ready', database: 'connected' });
   });
 
+  await t.test('readiness fails closed while MongoDB is disconnected but liveness remains available', async () => {
+    await mongoose.disconnect();
+    try {
+      const health = await api('/api/health');
+      assert.equal(health.status, 200);
+      assert.deepEqual(health.data, { status: 'ok' });
+
+      const readiness = await api('/api/ready');
+      assert.equal(readiness.status, 503);
+      assert.deepEqual(readiness.data, { status: 'not_ready', database: 'disconnected' });
+    } finally {
+      await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
+    }
+  });
+
   await t.test('teacher birthday view returns only the fields required by the birthday screen', async () => {
     await Teacher.updateOne(
       { Email: teacherEmail },
