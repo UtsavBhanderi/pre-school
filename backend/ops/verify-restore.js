@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const fs = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
+const { validateSingleSchoolSnapshot } = require('./restoreSnapshotRules');
 
 const uri = String(process.env.MONGO_RESTORE_TARGET_URI || '').trim();
 
@@ -44,37 +45,48 @@ async function main() {
     const database = mongoose.connection.db;
     const listed = await database.listCollections({}, { nameOnly: true }).toArray();
     const collectionNames = new Set(listed.map((collection) => collection.name));
-    const requiredCollections = ['organizations', 'branches', 'organizationmemberships'];
+    const requiredCollections = ['users', 'students', 'teachers'];
     const missingCollections = requiredCollections.filter((name) => !collectionNames.has(name));
     if (missingCollections.length) {
-      fail('Missing core tenant collections: ' + missingCollections.join(', ') + '.');
+      fail('Missing core single-school collections: ' + missingCollections.join(', ') + '.');
       return;
     }
 
-    const [organizationCount, branchCount, membershipCount] = await Promise.all([
-      database.collection('organizations').countDocuments({}),
-      database.collection('branches').countDocuments({}),
-      database.collection('organizationmemberships').countDocuments({}),
+    const [
+      userCount,
+      activeAdministratorCount,
+      studentCount,
+      teacherCount,
+      organizationCount,
+      membershipCount,
+    ] = await Promise.all([
+      database.collection('users').countDocuments({}),
+      database.collection('users').countDocuments({
+        role: 'admin',
+        $or: [{ status: 'active' }, { status: { $exists: false } }],
+      }),
+      database.collection('students').countDocuments({}),
+      database.collection('teachers').countDocuments({}),
+      collectionNames.has('organizations') ? database.collection('organizations').countDocuments({}) : 0,
+      collectionNames.has('organizationmemberships') ? database.collection('organizationmemberships').countDocuments({}) : 0,
     ]);
-    if (organizationCount < 1 || branchCount < 1 || membershipCount < 1) {
-      fail('The restored database must contain at least one organization, branch and organization membership.');
-      return;
-    }
 
-    const requiredIndexes = [
-      { collection: 'organizations', keys: { slug: 1 } },
-      { collection: 'branches', keys: { organizationId: 1, code: 1 } },
-      { collection: 'organizationmemberships', keys: { organizationId: 1, userId: 1 } },
-    ];
-    const missingIndexes = [];
-    for (const requirement of requiredIndexes) {
-      const indexes = await database.collection(requirement.collection).indexes();
-      if (!matchesIndex(indexes, requirement.keys)) {
-        missingIndexes.push(requirement.collection + ' ' + JSON.stringify(requirement.keys) + ' (unique)');
-      }
-    }
-    if (missingIndexes.length) {
-      fail('Missing required tenant isolation indexes: ' + missingIndexes.join('; ') + '.');
+    const [userIndexes, studentIndexes, teacherIndexes] = await Promise.all([
+      database.collection('users').indexes(),
+      database.collection('students').indexes(),
+      database.collection('teachers').indexes(),
+    ]);
+    const snapshotCheck = validateSingleSchoolSnapshot({
+      collectionNames: [...collectionNames],
+      activeAdministratorCount,
+      organizationCount,
+      membershipCount,
+      userIndexes,
+      studentIndexes,
+      teacherIndexes,
+    });
+    if (!snapshotCheck.valid) {
+      fail(snapshotCheck.errors.join(' '));
       return;
     }
 
@@ -153,11 +165,13 @@ async function main() {
       verification: 'passed',
       database: databaseName,
       coreCounts: {
-        organizations: organizationCount,
-        branches: branchCount,
-        organizationMemberships: membershipCount,
+        users: userCount,
+        activeAdministrators: activeAdministratorCount,
+        students: studentCount,
+        teachers: teacherCount,
       },
-      uniqueTenantIsolationIndexes: 'verified',
+      singleSchoolIsolation: 'verified',
+      uniqueLoginAndStudentIdentityIndexes: 'verified',
       verifiedStudentDocumentFiles,
       collectionCount: collectionNames.size,
       personalDataPrinted: false,

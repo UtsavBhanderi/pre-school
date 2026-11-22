@@ -11,7 +11,7 @@ This runbook supports an encrypted backup and a **non-production restore rehears
 - Restores require an approved operator, a change-ticket reference, **RESTORE_TARGET_ENV=staging**, an exact target database confirmation, and a database named **restore_test_***.
 - The restore helper refuses to restore to the database name in the source metadata and refuses to restore to the same MongoDB endpoint fingerprint. Use a dedicated staging MongoDB deployment.
 - The restore helper uses namespace remapping and **--drop** only inside the dedicated **restore_test_*** database, and stops on a restore error.
-- After restore, verification checks core organization/branch/membership records, unique tenant indexes, and (for v2 backups) every private student-document file against its database storage name, size and SHA-256 checksum. It prints counts, not personal records.
+- After restore, verification checks the single-school `users`, `students` and `teachers` collections, at least one active administrator, the unique user/student/teacher identity indexes, and the absence of SaaS organization or membership records. For v2 backups it also checks every private student-document file against its database storage name, size and SHA-256 checksum. It prints counts, not personal records.
 - Use MongoDB Database Tools 100.3 or newer, **age**, **python3**, Node.js/npm dependencies, and a MongoDB deployment that can restore the backup's index options.
 
 These gates lower the chance of a mistaken restore, but they are not a substitute for reviewing the destination URI, access controls, and approval before running the command.
@@ -81,7 +81,7 @@ Record the outcome and elapsed time for each rehearsal:
 - [ ] Both encrypted archive checksums and sizes matched the metadata before restore.
 - [ ] Restore ran against the separate test deployment and a **restore_test_*** database only.
 - [ ] Restore completed with no skipped/error documents.
-- [ ] Post-restore verification found organizations, branches, memberships, required unique tenant isolation indexes, and all private student documents matched their recorded size and SHA-256.
+- [ ] Post-restore verification found the single-school users/students/teachers collections, an active administrator, unique identity indexes, no SaaS organization or membership records, and all private student documents matched their recorded size and SHA-256.
 - [ ] A responsible operator opened the restored application in a restricted staging environment and tested login, branch selection, child list, attendance, fee/receipt history and parent-link access using synthetic/test records.
 - [ ] Source/target counts and any known financial totals were compared; unexpected differences were investigated.
 - [ ] The rehearsal record includes approver, ticket, backup timestamp, restore timestamp, result and any follow-up actions.
