@@ -79,6 +79,18 @@ test('production configuration requires an external MongoDB endpoint and working
   assert.ok(errors.some((error) => error.includes('EMAIL_FROM')));
 });
 
+test('production configuration rejects an invalid school timezone', () => {
+  const errors = validateProductionConfig({
+    ...validProductionConfig,
+    SCHOOL_TIME_ZONE: 'Moon/Base',
+  });
+  assert.ok(errors.some((error) => error.includes('SCHOOL_TIME_ZONE')));
+  assert.deepEqual(validateProductionConfig({
+    ...validProductionConfig,
+    SCHOOL_TIME_ZONE: 'Asia/Kolkata',
+  }), []);
+});
+
 test('origin validation reports missing or invalid URLs without throwing', () => {
   const errors = [];
   assert.equal(parseCanonicalHttpsOrigin('', 'FRONTEND_URL', errors), null);

@@ -28,6 +28,7 @@ The checked settings are:
 - `PRIVATE_MEDIA_SECRET`: a different, non-placeholder secret at least 32 characters long.
 - `FRONTEND_ORIGIN`: one or more explicit HTTPS origins, comma-separated, without wildcard CORS.
 - `FRONTEND_URL` and `API_PUBLIC_URL`: canonical HTTPS origins.
+- `SCHOOL_TIME_ZONE`: a valid IANA timezone used to determine the school day for parent summaries and daily teacher work reports; defaults to `Asia/Kolkata` when omitted.
 - `SMTP_HOST`, `SMTP_PORT`, `EMAIL_USER`, `EMAIL_PASS` and a valid `EMAIL_FROM`.
 
 The example values in `backend/.env.example` are for local development only. Replace every placeholder before deploying. This validation does not prove that the database is a replica set, that backups restore correctly, or that tenant data is safe to onboard.

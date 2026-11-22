@@ -80,6 +80,13 @@ function validateProductionConfig(env = process.env) {
   parseCanonicalHttpsOrigin(value(env, 'FRONTEND_URL'), 'FRONTEND_URL', errors);
   parseCanonicalHttpsOrigin(value(env, 'API_PUBLIC_URL'), 'API_PUBLIC_URL', errors);
 
+  const schoolTimeZone = value(env, 'SCHOOL_TIME_ZONE') || 'Asia/Kolkata';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: schoolTimeZone });
+  } catch {
+    errors.push('SCHOOL_TIME_ZONE must be a valid IANA timezone such as Asia/Kolkata.');
+  }
+
   const smtpHost = value(env, 'SMTP_HOST');
   const smtpPortText = value(env, 'SMTP_PORT') || '587';
   const smtpPort = Number(smtpPortText);
