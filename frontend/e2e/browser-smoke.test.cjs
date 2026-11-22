@@ -1120,7 +1120,7 @@ test('report cards reuse class assessment dates and move to the next child after
   await printArea.getByText('Assessment results').waitFor();
   await printArea.getByText('Aarav Patel').waitFor();
   await printArea.getByText('Blooming Buds Preschool').waitFor();
-  await printArea.getByText('20 Nov 2026').waitFor();
+  assert.equal(await printArea.getByText('20 Nov 2026', { exact: true }).count(), 2, 'Each subject row should print its saved assessment date.');
   await printArea.getByText('TOTAL SCORE').waitFor();
   await page.close();
 });
