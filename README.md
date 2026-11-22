@@ -56,7 +56,7 @@ Start the API:
 npm start
 ```
 
-The health endpoint is `http://localhost:5000/api/health`.
+The liveness endpoint is `http://localhost:5000/api/health`. The readiness endpoint is `http://localhost:5000/api/ready`; it returns HTTP 200 only while MongoDB is connected and HTTP 503 otherwise. Use `/api/ready` for load-balancer readiness checks.
 
 ### 2. Configure and start the frontend
 

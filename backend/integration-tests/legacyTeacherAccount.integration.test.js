@@ -89,6 +89,16 @@ test('school administrators manually create teacher logins that can sign in with
     await mongoose.disconnect();
   });
 
+  await t.test('public liveness and database readiness endpoints report distinct states', async () => {
+    const health = await api('/api/health');
+    assert.equal(health.status, 200);
+    assert.deepEqual(health.data, { status: 'ok' });
+
+    const readiness = await api('/api/ready');
+    assert.equal(readiness.status, 200);
+    assert.deepEqual(readiness.data, { status: 'ready', database: 'connected' });
+  });
+
   await t.test('teacher birthday view returns only the fields required by the birthday screen', async () => {
     await Teacher.updateOne(
       { Email: teacherEmail },

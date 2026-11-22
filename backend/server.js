@@ -173,6 +173,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Readiness is distinct from liveness so a load balancer can stop routing
+// database-backed requests when MongoDB is disconnected or still connecting.
+app.get('/api/ready', (req, res) => {
+  const databaseReady = mongoose.connection.readyState === 1;
+  return res.status(databaseReady ? 200 : 503).json({
+    status: databaseReady ? 'ready' : 'not_ready',
+    database: databaseReady ? 'connected' : 'disconnected',
+  });
+});
+
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
 

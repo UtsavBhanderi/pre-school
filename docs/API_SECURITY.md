@@ -35,6 +35,12 @@ The example values in `backend/.env.example` are for local development only. Rep
 
 Public SaaS registration also requires three independent flags: `ENABLE_SAAS_REGISTRATION=true`, `SAAS_TENANT_DATA_READY=true`, and `SAAS_LAUNCH_APPROVED=true`. The final approval flag must remain false until the reviewed migration, tenant isolation, private media, backup/restore and school acceptance gates are signed off.
 
+## Health and readiness checks
+
+- `GET /api/health` is a process liveness endpoint. It confirms the Express process can answer HTTP requests; it does not confirm database availability.
+- `GET /api/ready` is a database readiness endpoint. It returns HTTP 200 only when the Mongoose connection is established and HTTP 503 while MongoDB is disconnected or connecting.
+- Configure production load balancers and orchestrators to use `/api/ready` for traffic readiness and `/api/health` only for process liveness.
+
 ## Public endpoint request limits
 
 The process includes bounded fixed-window limits for sensitive unauthenticated endpoints:
