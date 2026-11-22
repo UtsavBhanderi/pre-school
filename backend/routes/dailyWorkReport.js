@@ -4,6 +4,7 @@ const adminOnly = require('../middleware/adminOnly');
 const DailyWorkReport = require('../models/DailyWorkReport');
 const { getLegacyTeacherScope } = require('../utils/legacyTeacherClass');
 const { validateDailyWorkReport } = require('../utils/dailyWorkReportValidation');
+const { getTodayInTimeZone } = require('../utils/zonedDate');
 
 // POST /api/dailyWorkReport - Create a new daily work report
 router.post('/', async (req, res) => {
@@ -13,10 +14,15 @@ router.post('/', async (req, res) => {
     if (!scope.allowed) return res.status(403).json({ code: scope.code, message: scope.message });
     const validation = validateDailyWorkReport(req.body || {}, scope.isTeacher ? scope.standard : '');
     if (!validation.valid) return res.status(400).json({ code: validation.code || 'INVALID_WORK_REPORT', message: validation.message });
+    const reportDate = getTodayInTimeZone(process.env.SCHOOL_TIME_ZONE || 'Asia/Kolkata');
+    if (!reportDate) {
+      return res.status(500).json({ message: 'The school timezone is not configured correctly.' });
+    }
     const report = await DailyWorkReport.create({
       user: req.user._id,
       userName: req.user.username || '',
       ...validation.value,
+      date: reportDate,
     });
     return res.status(201).json({ message: 'Daily work report submitted successfully.', report });
   } catch (error) {

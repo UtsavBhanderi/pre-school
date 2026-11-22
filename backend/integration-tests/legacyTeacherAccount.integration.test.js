@@ -25,6 +25,7 @@ test('school administrators manually create teacher logins that can sign in with
   const Teacher = require('../models/Teacher');
   const Student = require('../models/Student');
   const Attendance = require('../models/Attendance');
+  const { getTodayInTimeZone } = require('../utils/zonedDate');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
   const server = app.listen(0);
@@ -234,6 +235,7 @@ test('school administrators manually create teacher logins that can sign in with
     assert.equal(teacherOwnReports.status, 200);
     assert.equal(teacherOwnReports.data.length, 1);
     assert.equal(teacherOwnReports.data[0].subject, 'Language');
+    assert.equal(teacherOwnReports.data[0].date, getTodayInTimeZone(process.env.SCHOOL_TIME_ZONE || 'Asia/Kolkata'));
 
     const teacherAllReports = await api('/api/dailyWorkReport/all', { token: teacherToken });
     assert.equal(teacherAllReports.status, 403);

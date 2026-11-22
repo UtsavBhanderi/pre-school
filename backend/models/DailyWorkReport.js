@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getTodayInTimeZone } = require('../utils/zonedDate');
 
 const DailyWorkReportSchema = new mongoose.Schema({
   user: {
@@ -28,7 +29,8 @@ const DailyWorkReportSchema = new mongoose.Schema({
   },
   date: {
     type: String,
-    default: () => new Date().toISOString().split('T')[0], // Today's date as a string
+    // Use the configured school day; fallback keeps legacy model creation resilient if timezone config is invalid.
+    default: () => getTodayInTimeZone(process.env.SCHOOL_TIME_ZONE || 'Asia/Kolkata') || new Date().toISOString().split('T')[0],
     required: true
   },
   branch: {
