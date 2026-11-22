@@ -60,11 +60,11 @@ function schoolPortalUrl(req, slug) {
 }
 
 function contactValuesForStudent(student) {
+  // Only a saved parent contact may activate full family-portal access.
+  // Emergency and student phone numbers are not parent credentials.
   return [
     student.FatherMobileNumber,
     student.FatherPhoneNumber,
-    student.EmergencyPhoneNumber,
-    student.phoneNumber,
   ];
 }
 
@@ -208,7 +208,7 @@ async function activateLegacyParent({ req, res, school, identifier, submittedPho
  */
 async function loginLegacyParent({ req, res, school, identifier, submittedPhone, normalizedPhone }) {
   const candidates = await Student.find(isLegacyStudentFilter(identifier))
-    .select('_id stuNo firstName middleName lastName standard parentEmail phoneNumber FatherName MotherName FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber')
+    .select('_id stuNo firstName middleName lastName standard parentEmail FatherName MotherName FatherMobileNumber FatherPhoneNumber')
     .limit(100)
     .lean();
 
@@ -229,7 +229,7 @@ async function loginLegacyParent({ req, res, school, identifier, submittedPhone,
         { parentEmail: { $in: siblingEmails } },
       ],
     })
-      .select('_id stuNo firstName middleName lastName standard parentEmail phoneNumber FatherName MotherName FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber')
+      .select('_id stuNo firstName middleName lastName standard parentEmail FatherName MotherName FatherMobileNumber FatherPhoneNumber')
       .limit(100)
       .lean();
 
@@ -387,7 +387,7 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
       ...(identifierIsEmail ? [{ parentEmail: exactIdentifier }] : []),
     ],
   })
-    .select('_id organizationId branchId stuNo firstName middleName lastName standard parentEmail phoneNumber MotherName FatherName FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber')
+    .select('_id organizationId branchId stuNo firstName middleName lastName standard parentEmail MotherName FatherName FatherMobileNumber FatherPhoneNumber')
     .limit(100)
     .lean();
 
@@ -489,7 +489,7 @@ async function activateOrganizationParent({ req, res, organization, identifier, 
     const id = String(student._id);
     if ((childLinkMap.get(id) || []).length) continue;
     const original = candidateStudents.find((item) => String(item._id) === id) ||
-      await Student.findById(id).select('FatherMobileNumber FatherPhoneNumber EmergencyPhoneNumber phoneNumber').lean();
+      await Student.findById(id).select('FatherMobileNumber FatherPhoneNumber').lean();
     if (original && phoneMatches(contactValuesForStudent(original), submittedPhone)) directVerifiedChildren.add(id);
   }
   for (const id of [...matchedStudentIds]) {

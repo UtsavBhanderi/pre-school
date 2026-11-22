@@ -89,6 +89,16 @@ test('legacy parent direct login works without MongoDB transactions and reuses i
     },
   ]);
 
+  const emergencyContactOnlyStudent = await Student.create({
+    stuNo: 'GR-' + tag + '-EMERGENCY',
+    firstName: 'Emergency',
+    lastName: 'Contact Only',
+    standard: 'Nursery',
+    parentEmail: 'emergency-' + tag + '@example.test',
+    EmergencyPhoneNumber: mobile,
+    phoneNumber: mobile,
+  });
+
   await t.test('rejects a mobile number that does not match the student record', async () => {
     const response = await api('/api/parent-access/login', {
       schoolSlug: 'direct-family-login-school',
@@ -98,6 +108,20 @@ test('legacy parent direct login works without MongoDB transactions and reuses i
     assert.equal(response.status, 404);
     assert.equal(response.data.code, 'PARENT_RECORD_NOT_MATCHED');
     assert.equal(await ParentAccount.countDocuments({}), 0);
+  });
+
+  await t.test('emergency or student phone numbers cannot be used as parent portal credentials', async () => {
+    for (const pathname of ['/api/parent-access/login', '/api/parent-access/activate']) {
+      const response = await api(pathname, {
+        schoolSlug: 'direct-family-login-school',
+        identifier: emergencyContactOnlyStudent.stuNo,
+        phone: mobile,
+      });
+      assert.equal(response.status, 404, pathname);
+      assert.equal(response.data.code, 'PARENT_RECORD_NOT_MATCHED');
+    }
+    assert.equal(await ParentAccount.countDocuments({}), 0);
+    assert.equal(await User.countDocuments({ role: 'parent' }), 0);
   });
 
   let firstLogin;
