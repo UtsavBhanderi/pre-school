@@ -38,7 +38,7 @@ async function getParentChildren(req, res) {
   const children = await Student.find({
     _id: { $in: account.studentIds },
     $or: [{ organizationId: null }, { organizationId: { $exists: false } }],
-  }).select('_id firstName middleName lastName stuNo standard').lean();
+  }).select('_id firstName middleName lastName stuNo standard status').lean();
   if (!children.length) {
     res.status(403).json({ code: 'PARENT_CHILD_LINK_MISSING', message: 'No active child records are linked to this parent account.' });
     return null;
@@ -108,7 +108,9 @@ router.get('/parent/homework', async (req, res) => {
   try {
     const children = await getParentChildren(req, res);
     if (!children) return;
-    const standards = [...new Set(children.map((child) => String(child.standard || '').trim()).filter(Boolean))];
+    const activeChildren = children.filter((child) => child.status !== 'withdrawn');
+    if (!activeChildren.length) return res.json({ homework: [] });
+    const standards = [...new Set(activeChildren.map((child) => String(child.standard || '').trim()).filter(Boolean))];
     const now = new Date();
     const assignments = await HomeworkAssignment.find({
       isActive: true,
@@ -122,7 +124,7 @@ router.get('/parent/homework', async (req, res) => {
       standard: assignment.standard,
       dueDate: assignment.dueDate,
       createdAt: assignment.createdAt,
-      children: children
+      children: activeChildren
         .filter((child) => assignment.standard === 'all' || String(child.standard || '').trim() === assignment.standard)
         .map((child) => {
           const submission = (assignment.submissions || []).find((item) =>
@@ -155,6 +157,7 @@ router.post('/parent/homework/:id/submissions', async (req, res) => {
     if (!children) return;
     const child = children.find((item) => String(item._id) === studentId);
     if (!child) return res.status(403).json({ message: 'This child is not linked to your parent account.' });
+    if (child.status === 'withdrawn') return res.status(403).json({ message: 'Homework submissions are closed for a withdrawn student.' });
     const assignment = await HomeworkAssignment.findOne({
       _id: req.params.id,
       isActive: true,
@@ -288,7 +291,9 @@ router.get('/parent/polls', async (req, res) => {
   try {
     const children = await getParentChildren(req, res);
     if (!children) return;
-    const standards = [...new Set(children.map((child) => String(child.standard || '').trim()).filter(Boolean))];
+    const activeChildren = children.filter((child) => child.status !== 'withdrawn');
+    if (!activeChildren.length) return res.json({ polls: [] });
+    const standards = [...new Set(activeChildren.map((child) => String(child.standard || '').trim()).filter(Boolean))];
     const now = new Date();
     const recentCutoff = new Date(now);
     recentCutoff.setDate(recentCutoff.getDate() - 30);
@@ -312,7 +317,9 @@ router.post('/parent/polls/:id/votes', async (req, res) => {
   try {
     const children = await getParentChildren(req, res);
     if (!children) return;
-    const standards = [...new Set(children.map((child) => String(child.standard || '').trim()).filter(Boolean))];
+    const activeChildren = children.filter((child) => child.status !== 'withdrawn');
+    if (!activeChildren.length) return res.status(404).json({ message: 'This poll is unavailable because no active students are linked to your family.' });
+    const standards = [...new Set(activeChildren.map((child) => String(child.standard || '').trim()).filter(Boolean))];
     const now = new Date();
     const poll = await ParentPoll.findOne({
       _id: req.params.id,

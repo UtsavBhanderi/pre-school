@@ -37,10 +37,15 @@ test('single-school parent engagement supports homework, private messages and po
   const parent = await User.create({ username: 'Family Parent ' + tag, email: 'parent-' + tag + '@example.test', password: 'parent-test-password-123', role: 'parent' });
   const outsider = await User.create({ username: 'Other Parent ' + tag, email: 'other-' + tag + '@example.test', password: 'other-test-password-123', role: 'parent' });
   const teacher = await User.create({ username: 'Class Teacher ' + tag, email: 'teacher-' + tag + '@example.test', password: 'teacher-test-password-123', role: 'teacher' });
+  const withdrawnParent = await User.create({ username: 'Former Family ' + tag, email: 'former-parent-' + tag + '@example.test', password: 'former-parent-password-123', role: 'parent' });
   const student = await Student.create({
     stuNo: 'GR-' + tag, firstName: 'Aarav', middleName: 'Family', lastName: 'Child',
     standard: 'Nursery', batchYear: '2026-2027', parentEmail: parent.email,
     FatherName: parent.username, FatherMobileNumber: 9876543210,
+  });
+  const withdrawnStudent = await Student.create({
+    stuNo: 'GR-WITHDRAWN-' + tag, firstName: 'Former', lastName: 'Child',
+    standard: 'Nursery', batchYear: '2026-2027', status: 'withdrawn',
   });
   const otherStudent = await Student.create({
     stuNo: 'GR-OTHER-' + tag, firstName: 'Other', lastName: 'Child',
@@ -49,12 +54,14 @@ test('single-school parent engagement supports homework, private messages and po
   });
   await ParentAccount.create({ userId: parent._id, studentIds: [student._id], registeredPhone: '9876543210' });
   await ParentAccount.create({ userId: outsider._id, studentIds: [otherStudent._id], registeredPhone: '9123456789' });
+  await ParentAccount.create({ userId: withdrawnParent._id, studentIds: [withdrawnStudent._id], registeredPhone: '9000000000' });
 
   const tokenFor = (user) => jwt.sign({ user: { id: String(user._id), role: user.role, authVersion: 0 } }, process.env.JWT_SECRET, { expiresIn: '1h' });
   const adminToken = tokenFor(admin);
   const parentToken = tokenFor(parent);
   const outsiderToken = tokenFor(outsider);
   const teacherToken = tokenFor(teacher);
+  const withdrawnParentToken = tokenFor(withdrawnParent);
   async function api(path, { token, method = 'GET', body } = {}) {
     const url = new URL(path, 'http://127.0.0.1:' + server.address().port);
     let response;
@@ -75,8 +82,8 @@ test('single-school parent engagement supports homework, private messages and po
   t.after(async () => {
     await Promise.allSettled([
       HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}), SchoolMessage.deleteMany({}), Announcement.deleteMany({}),
-      ParentAccount.deleteMany({}), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id] } }),
-      User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id] } }),
+      ParentAccount.deleteMany({}), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id, withdrawnStudent._id] } }),
+      User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id, withdrawnParent._id] } }),
       mongoose.connection.dropDatabase(),
     ]);
     await new Promise((resolve) => server.close(resolve));
@@ -314,6 +321,30 @@ test('single-school parent engagement supports homework, private messages and po
     assert.equal(JSON.stringify(teacherVote.data).includes(String(teacher._id)), false);
     assert.equal(JSON.stringify(parentPolls.data).includes(String(teacher._id)), false);
     assert.equal(JSON.stringify(teacherPolls.data).includes(String(parent._id)), false);
+  });
+
+
+  await t.test('withdrawn families retain private school contact but cannot receive new homework or vote in new polls', async () => {
+    const homework = await api('/api/school-engagement/parent/homework', { token: withdrawnParentToken });
+    assert.equal(homework.status, 200);
+    assert.deepEqual(homework.data.homework, []);
+    const polls = await api('/api/school-engagement/parent/polls', { token: withdrawnParentToken });
+    assert.equal(polls.status, 200);
+    assert.deepEqual(polls.data.polls, []);
+    const homeworkSubmit = await api('/api/school-engagement/parent/homework/' + homeworkId + '/submissions', {
+      token: withdrawnParentToken, method: 'POST',
+      body: { studentId: String(withdrawnStudent._id), responseText: 'Late response' },
+    });
+    assert.equal(homeworkSubmit.status, 403);
+    const pollVote = await api('/api/school-engagement/parent/polls/' + pollId + '/votes', {
+      token: withdrawnParentToken, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(pollVote.status, 404);
+    const complaint = await api('/api/school-engagement/parent/complaints', {
+      token: withdrawnParentToken, method: 'POST',
+      body: { studentId: String(withdrawnStudent._id), category: 'general', subject: 'Leaving documents', message: 'Please share the leaving certificate process.' },
+    });
+    assert.equal(complaint.status, 201);
   });
 
   await t.test('parent cannot submit homework for a child outside its saved allow-list', async () => {
