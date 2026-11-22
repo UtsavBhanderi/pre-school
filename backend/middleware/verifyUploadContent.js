@@ -5,6 +5,7 @@ const path = require('path');
 
 const EXTENSIONS = {
   students: new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']),
+  'student-documents': new Set(['.pdf', '.jpg', '.jpeg', '.png', '.webp']),
   teachers: new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']),
   gallery: new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']),
   pdf: new Set(['.pdf']),
@@ -20,7 +21,7 @@ function matchesUploadSignature(directory, filename, buffer) {
   const extension = path.extname(String(filename || '')).toLowerCase();
   if (!EXTENSIONS[directory].has(extension)) return false;
 
-  if (['students', 'teachers', 'gallery'].includes(directory)) {
+  if (['students', 'teachers', 'gallery', 'student-documents'].includes(directory) && ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(extension)) {
     if (['.jpg', '.jpeg'].includes(extension)) return startsWithBytes(buffer, [0xff, 0xd8, 0xff]);
     if (extension === '.png') return startsWithBytes(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     if (extension === '.gif') return ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'));
@@ -28,7 +29,7 @@ function matchesUploadSignature(directory, filename, buffer) {
     return false;
   }
 
-  if (directory === 'pdf') return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+  if (directory === 'pdf' || (directory === 'student-documents' && extension === '.pdf')) return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
   if (['.mp4', '.mov', '.m4v'].includes(extension)) return buffer.length >= 8 && buffer.subarray(4, 8).toString('ascii') === 'ftyp';
   if (extension === '.webm') return startsWithBytes(buffer, [0x1a, 0x45, 0xdf, 0xa3]);
   if (extension === '.ogv') return buffer.subarray(0, 4).toString('ascii') === 'OggS';
@@ -70,7 +71,7 @@ function verifyUploadContent(directory) {
 
     if (!invalidFile) return next();
     await Promise.all(files.map((file) => fs.promises.unlink(file.path).catch(() => {})));
-    const typeLabel = directory === 'pdf' ? 'PDF document' : directory === 'video' ? 'supported video format' : 'supported image format';
+    const typeLabel = directory === 'student-documents' ? 'supported student document' : directory === 'pdf' ? 'PDF document' : directory === 'video' ? 'supported video format' : 'supported image format';
     return res.status(415).json({
       code: 'UPLOAD_CONTENT_TYPE_MISMATCH',
       message: 'The selected file does not contain a valid ' + typeLabel + '.',

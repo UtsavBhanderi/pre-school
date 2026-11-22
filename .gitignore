@@ -20,6 +20,7 @@ backend/.env.*
 # Runtime uploads/session artifacts, backups, and logs
 backend/backups/
 backend/uploads/
+backend/private-files/
 uploads/
 backend/routes/cookies.json
 backend/routes/localStorage.json

@@ -15,6 +15,7 @@ import Docxtemplater from "docxtemplater";
 import PizZipUtils from "pizzip/utils/index.js";
 import "./NewStudentReg.css";
 import StudentLifecyclePanel from "./StudentLifecyclePanel.jsx";
+import StudentDocumentsPanel from "./StudentDocumentsPanel.jsx";
 
 const API_URL = API_BASE_URL;
 
@@ -3225,6 +3226,7 @@ const NewStudentRegister = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    <StudentDocumentsPanel student={profile.student} />
                                 </div>
                             )}
                         </div>

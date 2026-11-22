@@ -34,6 +34,7 @@ const pdfRoutes = require('./routes/pdf');
 const videoRoutes = require('./routes/video');
 const feesRoutes = require('./routes/fees');
 const studentRoutes = require('./routes/student');
+const studentDocumentsRoutes = require('./routes/studentDocuments');
 const teacherRoutes = require('./routes/teacher');
 const authRoutes = require('./routes/auth');
 const dailyWorkReportRoutes = require('./routes/dailyWorkReport');
@@ -157,6 +158,7 @@ app.use('/api/pdfs', auth, legacySingleTenantOnly, adminOnly, privateMediaRespon
 app.use('/api/videos', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, videoRoutes);
 app.use('/api/fees', auth, legacySingleTenantOnly, adminOnly, feesRoutes);
 app.use('/api/students', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, studentRoutes);
+app.use('/api/student-documents', auth, legacySingleTenantOnly, adminOnly, studentDocumentsRoutes);
 app.use('/api/teachers', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, teacherRoutes);
 app.use('/api/userDetailsself', auth, legacySingleTenantOnly, adminOnly, userDetailsRoutes);
 app.use('/api/reportCard', auth, legacySingleTenantOnly, adminOnly, reportCardRoutes);

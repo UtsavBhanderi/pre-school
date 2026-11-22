@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require("mongoose");
 const Student = require('../models/Student');
+const StudentDocument = require('../models/StudentDocument');
 const ReportCard = require("../models/ReportCard"); // to get Out Of Marks
 const Subject = require('../models/Subject');
 const { validateStudentReportMarks, calculateStudentReportResult } = require('../utils/studentReportMarks');
@@ -341,9 +342,10 @@ router.delete('/:id', async (req, res) => {
     const student = await Student.findById(req.params.id).select('stuNo marks').lean();
     if (!student) return res.status(404).json({ message: 'Student not found.' });
 
-    const [parentAccess, linkedReport] = await Promise.all([
+    const [parentAccess, linkedReport, linkedDocuments] = await Promise.all([
       ParentAccount.exists({ studentIds: student._id }),
       ReportCard.exists({ students: student._id }),
+      StudentDocument.exists({ studentId: student._id }),
     ]);
     if (parentAccess) {
       return res.status(409).json({
@@ -351,6 +353,13 @@ router.delete('/:id', async (req, res) => {
         message: 'This student is linked to a parent portal account. Remove or transfer the family access before deleting the student.',
       });
     }
+    if (linkedDocuments) {
+      return res.status(409).json({
+        code: 'STUDENT_ADMISSION_DOCUMENTS_PRESERVED',
+        message: 'This student has admission documents attached. Keep the student record or mark the student as withdrawn so the files and audit history remain available.',
+      });
+    }
+
     if (Array.isArray(student.marks) && student.marks.length > 0) {
       return res.status(409).json({
         code: 'STUDENT_ACADEMIC_HISTORY_PRESERVED',

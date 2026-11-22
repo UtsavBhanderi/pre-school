@@ -33,3 +33,13 @@ test('rejects unsupported directories and extensions', () => {
   assert.equal(matchesUploadSignature('students', 'portrait.svg', Buffer.from('<svg/>')), false);
   assert.equal(matchesUploadSignature('unknown', 'portrait.jpg', Buffer.from([0xff, 0xd8, 0xff])), false);
 });
+
+
+test('accepts student document PDFs and images only when their binary signatures match', () => {
+  assert.equal(matchesUploadSignature('student-documents', 'birth-certificate.pdf', Buffer.from('%PDF-1.7')), true);
+  assert.equal(matchesUploadSignature('student-documents', 'identity.jpg', Buffer.from([0xff, 0xd8, 0xff, 0x00])), true);
+  assert.equal(matchesUploadSignature('student-documents', 'address.png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), true);
+  assert.equal(matchesUploadSignature('student-documents', 'certificate.pdf', Buffer.from('<html>')), false);
+  assert.equal(matchesUploadSignature('student-documents', 'document.exe', Buffer.from('MZ')), false);
+  assert.equal(matchesUploadSignature('student-documents', 'photo.svg', Buffer.from('<svg/>')), false);
+});
