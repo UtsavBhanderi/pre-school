@@ -16,6 +16,17 @@ export default function StudentLifecyclePanel({ students = [], onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [bulkSourceStandard, setBulkSourceStandard] = useState('');
+  const [bulkSourceYear, setBulkSourceYear] = useState('');
+  const [bulkTargetStandard, setBulkTargetStandard] = useState('');
+  const [bulkTargetYear, setBulkTargetYear] = useState('');
+  const [bulkDate, setBulkDate] = useState(today());
+  const [bulkReason, setBulkReason] = useState('Annual class promotion');
+  const [bulkNotes, setBulkNotes] = useState('');
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState('');
+  const [bulkSuccess, setBulkSuccess] = useState('');
   const selected = useMemo(() => students.find((item) => String(item._id) === String(studentId)) || null, [students, studentId]);
   const withdrawn = (selected?.status || 'active') === 'withdrawn';
   const needsDestination = action === 'promotion' || action === 'transfer';
@@ -39,6 +50,24 @@ export default function StudentLifecyclePanel({ students = [], onRefresh }) {
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to save this student update.');
     } finally { setSaving(false); }
+  };
+  const bulkCount = students.filter((item) => (item.status || 'active') !== 'withdrawn' && item.standard === bulkSourceStandard && item.batchYear === bulkSourceYear).length;
+  const runBulkPromotion = async (event) => {
+    event.preventDefault();
+    if (bulkSaving || !bulkCount || !bulkConfirm) return;
+    setBulkSaving(true); setBulkError(''); setBulkSuccess('');
+    try {
+      const response = await axios.patch(API_BASE_URL + '/api/students/lifecycle/bulk', {
+        sourceStandard: bulkSourceStandard, sourceBatchYear: bulkSourceYear,
+        targetStandard: bulkTargetStandard, targetBatchYear: bulkTargetYear,
+        effectiveDate: bulkDate, reason: bulkReason.trim(), notes: bulkNotes.trim(),
+      });
+      setBulkSuccess(response.data?.message || 'Class promotion completed.');
+      setBulkConfirm(false); setBulkNotes('');
+      await onRefresh?.();
+    } catch (requestError) {
+      setBulkError(requestError.response?.data?.message || 'The class promotion could not be completed.');
+    } finally { setBulkSaving(false); }
   };
   const actionOptions = withdrawn ? [{ value: 'reactivate', label: 'Reactivate student' }] : [
     { value: 'promotion', label: 'Promote to next class' },
@@ -89,6 +118,52 @@ export default function StudentLifecyclePanel({ students = [], onRefresh }) {
             <div className="col-12 d-flex justify-content-end"><button type="submit" className="btn btn-primary" disabled={!selected || saving}>{saving ? 'Saving…' : action === 'withdraw' ? 'Save withdrawal record' : action === 'reactivate' ? 'Reactivate student' : 'Save class change'}</button></div>
           </div>
         </form>
+
+        <details className="border rounded-3 p-3 mt-4">
+          <summary className="fw-semibold">Promote an entire class at once</summary>
+          <p className="small text-muted mt-2 mb-3">Move all active students from one class and academic year together. Withdrawn students are automatically excluded.</p>
+          {bulkError && <div className="alert alert-danger py-2" role="alert">{bulkError}</div>}
+          {bulkSuccess && <div className="alert alert-success py-2" role="status">{bulkSuccess}</div>}
+          <form onSubmit={runBulkPromotion}>
+            <div className="row g-3 align-items-end">
+              <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-source-class">Current class</label>
+                <select id="bulk-source-class" className="form-select" value={bulkSourceStandard} onChange={(event) => { setBulkSourceStandard(event.target.value); setBulkTargetStandard(''); setBulkConfirm(false); }} required>
+                  <option value="">Choose current class…</option>{STANDARD_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </div>
+              <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-source-year">Current academic year</label>
+                <input id="bulk-source-year" className="form-control" value={bulkSourceYear} onChange={(event) => { setBulkSourceYear(event.target.value); setBulkConfirm(false); }} placeholder="2026-2027" pattern="\\d{4}-\\d{4}" maxLength="9" required />
+              </div>
+              <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-target-class">Promote to class</label>
+                <select id="bulk-target-class" className="form-select" value={bulkTargetStandard} onChange={(event) => { setBulkTargetStandard(event.target.value); setBulkConfirm(false); }} required>
+                  <option value="">Choose destination…</option>{STANDARD_OPTIONS.filter((item) => item !== bulkSourceStandard).map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </div>
+              <div className="col-12 col-md-6"><label className="form-label" htmlFor="bulk-target-year">New academic year</label>
+                <input id="bulk-target-year" className="form-control" value={bulkTargetYear} onChange={(event) => { setBulkTargetYear(event.target.value); setBulkConfirm(false); }} placeholder="2027-2028" pattern="\\d{4}-\\d{4}" maxLength="9" required />
+              </div>
+              <div className="col-12 col-md-4"><label className="form-label" htmlFor="bulk-date">Effective date</label>
+                <input id="bulk-date" className="form-control" type="date" value={bulkDate} onChange={(event) => setBulkDate(event.target.value)} required />
+              </div>
+              <div className="col-12 col-md-8"><label className="form-label" htmlFor="bulk-reason">Reason</label>
+                <input id="bulk-reason" className="form-control" value={bulkReason} onChange={(event) => setBulkReason(event.target.value)} maxLength="250" required />
+              </div>
+              <div className="col-12"><label className="form-label" htmlFor="bulk-notes">Notes (optional)</label>
+                <input id="bulk-notes" className="form-control" value={bulkNotes} onChange={(event) => setBulkNotes(event.target.value)} maxLength="1000" />
+              </div>
+              <div className="col-12">
+                <div className="alert alert-light border py-2 mb-2">Matching active students: <strong>{bulkCount}</strong></div>
+                <label className="form-check d-flex gap-2 align-items-start">
+                  <input className="form-check-input mt-1" type="checkbox" checked={bulkConfirm} onChange={(event) => setBulkConfirm(event.target.checked)} />
+                  <span className="form-check-label small">I have checked the source class, destination class and academic year. Apply this change to every matching active student.</span>
+                </label>
+              </div>
+              <div className="col-12 d-flex justify-content-end">
+                <button type="submit" className="btn btn-primary" disabled={bulkSaving || !bulkConfirm || !bulkCount || !bulkTargetStandard || !bulkTargetYear}>{bulkSaving ? 'Promoting students…' : 'Promote ' + bulkCount + ' student(s)'}</button>
+              </div>
+            </div>
+          </form>
+        </details>
         {selected && <div className="border-top mt-4 pt-3">
           <div className="d-flex flex-wrap gap-2 align-items-center mb-2">
             <strong>{fullName(selected)}</strong><span className="text-muted small">GR: {selected.stuNo || '—'}</span>

@@ -205,6 +205,66 @@ router.put('/:id', upload.fields([
 });
 
 
+
+// Promote every active student in a selected class and academic year in one operation.
+router.patch('/lifecycle/bulk', async (req, res) => {
+  const body = req.body || {};
+  const sourceStandard = String(body.sourceStandard || '').trim();
+  const sourceBatchYear = String(body.sourceBatchYear || '').trim();
+  const targetStandard = String(body.targetStandard || '').trim();
+  const targetBatchYear = String(body.targetBatchYear || '').trim();
+  const effectiveDate = String(body.effectiveDate || '').trim();
+  const reason = String(body.reason || '').trim();
+  const notes = String(body.notes || '').trim();
+  if (!sourceStandard || sourceStandard.length > 80 || !targetStandard || targetStandard.length > 80) return res.status(400).json({ message: 'Choose valid source and destination classes.' });
+  if (!/^\d{4}-\d{4}$/.test(sourceBatchYear) || !/^\d{4}-\d{4}$/.test(targetBatchYear)) return res.status(400).json({ message: 'Enter both academic years in YYYY-YYYY format.' });
+  if (sourceStandard === targetStandard && sourceBatchYear === targetBatchYear) return res.status(400).json({ message: 'Choose a different destination class or academic year.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return res.status(400).json({ message: 'Choose a valid effective date.' });
+  const [year, month, day] = effectiveDate.split('-').map(Number);
+  const parsedDate = new Date(year, month - 1, day);
+  if (parsedDate.getFullYear() !== year || parsedDate.getMonth() !== month - 1 || parsedDate.getDate() !== day) return res.status(400).json({ message: 'The effective date is not a valid calendar date.' });
+  if (!reason || reason.length > 250 || notes.length > 1000) return res.status(400).json({ message: 'Enter a reason (up to 250 characters) and notes (up to 1,000 characters).' });
+  try {
+    const sourceFilter = { standard: sourceStandard, batchYear: sourceBatchYear, status: { $ne: 'withdrawn' } };
+    const students = await Student.find(sourceFilter).select('_id stuNo').lean();
+    if (!students.length) return res.status(404).json({ message: 'No active students were found in the selected class and academic year.' });
+    const operations = students.map((student) => ({
+      updateOne: {
+        filter: { _id: student._id, ...sourceFilter },
+        update: {
+          $set: { standard: targetStandard, batchYear: targetBatchYear },
+          $push: { academicHistory: {
+            action: 'promotion', effectiveDate,
+            fromStandard: sourceStandard, toStandard: targetStandard,
+            fromBatchYear: sourceBatchYear, toBatchYear: targetBatchYear,
+            reason, notes, createdBy: req.user?._id || null,
+          } },
+        },
+      },
+    }));
+    const result = await Student.bulkWrite(operations, { ordered: false });
+    const studentNumbers = students.filter((student) => student.stuNo).map((student) => student.stuNo);
+    let feeWarning = false;
+    if (studentNumbers.length) {
+      try {
+        await Fees.updateMany({ stuNo: { $in: studentNumbers } }, { $set: { standard: targetStandard, batchYear: targetBatchYear } });
+      } catch (feeError) {
+        feeWarning = true;
+        console.error('Bulk promotion fee metadata sync failed:', feeError?.name || 'database_error');
+      }
+    }
+    return res.json({
+      message: result.modifiedCount + ' student(s) promoted successfully.' + (feeWarning ? ' Fee-register labels need an administrator review.' : ''),
+      updatedCount: result.modifiedCount,
+      requestedCount: students.length,
+      warning: feeWarning ? 'FEE_METADATA_SYNC_PENDING' : null,
+    });
+  } catch (error) {
+    console.error('Bulk student promotion failed:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'The class promotion could not be completed. Refresh the class list before trying again.' });
+  }
+});
+
 // Record a student's class and enrolment lifecycle without deleting historical data.
 router.patch('/:id/lifecycle', async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Invalid student ID.' });

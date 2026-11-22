@@ -167,6 +167,33 @@ test('student deletion preserves parent, academic and paid-fee history', {
     assert.equal((await Student.findById(student._id).lean()).status, 'active');
   });
 
+
+  await t.test('bulk class promotion moves only active students and preserves fee payments', async () => {
+    const first = await Student.create({ firstName: 'Bulk', standard: 'ENG NR.', batchYear: '2026-2027', stuNo: 'BULK-ONE-' + tag });
+    const second = await Student.create({ firstName: 'Bulk', standard: 'ENG NR.', batchYear: '2026-2027', stuNo: 'BULK-TWO-' + tag });
+    const withdrawn = await Student.create({ firstName: 'Bulk Withdrawn', standard: 'ENG NR.', batchYear: '2026-2027', stuNo: 'BULK-OUT-' + tag, status: 'withdrawn' });
+    await Fees.updateOne({ stuNo: first.stuNo }, { $set: { totalFeesPaid: 125, paymentDetails: [{ date: '11/20/2026', time: '9:00 AM', amount: 125 }] } });
+    const response = await api('/api/students/lifecycle/bulk', { method: 'PATCH', body: {
+      sourceStandard: 'ENG NR.', sourceBatchYear: '2026-2027',
+      targetStandard: 'ENG JR.', targetBatchYear: '2027-2028',
+      effectiveDate: '2027-04-01', reason: 'Annual class promotion',
+    } });
+    assert.equal(response.status, 200);
+    assert.equal(response.data.updatedCount, 2);
+    const updatedFirst = await Student.findById(first._id).lean();
+    const updatedSecond = await Student.findById(second._id).lean();
+    const unchangedWithdrawn = await Student.findById(withdrawn._id).lean();
+    assert.equal(updatedFirst.standard, 'ENG JR.');
+    assert.equal(updatedSecond.standard, 'ENG JR.');
+    assert.equal(updatedFirst.academicHistory.at(-1).action, 'promotion');
+    assert.equal(unchangedWithdrawn.standard, 'ENG NR.');
+    assert.equal(unchangedWithdrawn.status, 'withdrawn');
+    const fee = await Fees.findOne({ stuNo: first.stuNo }).lean();
+    assert.equal(fee.standard, 'ENG JR.');
+    assert.equal(fee.totalFeesPaid, 125);
+    assert.equal(fee.paymentDetails.length, 1);
+  });
+
   await t.test('paid fee history blocks student deletion', async () => {
     const student = await Student.create({
       firstName: 'Paid',
