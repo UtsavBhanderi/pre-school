@@ -31,10 +31,15 @@ const Fees = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [receiptRecord, setReceiptRecord] = useState(null);
   const [receiptPaymentIndex, setReceiptPaymentIndex] = useState(0);
+  const [schoolDetails, setSchoolDetails] = useState({ name: "Pre-School", contactPhone: "", contactEmail: "", city: "" });
 
   useEffect(() => {
     fetchFeesData();
     fetchStandardFees();
+    axios.get(`${linkone}/api/parent-access/config`).then((response) => {
+      const school = response.data?.school || {};
+      setSchoolDetails({ name: school.name || "Pre-School", contactPhone: school.contactPhone || school.phone || "", contactEmail: school.contactEmail || school.email || "", city: school.city || "" });
+    }).catch(() => {});
   }, []);
 
   const fetchStandardFees = async () => {
@@ -843,14 +848,15 @@ const Fees = () => {
                       <div className="fee-receipt-brand">
                         <div className="fee-receipt-brand-mark" aria-hidden="true">S</div>
                         <div>
-                          <div className="fee-receipt-school-name">Pre-School</div>
+                          <div className="fee-receipt-school-name">{schoolDetails.name}</div>
                           <div className="fee-receipt-school-subtitle">School fee payment record</div>
+                          {(schoolDetails.contactPhone || schoolDetails.contactEmail || schoolDetails.city) && <div className="small">{[schoolDetails.contactPhone, schoolDetails.contactEmail, schoolDetails.city].filter(Boolean).join(" · ")}</div>}
                         </div>
                         <div className="fee-receipt-copy-label">PAYMENT<br />RECEIPT COPY</div>
                       </div>
                       <div className="fee-receipt-rule" />
                       <div className="fee-receipt-meta">
-                        <div><span>Record reference</span><strong>{receiptRecord._id ? `FEE-${String(receiptRecord.stuNo || receiptRecord._id).slice(-8).toUpperCase()}-${receiptPaymentIndex + 1}` : `FEE-${receiptPaymentIndex + 1}`}</strong></div>
+                        <div><span>Receipt number</span><strong>{receiptRecord.paymentDetails[receiptPaymentIndex].receiptNumber || (receiptRecord._id ? `LEGACY-${String(receiptRecord.stuNo || receiptRecord._id).slice(-8).toUpperCase()}-${receiptPaymentIndex + 1}` : `LEGACY-${receiptPaymentIndex + 1}`)}</strong></div>
                         <div><span>Payment date</span><strong>{receiptRecord.paymentDetails[receiptPaymentIndex].date || "Not recorded"}</strong></div>
                         <div><span>Payment time</span><strong>{receiptRecord.paymentDetails[receiptPaymentIndex].time || "Not recorded"}</strong></div>
                       </div>

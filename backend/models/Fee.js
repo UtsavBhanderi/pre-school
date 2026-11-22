@@ -8,6 +8,7 @@ const PaymentDetailSchema = new mongoose.Schema({
   amount: { type: Number, min: 0, default: 0 },
   method: { type: String, enum: ['', 'cash', 'upi', 'bank_transfer', 'card', 'cheque', 'other'], default: 'cash' },
   reference: { type: String, maxlength: 80, default: '' },
+  receiptNumber: { type: String, maxlength: 32, default: '' },
 });
 
 const FeesSchema = new mongoose.Schema({

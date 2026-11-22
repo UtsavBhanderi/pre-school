@@ -98,6 +98,7 @@ test('fee history is append-only and legacy paid balances remain intact', {
     assert.equal(response.data.openingBalancePaid, 100);
     assert.equal(response.data.totalFeesPaid, 150);
     assert.equal(response.data.paymentDetails.length, 1);
+    assert.match(response.data.paymentDetails[0].receiptNumber, /^RCPT-\d{4}-\d{6}$/);
   });
 
   await t.test('ordinary profile edits preserve saved receipt identifiers', async () => {
@@ -110,6 +111,7 @@ test('fee history is append-only and legacy paid balances remain intact', {
     assert.equal(response.status, 200);
     assert.equal(String(response.data.paymentDetails[0]._id), originalPaymentId);
     assert.equal(response.data.paymentDetails[0].amount, 50);
+    assert.notEqual(response.data.paymentDetails[0].receiptNumber, response.data.paymentDetails[1].receiptNumber);
     assert.equal(response.data.totalFeesPaid, 150);
   });
 

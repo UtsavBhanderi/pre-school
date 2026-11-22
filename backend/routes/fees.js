@@ -4,6 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const Fees = require('../models/Fee');
+const FeeReceiptCounter = require('../models/FeeReceiptCounter');
 const { STANDARD_FEES } = require('../config/standardFees');
 const { asAmount, calculateRemaining } = require('../utils/feeMath');
 const { validateFeeAmounts, validatePaymentHistoryUpdate, hasFeePaymentHistory } = require('../utils/feeValidation');
@@ -45,6 +46,14 @@ async function sendFeeEmail(fee) {
   });
   return true;
 }
+
+const allocateReceiptNumbers = async (count) => {
+  if (!count) return [];
+  const year = String(new Date().getFullYear());
+  const counter = await FeeReceiptCounter.findOneAndUpdate({ _id: year }, { $inc: { sequence: count } }, { new: true, upsert: true, setDefaultsOnInsert: true });
+  const first = counter.sequence - count + 1;
+  return Array.from({ length: count }, (_, index) => 'RCPT-' + year + '-' + String(first + index).padStart(6, '0'));
+};
 
 const sumPaymentDetails = (details) =>
   (Array.isArray(details) ? details : []).reduce((sum, detail) => sum + asAmount(detail?.amount), 0);
@@ -163,6 +172,10 @@ router.post('/create', async (req, res) => {
     if (feeData.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(feeData.parentEmail)) {
       return res.status(400).json({ message: 'Enter a valid parent email address.' });
     }
+    if (Array.isArray(feeData.paymentDetails) && feeData.paymentDetails.length) {
+      const numbers = await allocateReceiptNumbers(feeData.paymentDetails.length);
+      feeData.paymentDetails = feeData.paymentDetails.map((payment, index) => ({ ...payment, receiptNumber: numbers[index] }));
+    }
     const fee = await Fees.create({
       ...feeData,
       totalFeesRemaining: calculateRemaining(amounts.value.totalStandardFees, amounts.value.totalFeesPaid, amounts.value.discount),
@@ -198,9 +211,11 @@ router.put('/update/:id', async (req, res) => {
       }
       amounts.value.totalFeesPaid = paymentHistory.totalFeesPaid;
       const existingPaymentCount = Array.isArray(existing.paymentDetails) ? existing.paymentDetails.length : 0;
+      const newPayments = amounts.value.paymentDetails.slice(existingPaymentCount);
+      const receiptNumbers = await allocateReceiptNumbers(newPayments.length);
       amounts.value.paymentDetails = [
         ...existing.paymentDetails,
-        ...amounts.value.paymentDetails.slice(existingPaymentCount),
+        ...newPayments.map((payment, index) => ({ ...payment, receiptNumber: receiptNumbers[index] })),
       ];
     }
     const updates = { ...amounts.value };
