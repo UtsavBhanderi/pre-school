@@ -6,6 +6,8 @@ const PaymentDetailSchema = new mongoose.Schema({
   date: { type: String, default: '' },
   time: { type: String, default: '' },
   amount: { type: Number, min: 0, default: 0 },
+  method: { type: String, enum: ['', 'cash', 'upi', 'bank_transfer', 'card', 'cheque', 'other'], default: 'cash' },
+  reference: { type: String, maxlength: 80, default: '' },
 });
 
 const FeesSchema = new mongoose.Schema({

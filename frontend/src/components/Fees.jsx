@@ -191,6 +191,8 @@ const Fees = () => {
       date: (() => { const now = new Date(); return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`; })(),
       time: new Date().toLocaleTimeString(),
       amount: "",
+      method: "cash",
+      reference: "",
     };
     setFormData((prevFormData) => ({
       ...prevFormData,
@@ -584,6 +586,16 @@ const Fees = () => {
                       className="form-control"
                     />
                   </div>
+                  <div className="col-12 col-md-3">
+                    <label className="form-label small mb-1" htmlFor={"fee-payment-method-" + index}>Payment method</label>
+                    <select id={"fee-payment-method-" + index} name="method" className="form-select" value={detail.method || "cash"} onChange={(e) => handlePaymentDetailChange(index, e)} disabled={editMode && Boolean(detail._id)}>
+                      <option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option><option value="card">Card</option><option value="cheque">Cheque</option><option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-3">
+                    <label className="form-label small mb-1" htmlFor={"fee-payment-reference-" + index}>Transaction / cheque reference</label>
+                    <input id={"fee-payment-reference-" + index} name="reference" type="text" maxLength="80" className="form-control" value={detail.reference || ""} placeholder="Optional reference" onChange={(e) => handlePaymentDetailChange(index, e)} disabled={editMode && Boolean(detail._id)} />
+                  </div>
                   <div className="col-auto align-self-end"><button type="button" onClick={() => removePaymentDetail(index)} className="btn btn-outline-danger" aria-label={`Remove payment ${index + 1}`} disabled={editMode && Boolean(detail._id)}>Remove</button></div>
                 </div>
               ))}
@@ -854,6 +866,8 @@ const Fees = () => {
                         <strong>{formatReceiptAmount(receiptRecord.paymentDetails[receiptPaymentIndex].amount)}</strong>
                       </div>
                       <h3 className="fee-receipt-section-title">Fee summary</h3>
+                      <div className="fee-receipt-line"><span>Payment method</span><strong>{({ cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", card: "Card", cheque: "Cheque", other: "Other" })[receiptRecord.paymentDetails[receiptPaymentIndex].method] || "Not recorded"}</strong></div>
+                      {receiptRecord.paymentDetails[receiptPaymentIndex].reference && <div className="fee-receipt-line"><span>Transaction / cheque reference</span><strong>{receiptRecord.paymentDetails[receiptPaymentIndex].reference}</strong></div>}
                       <div className="fee-receipt-line"><span>Standard fees</span><strong>{formatReceiptAmount(receiptRecord.totalStandardFees)}</strong></div>
                       <div className="fee-receipt-line"><span>Discount recorded</span><strong>{formatReceiptAmount(receiptRecord.discount)}</strong></div>
                       <div className="fee-receipt-line"><span>Total paid to date</span><strong>{formatReceiptAmount(receiptRecord.totalFeesPaid)}</strong></div>

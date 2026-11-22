@@ -33,9 +33,14 @@ function normalizePaymentDetails(details) {
     if (!amount.valid) return amount;
     const date = typeof item.date === 'string' ? item.date.trim() : '';
     const time = typeof item.time === 'string' ? item.time.trim() : '';
+    const allowedMethods = ['', 'cash', 'upi', 'bank_transfer', 'card', 'cheque', 'other'];
+    const method = typeof item.method === 'string' ? item.method.trim() : 'cash';
+    const reference = typeof item.reference === 'string' ? item.reference.trim() : '';
+    if (!allowedMethods.includes(method)) return { valid: false, message: 'Payment ' + (index + 1) + ' has an unsupported payment method.' };
+    if (reference.length > 80) return { valid: false, message: 'Payment ' + (index + 1) + ' reference must be 80 characters or fewer.' };
     if (date && !validPaymentDate(date)) return { valid: false, message: 'Payment ' + (index + 1) + ' must use a valid MM/DD/YYYY date.' };
     if (date.length > 20 || time.length > 40) return { valid: false, message: 'Payment date or time is too long.' };
-    paymentDetails.push({ date, time, amount: amount.value });
+    paymentDetails.push({ date, time, amount: amount.value, method, reference });
   }
   return { valid: true, value: paymentDetails };
 }
@@ -60,6 +65,8 @@ function validatePaymentHistoryUpdate(existingRecord = {}, incomingDetails = [])
       String(previous.date || '').trim() !== String(incoming.date || '').trim()
       || String(previous.time || '').trim() !== String(incoming.time || '').trim()
       || previousAmount !== incomingAmount
+      || String(previous.method || '') !== String(incoming.method || '')
+      || String(previous.reference || '') !== String(incoming.reference || '')
     ) {
       return { valid: false, code: 'PAYMENT_HISTORY_IMMUTABLE', message: 'Previously recorded payments cannot be changed. Add a new payment entry instead.' };
     }

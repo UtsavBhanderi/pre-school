@@ -24,6 +24,9 @@ test('payment dates must be real MM/DD/YYYY calendar dates', () => {
 test('payment entries require positive amounts and reject excessive entries', () => {
   assert.equal(normalizePaymentDetails([{ date: '11/21/2026', time: '9:30 AM', amount: '100.50' }]).valid, true);
   assert.equal(normalizePaymentDetails([{ amount: '0' }]).valid, false);
+  assert.equal(normalizePaymentDetails([{ amount: '10', method: 'upi', reference: 'UPI-123' }]).value[0].method, 'upi');
+  assert.equal(normalizePaymentDetails([{ amount: '10', method: 'crypto' }]).valid, false);
+  assert.equal(normalizePaymentDetails([{ amount: '10', reference: 'x'.repeat(81) }]).valid, false);
   assert.equal(normalizePaymentDetails([{ amount: '-10' }]).valid, false);
   assert.equal(normalizePaymentDetails([{ date: '02/31/2026', amount: '10' }]).valid, false);
   assert.equal(normalizePaymentDetails(Array.from({ length: 101 }, () => ({ amount: 1 }))).valid, false);
