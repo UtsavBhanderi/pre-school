@@ -1023,3 +1023,104 @@ test('parent can sign in directly with a GR number and registered mobile without
 
   await page.close();
 });
+
+
+test('report cards reuse class assessment dates and move to the next child after saving', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  const reportMarks = new Map([
+    ['student-a', {
+      subjectData: [
+        { subject: 'English', mark: 18, date: '2026-11-20' },
+        { subject: 'Mathematics', mark: 17, date: '2026-11-20' },
+      ],
+      total: 35,
+      percentage: 87.5,
+      grade: 'A',
+    }],
+  ]);
+  const children = [
+    { _id: 'student-a', firstName: 'Aarav', middleName: 'Patel', lastName: '', standard: 'ENG JR.', stuNo: 'GR-001', batchYear: '2026-2027' },
+    { _id: 'student-b', firstName: 'Bina', middleName: 'Shah', lastName: '', standard: 'ENG JR.', stuNo: 'GR-002', batchYear: '2026-2027' },
+    { _id: 'student-c', firstName: 'Chitra', middleName: 'Desai', lastName: '', standard: 'ENG JR.', stuNo: 'GR-003', batchYear: '2026-2027' },
+  ];
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    let status = 200;
+    let body = {};
+
+    if (path === '/api/auth/login' && request.method() === 'POST') {
+      body = { token: 'browser-smoke-token' };
+    } else if (path === '/api/auth/me' && request.method() === 'GET') {
+      body = { user: { id: 'report-admin', username: 'Report Admin', email: 'report@example.com', role: 'admin', memberships: [] } };
+    } else if (path === '/api/parent-access/config' && request.method() === 'GET') {
+      body = { school: { name: 'Blooming Buds Preschool' } };
+    } else if (path === '/api/reportCard/report-1/roster' && request.method() === 'GET') {
+      body = {
+        report: { _id: 'report-1', reportName: 'Term 1 Assessment', standard: 'ENG JR.', outOfMarks: 20 },
+        subjects: ['English', 'Mathematics'],
+        students: children.map((child) => {
+          const saved = reportMarks.get(child._id);
+          return { ...child, marks: saved ? [{ reportId: 'report-1', ...saved }] : [] };
+        }),
+      };
+    } else if (/^\/api\/students\/student-[abc]\/report-1$/.test(path) && request.method() === 'GET') {
+      const studentId = path.split('/')[3];
+      const saved = reportMarks.get(studentId);
+      if (saved) body = saved;
+      else { status = 404; body = { message: 'No marks have been saved for this student yet.' }; }
+    } else if (/^\/api\/students\/student-[abc]\/report-1$/.test(path) && request.method() === 'POST') {
+      const studentId = path.split('/')[3];
+      const subjectData = request.postDataJSON().subjectData || [];
+      const total = subjectData.reduce((sum, item) => sum + Number(item.mark || 0), 0);
+      const maximum = subjectData.length * 20;
+      const percentage = maximum ? Number(((total / maximum) * 100).toFixed(2)) : 0;
+      const grade = percentage >= 90 ? 'A+' : percentage >= 80 ? 'A' : percentage >= 70 ? 'B' : percentage >= 60 ? 'C' : percentage >= 50 ? 'D' : 'E';
+      reportMarks.set(studentId, { subjectData, total, percentage, grade });
+      body = { message: 'Marks saved successfully.', total, percentage, grade };
+    } else {
+      status = 404;
+      body = { message: 'Not found in the browser test fixture.' };
+    }
+
+    await route.fulfill({ status, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
+  });
+
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('report@example.com');
+  await page.locator('#login-password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL(/\/dashboard\/home$/);
+  await page.goto(BASE_URL + '/dashboard/students/ENG%20JR./report-1');
+  await page.getByRole('heading', { name: 'Student report cards' }).waitFor();
+  await page.getByText('1 of 3 reports completed').waitFor();
+
+  const search = page.getByRole('searchbox', { name: 'Search students by name or GR number' });
+  await search.fill('GR-002');
+  assert.equal(await page.locator('.report-student-table-wrap tbody tr').count(), 1);
+  await search.fill('');
+
+  const binaRow = page.locator('.report-student-table-wrap tbody tr').filter({ hasText: 'Bina Shah' });
+  await binaRow.getByRole('button', { name: 'Enter marks' }).click();
+  await page.getByRole('heading', { name: /Enter marks · Bina Shah/ }).waitFor();
+  assert.equal(await page.locator('#report-common-assessment-date').inputValue(), '2026-11-20');
+  assert.equal(await page.getByLabel('Assessment date for English').inputValue(), '2026-11-20');
+  await page.getByLabel('Marks for English').fill('16');
+  await page.getByLabel('Marks for Mathematics').fill('18');
+  await page.getByRole('button', { name: 'Save & next student' }).click();
+  await page.getByRole('heading', { name: /Enter marks · Chitra Desai/ }).waitFor();
+  assert.equal(await page.getByLabel('Assessment date for English').inputValue(), '2026-11-20');
+  assert.equal(await page.getByLabel('Assessment date for Mathematics').inputValue(), '2026-11-20');
+
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  const aaravRow = page.locator('.report-student-table-wrap tbody tr').filter({ hasText: 'Aarav Patel' });
+  await aaravRow.getByRole('button', { name: 'Print', exact: true }).click();
+  const printArea = page.locator('#print-area');
+  await printArea.getByText('Assessment results').waitFor();
+  await printArea.getByText('Aarav Patel').waitFor();
+  await printArea.getByText('Blooming Buds Preschool').waitFor();
+  await printArea.getByText('20 Nov 2026').waitFor();
+  await printArea.getByText('TOTAL SCORE').waitFor();
+  await page.close();
+});

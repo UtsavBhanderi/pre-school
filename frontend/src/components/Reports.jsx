@@ -148,10 +148,16 @@ const Reports = () => {
       <div className="mt-3">
         <div className="page-header"><div><h2 className="mb-0">Report cards</h2><p className="page-subtitle">Create report templates for a class, then enter marks and export student results.</p></div></div>
 
+        <div className="report-workflow-guide" aria-label="Report card preparation steps">
+          <div><span>01</span><strong>Set up subjects</strong><small>Choose the learning areas for this class first.</small></div>
+          <div><span>02</span><strong>Create a report</strong><small>Name the term or assessment and set marks per subject.</small></div>
+          <div><span>03</span><strong>Enter and print</strong><small>Reuse class dates, save each child and print their report card.</small></div>
+        </div>
         <form onSubmit={handleSubmit} className="page-card report-create-form">
           <div className="report-field">
-            <label>Report Name</label>
+            <label htmlFor="report-template-name">Assessment / term name</label>
             <input
+              id="report-template-name"
               type="text"
               className="form-control"
               value={reportName}
@@ -164,8 +170,9 @@ const Reports = () => {
           </div>
 
           <div className="report-field">
-            <label>Standard</label>
+            <label htmlFor="report-template-standard">Class / standard</label>
             <select
+              id="report-template-standard"
               className="form-control"
               value={standard}
               onChange={(e) => setStandard(e.target.value)}
@@ -190,8 +197,9 @@ const Reports = () => {
           </div>
 
           <div className="col">
-            <label>Maximum marks</label>
+            <label htmlFor="report-template-maximum">Maximum marks per subject</label>
             <input
+              id="report-template-maximum"
               type="number"
               min="1"
               max="10000"
@@ -247,7 +255,7 @@ const Reports = () => {
                     className="btn btn-primary btn-sm"
                     onClick={() => handleNext(report)}
                   >
-                    Next
+                    Enter marks
                   </button>
 
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createAuthenticatedApi } from "../api.js";
 import { Link, useParams } from "react-router-dom";
 import "../report-cards.css";
@@ -9,6 +9,12 @@ import "../report-cards.css";
 
 
 const api = createAuthenticatedApi();
+const formatAssessmentDate = (value) => {
+  if (!value) return "—";
+  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return "—";
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(year, month - 1, day));
+};
 const getGrade = (percentage) => {
   if (percentage >= 90) return "A+";
   if (percentage >= 80) return "A";
@@ -28,11 +34,14 @@ const StudentsReport = () => {
   const [subjects, setSubjects] = useState([]);
   const [outOfMarks, setOutOfMarks] = useState(0);
   const [reportName, setReportName] = useState("");
+  const [schoolName, setSchoolName] = useState("");
   const [loadingStudentId, setLoadingStudentId] = useState("");
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [marks, setMarks] = useState({});
   const [dates, setDates] = useState({});
+  const [studentSearch, setStudentSearch] = useState("");
+  const [resultFilter, setResultFilter] = useState("all");
 
   const [total, setTotal] = useState(0);
   const [percentage, setPercentage] = useState(0);
@@ -71,6 +80,59 @@ const StudentsReport = () => {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    let active = true;
+    api.get("/api/parent-access/config")
+      .then(({ data }) => {
+        if (active) setSchoolName(String(data?.school?.name || "").trim());
+      })
+      .catch(() => { /* Keep the generic school heading when no name is configured. */ });
+    return () => { active = false; };
+  }, []);
+
+  const getSavedReport = useCallback((student) => (
+    student?.marks?.find((item) => String(item.reportId?._id || item.reportId || "") === String(reportId)) || null
+  ), [reportId]);
+
+  // Assessment dates are usually shared by the class. Reuse the most common
+  // saved date for each subject so staff do not re-enter it for every child.
+  const getReusableDates = useCallback((excludedStudentId = "") => {
+    const dateCounts = {};
+    students.forEach((student) => {
+      if (String(student._id) === String(excludedStudentId)) return;
+      const saved = getSavedReport(student);
+      (saved?.subjectData || []).forEach((entry) => {
+        if (!entry?.subject || !/^\d{4}-\d{2}-\d{2}$/.test(String(entry.date || ""))) return;
+        dateCounts[entry.subject] ||= {};
+        dateCounts[entry.subject][entry.date] = (dateCounts[entry.subject][entry.date] || 0) + 1;
+      });
+    });
+    return Object.fromEntries(Object.entries(dateCounts).map(([subject, counts]) => {
+      const preferred = Object.entries(counts).sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0];
+      return [subject, preferred?.[0] || ""];
+    }));
+  }, [students, getSavedReport]);
+
+  const completedCount = useMemo(() => students.filter((student) => getSavedReport(student)).length, [students, getSavedReport]);
+  const pendingCount = Math.max(0, students.length - completedCount);
+  const filteredStudents = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    return students.filter((student) => {
+      const name = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ").toLowerCase();
+      const matchesQuery = !query || name.includes(query) || String(student.stuNo || "").toLowerCase().includes(query);
+      const completed = Boolean(getSavedReport(student));
+      const matchesStatus = resultFilter === "all" || (resultFilter === "completed" ? completed : !completed);
+      return matchesQuery && matchesStatus;
+    });
+  }, [students, studentSearch, resultFilter, getSavedReport]);
+
+  const commonAssessmentDate = subjects.length && subjects.every((subject) => dates[subject] && dates[subject] === dates[subjects[0]])
+    ? dates[subjects[0]]
+    : "";
+  const hasNextPendingStudent = Boolean(selectedStudent && students.some((student) => (
+    String(student._id) !== String(selectedStudent._id) && student.standard === standard && !getSavedReport(student)
+  )));
+
   /* ===============================
      LIVE TOTAL CALCULATION
   ================================ */
@@ -96,19 +158,26 @@ const StudentsReport = () => {
     if (loadingStudentId || saving) return;
     setSelectedStudent(student);
     setLoadingStudentId(student._id);
-    setMarks({}); setDates({}); setTotal(0); setPercentage(0); setGrade('');
+    const reusableDates = getReusableDates(student._id);
+    setMarks({}); setDates(reusableDates); setTotal(0); setPercentage(0); setGrade('');
     setPageError(''); setPageSuccess('');
     try {
       const { data } = await api.get(`/api/students/${student._id}/${reportId}`);
       const nextMarks = {}; const nextDates = {};
       (data.subjectData || []).forEach((item) => {
         nextMarks[item.subject] = item.mark;
-        nextDates[item.subject] = item.date || '';
+        nextDates[item.subject] = item.date || reusableDates[item.subject] || '';
       });
       setMarks(nextMarks); setDates(nextDates);
       setTotal(data.total ?? 0); setPercentage(data.percentage ?? 0); setGrade(data.grade || 'E');
+      if (Object.values(reusableDates).some(Boolean) && (data.subjectData || []).some((item) => !item.date)) {
+        setPageSuccess('Saved class assessment dates have been filled in. Change any subject date that differs.');
+      }
     } catch (error) {
-      if (error.response?.status !== 404) {
+      if (error.response?.status === 404) {
+        setMarks({}); setDates(reusableDates); setTotal(0); setPercentage(0); setGrade('');
+        if (Object.values(reusableDates).some(Boolean)) setPageSuccess('Assessment dates have been reused from saved class entries. Enter only this child’s marks.');
+      } else {
         console.error('Unable to load saved marks:', error);
         setPageError(error.response?.data?.message || 'Saved marks could not be loaded. Please try again.');
         setSelectedStudent(null);
@@ -119,7 +188,7 @@ const StudentsReport = () => {
   /* ===============================
      SAVE MARKS
   ================================ */
-  const handleSave = async () => {
+  const handleSave = async (saveAndNext = false) => {
     if (!selectedStudent || saving) return;
     if (!subjects.length || !outOfMarks) {
       setPageError('This report has no valid subjects or maximum mark configured. Contact the administrator.');
@@ -143,10 +212,35 @@ const StudentsReport = () => {
     }));
     try {
       const response = await api.post(`/api/students/${selectedStudent._id}/${reportId}`, { subjectData });
+      const savedResult = { reportId, subjectData, total: response.data.total, percentage: response.data.percentage, grade: response.data.grade };
       setTotal(response.data.total); setPercentage(response.data.percentage); setGrade(response.data.grade);
-      setSelectedStudent(null);
-      setPageSuccess('Marks saved successfully.');
-      await fetchData();
+      setStudents((previous) => previous.map((student) => {
+        if (String(student._id) !== String(selectedStudent._id)) return student;
+        const otherReports = (student.marks || []).filter((item) => String(item.reportId?._id || item.reportId || "") !== String(reportId));
+        return { ...student, marks: [...otherReports, savedResult] };
+      }));
+
+      const currentIndex = students.findIndex((student) => String(student._id) === String(selectedStudent._id));
+      const orderedAfterCurrent = [...students.slice(Math.max(0, currentIndex + 1)), ...students.slice(0, Math.max(0, currentIndex))];
+      const nextStudent = saveAndNext ? orderedAfterCurrent.find((student) => student.standard === standard && !getSavedReport(student)) : null;
+      if (nextStudent) {
+        const nextDates = getReusableDates(nextStudent._id);
+        subjectData.forEach((entry) => { if (entry.date) nextDates[entry.subject] = entry.date; });
+        setSelectedStudent(nextStudent); setMarks({}); setDates(nextDates); setTotal(0); setPercentage(0); setGrade("");
+        setLoadingStudentId(nextStudent._id);
+        try {
+          const { data: nextData } = await api.get(`/api/students/${nextStudent._id}/${reportId}`);
+          const nextMarks = {}; const savedDates = { ...nextDates };
+          (nextData.subjectData || []).forEach((item) => { nextMarks[item.subject] = item.mark; savedDates[item.subject] = item.date || savedDates[item.subject] || ""; });
+          setMarks(nextMarks); setDates(savedDates); setTotal(nextData.total ?? 0); setPercentage(nextData.percentage ?? 0); setGrade(nextData.grade || "E");
+        } catch (nextError) {
+          if (nextError.response?.status !== 404) setPageError(nextError.response?.data?.message || "The next student could not be opened.");
+        } finally { setLoadingStudentId(""); }
+        setPageSuccess("Marks saved. Ready for " + [nextStudent.firstName, nextStudent.middleName, nextStudent.lastName].filter(Boolean).join(" ") + ".");
+      } else {
+        setSelectedStudent(null);
+        setPageSuccess(saveAndNext ? "Marks saved. All students in this class have a report entry." : "Marks saved successfully.");
+      }
     } catch (error) {
       console.error('Unable to save student marks:', error);
       setPageError(error.response?.data?.message || 'Unable to save these marks. Please try again.');
@@ -158,7 +252,7 @@ const StudentsReport = () => {
   ================================ */
   const handlePrintPreview = (student) => {
     const report = student.marks?.find(
-      (m) => m.reportId?.toString() === reportId
+      (m) => String(m.reportId?._id || m.reportId || "") === String(reportId)
     );
 
     if (!report) {
@@ -197,7 +291,18 @@ const StudentsReport = () => {
           <Link className="btn btn-primary" to="/dashboard/subjects">Set up class subjects</Link>
         </div>
       )}
-      <div className="section-heading"><h3>Students in this class</h3><span className="muted small">{students.length} students</span></div>
+      <section className="report-class-progress">
+        <div className="report-class-progress-heading"><div><span>CLASS REPORT PROGRESS</span><strong>{completedCount} of {students.length} reports completed</strong></div><span className="report-progress-percent">{students.length ? Math.round((completedCount / students.length) * 100) : 0}%</span></div>
+        <div className="report-progress-track"><span style={{ width: `${students.length ? (completedCount / students.length) * 100 : 0}%` }} /></div>
+        <div className="report-progress-legend"><span><i className="done" />{completedCount} completed</span><span><i className="todo" />{pendingCount} pending</span></div>
+      </section>
+      <div className="report-student-toolbar">
+        <div className="section-heading"><div><h3>Students in this class</h3><span className="muted small">{filteredStudents.length} of {students.length} shown</span></div></div>
+        <div className="report-student-filters">
+          <input type="search" className="form-control" aria-label="Search students by name or GR number" placeholder="Search name or GR number…" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} />
+          <select className="form-select" aria-label="Filter report completion" value={resultFilter} onChange={(event) => setResultFilter(event.target.value)}><option value="all">All students</option><option value="pending">Pending reports</option><option value="completed">Completed reports</option></select>
+        </div>
+      </div>
       <div className="table-responsive report-student-table-wrap"><table className="table table-hover align-middle">
         <thead>
           <tr>
@@ -213,9 +318,9 @@ const StudentsReport = () => {
         <tbody>
           {loading ? (
             <tr><td colSpan={7} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading students and subjects…</td></tr>
-          ) : students.length === 0 ? (
-            <tr><td colSpan={7}><div className="empty-state"><strong>No students found for this class</strong>Check the selected class or register a student before preparing report cards.</div></td></tr>
-          ) : students.map((s, i) => {
+          ) : filteredStudents.length === 0 ? (
+            <tr><td colSpan={7}><div className="empty-state"><strong>{students.length ? "No students match these filters" : "No students found for this class"}</strong>{students.length ? "Try another name, GR number or report status." : "Check the selected class or register a student before preparing report cards."}</div></td></tr>
+          ) : filteredStudents.map((s, i) => {
             const report = s.marks?.find(
               (m) => String(m.reportId || "") === reportId
             );
@@ -240,7 +345,7 @@ const StudentsReport = () => {
                     disabled={Boolean(loadingStudentId) || saving || !subjects.length || !outOfMarks || !isInSelectedClass}
                     title={!isInSelectedClass ? "This child has moved to another class. Historical marks remain available for printing." : "Enter or update this student's marks"}
                   >
-                    {loadingStudentId === s._id ? "Loading…" : isInSelectedClass ? "Edit" : "Read only"}
+                    {loadingStudentId === s._id ? "Loading…" : isInSelectedClass ? (report ? "Edit marks" : "Enter marks") : "Read only"}
                   </button>
                   <button
                     type="button"
@@ -258,7 +363,7 @@ const StudentsReport = () => {
         </tbody>
       </table></div>
       <div className="report-student-mobile-list">
-        {loading ? <div className="report-mobile-empty">Loading students…</div> : students.map((student) => {
+        {loading ? <div className="report-mobile-empty">Loading students…</div> : filteredStudents.map((student) => {
           const saved = student.marks?.find((item) => String(item.reportId || "") === reportId);
           const isInSelectedClass = student.standard === standard;
           const name = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "Student";
@@ -283,7 +388,7 @@ const StudentsReport = () => {
             </article>
           );
         })}
-        {!loading && students.length === 0 && <div className="report-mobile-empty">No students in this class yet. New admissions will appear here automatically.</div>}
+        {!loading && filteredStudents.length === 0 && <div className="report-mobile-empty">{students.length ? "No students match your search or filter." : "No students in this class yet. New admissions will appear here automatically."}</div>}
       </div>
 
       {/* ===============================
@@ -299,8 +404,13 @@ const StudentsReport = () => {
               </div>
 
               <div className="modal-body">
-                <p className="small text-secondary">Each subject is marked out of {outOfMarks}. Enter all marks before saving.</p>
-                <div className="table-responsive"><table className="table table-hover align-middle">
+                <div className="report-entry-intro"><p>Enter this child’s marks below. Each subject is out of <strong>{outOfMarks}</strong>.</p><span>Dates are filled from saved class entries wherever possible.</span></div>
+                <div className="report-shared-date">
+                  <div><label htmlFor="report-common-assessment-date">One date for all subjects</label><small>Choose once to fill all subject dates. You can still change an individual subject below.</small></div>
+                  <input id="report-common-assessment-date" type="date" className="form-control" value={commonAssessmentDate} onChange={(event) => setDates(Object.fromEntries(subjects.map((subject) => [subject, event.target.value])))} />
+                  <button type="button" className="btn btn-outline-primary" onClick={() => setDates((previous) => ({ ...previous, ...getReusableDates(selectedStudent._id) }))} disabled={!Object.values(getReusableDates(selectedStudent._id)).some(Boolean)}>Use class dates</button>
+                </div>
+                <div className="table-responsive report-entry-table-wrap"><table className="table table-hover align-middle report-entry-table">
                   <thead>
                     <tr>
                       <th>Subject</th>
@@ -346,13 +456,10 @@ const StudentsReport = () => {
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving || Boolean(loadingStudentId) || !subjects.length}>
-                  {saving ? "Saving marks…" : "Save marks"}
-                </button>
-                <button type="button" className="btn btn-outline-secondary" onClick={() => setSelectedStudent(null)} disabled={saving}>
-                  Cancel
-                </button>
+              <div className="modal-footer report-entry-footer">
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setSelectedStudent(null)} disabled={saving}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={() => handleSave(false)} disabled={saving || Boolean(loadingStudentId) || !subjects.length}>{saving ? "Saving…" : "Save marks"}</button>
+                <button type="button" className="btn btn-primary report-save-next" onClick={() => handleSave(true)} disabled={saving || Boolean(loadingStudentId) || !subjects.length || !hasNextPendingStudent}>{saving ? "Saving…" : "Save & next student"}</button>
               </div>
             </div>
           </div>
@@ -363,236 +470,60 @@ const StudentsReport = () => {
          PRINT PREVIEW MODAL
       ================================ */}
       {printStudent && printReport && (
-        <div className="modal show d-block report-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="print-report-title">
-          <div className="modal-dialog modal-xl modal-dialog-centered">
-            <div className="modal-content">
-
-              <div className="modal-body" id="print-area">
-
-                <div className="report-card">
-                  <div className="header">
-                    <div className="school-name">
-                      Your Preschool
+        <div className="modal show d-block report-modal-backdrop report-print-backdrop" role="dialog" aria-modal="true" aria-labelledby="print-report-title">
+          <div className="modal-dialog modal-xl modal-dialog-centered report-print-dialog">
+            <div className="modal-content report-print-modal-content">
+              <div className="modal-header report-print-toolbar">
+                <div><h5 className="modal-title">Report card preview</h5><p>Review the student details before printing or saving as PDF.</p></div>
+                <button type="button" className="btn-close" aria-label="Close preview" onClick={() => { setPrintStudent(null); setPrintReport(null); }} />
+              </div>
+              <div className="modal-body report-print-modal-body">
+                <div id="print-area" className="report-print-area">
+                  <article className="report-card">
+                    <div className="report-card-accent" />
+                    <header className="report-card-header">
+                      <div className="report-card-brand"><span className="report-card-brand-mark">P</span><span><strong>{schoolName || "PRE-SCHOOL"}</strong><small>LEARNING · GROWTH · EXCELLENCE</small></span></div>
+                      <div className="report-card-heading"><span>OFFICIAL ACADEMIC RECORD</span><h1 id="print-report-title">{reportName || "Student Progress Report"}</h1><p>STUDENT REPORT CARD</p></div>
+                    </header>
+                    <section className="report-student-overview">
+                      <div className="report-student-name"><span>STUDENT NAME</span><strong>{[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ")}</strong></div>
+                      <div className="report-student-details">
+                        <div><span>GR / ROLL NUMBER</span><strong>{printStudent.stuNo || "—"}</strong></div>
+                        <div><span>CLASS / STANDARD</span><strong>{printStudent.standard || standard}</strong></div>
+                        <div><span>ACADEMIC YEAR</span><strong>{printStudent.batchYear || "—"}</strong></div>
+                      </div>
+                    </section>
+                    <div className="report-section-heading"><span>01</span><div><strong>Assessment results</strong><small>Subject-wise marks and assessment dates</small></div></div>
+                    <table className="report-marks-table">
+                      <thead><tr><th>#</th><th>Subject / Learning Area</th><th>Assessment Date</th><th>Marks Obtained</th><th>Maximum</th></tr></thead>
+                      <tbody>
+                        {(printReport.subjectData || []).map((item, index) => (
+                          <tr key={item.subject || index}><td>{String(index + 1).padStart(2, "0")}</td><td>{item.subject || "—"}</td><td>{formatAssessmentDate(item.date)}</td><td className="report-earned-mark">{item.mark ?? "—"}</td><td>{outOfMarks}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="report-result-summary">
+                      <div><span>TOTAL SCORE</span><strong>{printReport.total ?? "—"} <small>/ {outOfMarks * (printReport.subjectData?.length || 0)}</small></strong></div>
+                      <div><span>OVERALL PERCENTAGE</span><strong>{Number(printReport.percentage || 0).toFixed(2)}%</strong></div>
+                      <div className="report-grade-result"><span>GRADE</span><strong>{printReport.grade || "—"}</strong></div>
                     </div>
-                    <div className="report-title" id="print-report-title">
-                      Student Report Card
-                    </div>
-                  </div>
-
-                  <div className="info">
-                    <div><span>Student Name:</span> {[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ")}</div>
-                    <div><span>Class:</span> {printStudent.standard}</div>
-                    <div><span>Roll No:</span> {printStudent.stuNo}</div>
-                    <div><span>Academic Year:</span> {printStudent.batchYear || "—"}</div>
-                  </div>
-
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Subject / Skill</th>
-                        <th>Marks Obtained</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {printReport.subjectData.map((s, i) => (
-                        <tr key={i}>
-                          <td>{s.subject}</td>
-                          <td>{s.mark}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  <div className="summary">
-                    <div>Total Marks: {printReport.total} / {outOfMarks * (printReport.subjectData?.length || 0)}</div>
-                    <div>Percentage: {printReport.percentage}%</div>
-                    <div>Grade: {printReport.grade}</div>
-                  </div>
-
-                  <div className="remarks">
-                    <div className="remarks-title">Teacher’s Remarks</div>
-                    <div className="remarks-box"></div>
-                  </div>
-
-                  <div className="signatures">
-                    <div className="sign-box">
-                      <div className="line"></div>Class Teacher
-                    </div>
-                    <div className="sign-box">
-                      <div className="line"></div>Head Teacher
-                    </div>
-                    <div className="sign-box">
-                      <div className="line"></div>Parent / Guardian
-                    </div>
-                  </div>
+                    <section className="report-teacher-remarks">
+                      <div className="report-section-heading"><span>02</span><div><strong>Teacher’s remarks</strong><small>Learning progress, strengths and next steps</small></div></div>
+                      <div className="report-remarks-lines"><span></span><span></span></div>
+                    </section>
+                    <footer className="report-card-signatures"><div><span></span><strong>CLASS TEACHER</strong></div><div><span></span><strong>HEAD TEACHER</strong></div><div><span></span><strong>PARENT / GUARDIAN</strong></div></footer>
+                    <div className="report-card-footer"><span>Every small step is a big achievement.</span><span>Student copy · {reportName || "Progress report"}</span></div>
+                  </article>
                 </div>
-
               </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn btn-primary" onClick={() => window.print()}>
-                  Print / Save PDF
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setPrintStudent(null);
-                    setPrintReport(null);
-                  }}
-                >
-                  Close
-                </button>
+              <div className="modal-footer report-print-toolbar">
+                <button type="button" className="btn btn-outline-secondary" onClick={() => { setPrintStudent(null); setPrintReport(null); }}>Close</button>
+                <button type="button" className="btn btn-primary" onClick={() => window.print()}>Print / Save PDF</button>
               </div>
-
             </div>
           </div>
         </div>
       )}
-
-      {/* PRINT CSS */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #print-area, #print-area * {
-            visibility: visible;
-          }
-          #print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-        }
-      `}</style>
-      <style>{`
-/* ================= REPORT CARD STYLES ================= */
-
-.report-card {
-  max-width: 850px;
-  margin: auto;
-  background: #fff;
-  border: 1px solid #cfd6e4;
-  font-family: "Segoe UI", Arial, sans-serif;
-  color: #222;
-}
-
-.header {
-  text-align: center;
-  padding: 20px;
-  border-bottom: 2px solid #2f5bea;
-}
-
-.school-name {
-  font-size: 24px;
-  font-weight: 600;
-  color: #2f5bea;
-}
-
-.report-title {
-  font-size: 18px;
-  margin-top: 5px;
-  font-weight: 500;
-}
-
-.info {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 20px;
-  font-size: 14px;
-}
-
-.info span {
-  font-weight: 600;
-}
-
-.report-card table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.report-card th,
-.report-card td {
-  border: 1px solid #cfd6e4;
-  padding: 10px;
-  font-size: 14px;
-  text-align: center;
-}
-
-.report-card th {
-  background: #eef2ff;
-  font-weight: 600;
-}
-
-.report-card td:first-child {
-  text-align: left;
-}
-
-.summary {
-  display: flex;
-  justify-content: space-between;
-  padding: 15px 20px;
-  background: #f8f9fd;
-  border-top: 2px solid #2f5bea;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.remarks {
-  padding: 20px;
-}
-
-.remarks-title {
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.remarks-box {
-  border: 1px solid #cfd6e4;
-  min-height: 70px;
-  padding: 10px;
-}
-
-.signatures {
-  display: flex;
-  justify-content: space-between;
-  padding: 25px 20px;
-  font-size: 14px;
-}
-
-.sign-box {
-  width: 30%;
-  text-align: center;
-}
-
-.line {
-  margin-top: 40px;
-  border-top: 1px solid #444;
-}
-
-/* ================= PRINT ONLY ================= */
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-
-  #print-area,
-  #print-area * {
-    visibility: visible;
-  }
-
-  #print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
-}
-`}</style>
-
 
     </div>
   );
