@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useContext, useEffect } from "react";
-import axios from "axios";
-import { API_BASE_URL } from "../api.js";
+import { createAuthenticatedApi } from "../api.js";
 import { Link } from "react-router-dom";
 import {
   MdArrowForward, MdFactCheck, MdCurrencyRupee, MdPersonAddAlt1,
@@ -39,6 +38,14 @@ const ACTIONS = [
     group: "Children and staff",
     primary: true,
     keywords: "admission add child parent family student register search gr number phone edit profile",
+  },
+  {
+    title: "View management insights",
+    description: "See school attendance, new admissions and fee trends together.",
+    to: "/dashboard/insights",
+    Icon: MdAssessment,
+    group: "School setup",
+    keywords: "management insights analytics overview dashboard attendance admission collection trend report",
   },
   {
     title: "Review past attendance",
@@ -157,6 +164,8 @@ const GROUP_ORDER = [
   "School setup",
 ];
 
+const api = createAuthenticatedApi();
+
 const dateLabel = new Intl.DateTimeFormat("en-IN", {
   weekday: "long",
   day: "numeric",
@@ -225,53 +234,31 @@ export default function OperationsHome() {
     const loadOverview = async () => {
       setOverviewLoading(true);
       setOverviewError(false);
-      const [studentsResult, attendanceResult, feesResult] = await Promise.allSettled([
-        axios.get(API_BASE_URL + "/api/students"),
-        axios.get(API_BASE_URL + "/api/attendance/attendances", { params: { date } }),
-        axios.get(API_BASE_URL + "/api/fees/fees-collection-data"),
-      ]);
-
-      if (!active) return;
-      const nextOverview = {
-        studentCount: null,
-        attendanceCount: null,
-        collectionToday: null,
-        outstanding: null,
-      };
-
-      if (studentsResult.status === "fulfilled" && Array.isArray(studentsResult.value.data)) {
-        nextOverview.studentCount = studentsResult.value.data.length;
-      }
-      if (attendanceResult.status === "fulfilled" && Array.isArray(attendanceResult.value.data)) {
-        const studentIds = new Set();
-        attendanceResult.value.data.forEach((record) => {
-          (record.studentDetails || []).forEach((entry) => {
-            const id = entry.studentId?._id || entry.studentId;
-            if (id) studentIds.add(String(id));
-          });
+      try {
+        const response = await api.get("/api/admin/overview", {
+          params: { startDate: date, endDate: date },
         });
-        nextOverview.attendanceCount = studentIds.size;
+        if (!active) return;
+        const data = response.data || {};
+        setOverview({
+          studentCount: Number.isFinite(Number(data.students?.active)) ? Number(data.students.active) : null,
+          attendanceCount: Number.isFinite(Number(data.attendance?.marked)) ? Number(data.attendance.marked) : null,
+          collectionToday: Number.isFinite(Number(data.fees?.collectedInRange)) ? Number(data.fees.collectedInRange) : null,
+          outstanding: Number.isFinite(Number(data.fees?.outstanding)) ? Number(data.fees.outstanding) : null,
+        });
+      } catch (error) {
+        if (!active) return;
+        console.error("Unable to load school management overview:", error);
+        setOverview({
+          studentCount: null,
+          attendanceCount: null,
+          collectionToday: null,
+          outstanding: null,
+        });
+        setOverviewError(true);
+      } finally {
+        if (active) setOverviewLoading(false);
       }
-      if (feesResult.status === "fulfilled" && feesResult.value.data) {
-        const feeSummary = feesResult.value.data;
-        if (Number.isFinite(Number(feeSummary.today?.totalPaid))) {
-          nextOverview.collectionToday = Number(feeSummary.today?.totalPaid || 0);
-        }
-        if (Array.isArray(feeSummary.standardWise)) {
-          nextOverview.outstanding = feeSummary.standardWise.reduce((sum, standard) =>
-            sum + (Array.isArray(standard.students) ? standard.students.reduce((classSum, student) =>
-              classSum + Math.max(
-                0,
-                Number(student.totalStandardFees || 0) -
-                Number(student.discount ?? student.totalDiscount ?? 0) -
-                Number(student.totalPaid ?? student.totalFeesPaid ?? 0)
-              ), 0) : 0), 0);
-        }
-      }
-
-      setOverview(nextOverview);
-      setOverviewError(Object.values(nextOverview).every((value) => value === null));
-      setOverviewLoading(false);
     };
 
     loadOverview();
@@ -416,11 +403,11 @@ export default function OperationsHome() {
           </div>
           <div className="ops-simple-summary-grid" aria-live="polite">
             <Link to="/dashboard/studentRegister">
-              <span>Children registered</span>
+              <span>Active children</span>
               <strong>{overviewLoading ? "…" : overview.studentCount === null ? "—" : overview.studentCount.toLocaleString("en-IN")}</strong>
             </Link>
             <Link to="/dashboard/attendanceOverview">
-              <span>Children with attendance today</span>
+              <span>Attendance entries recorded today</span>
               <strong>{overviewLoading ? "…" : overview.attendanceCount === null ? "—" : overview.attendanceCount.toLocaleString("en-IN")}</strong>
             </Link>
             <Link to="/dashboard/fees">

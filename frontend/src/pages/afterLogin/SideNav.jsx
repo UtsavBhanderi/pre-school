@@ -6,7 +6,7 @@ import {
   MdFactCheck, MdPictureAsPdf, MdVideoLibrary, MdPhotoLibrary,
   MdAssessment, MdManageAccounts, MdLogout, MdSchool, MdChecklist,
   MdHome, MdHelpOutline, MdCampaign, MdExpandMore, MdDashboard, MdForum,
-  MdChevronLeft, MdChevronRight,
+  MdChevronLeft, MdChevronRight, MdQueryStats,
 } from "react-icons/md";
 
 const navigation = [
@@ -49,6 +49,7 @@ const navigation = [
   {
     label: "School overview and access",
     items: [
+      { to: "/dashboard/insights", label: "Management insights", icon: MdQueryStats },
       { to: "/dashboard/feesOverview", label: "Fee summary", icon: MdDashboard },
       { to: "/dashboard/attendanceOverview", label: "Past attendance", icon: MdFactCheck },
       { to: "/dashboard/users", label: "Login accounts", icon: MdManageAccounts },

@@ -30,6 +30,7 @@ import SubjectManagement from "./components/SubjectManagement.jsx";
 import TeacherWorkReport from "./components/TeachersEntry.jsx";
 import AdminUsers from "./components/AdminUsers.jsx";
 import OperationsHome from "./components/OperationsHome.jsx";
+import SchoolInsightsPage from "./components/SchoolInsightsPage.jsx";
 import HelpCenter from "./components/HelpCenter.jsx";
 import AnnouncementsPage from "./components/AnnouncementsPage.jsx";
 import ParentPortal from "./components/ParentPortal.jsx";
@@ -88,6 +89,7 @@ const App = () => (
         >
           <Route index element={<Navigate to="/dashboard/home" replace />} />
           <Route path="home" element={<OperationsHome />} />
+          <Route path="insights" element={<SchoolInsightsPage />} />
           <Route path="help" element={<HelpCenter />} />
           <Route path="notices" element={<AnnouncementsPage />} />
           <Route path="communications" element={<SchoolCommunication />} />

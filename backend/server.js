@@ -33,6 +33,7 @@ const galleryRoutes = require('./routes/gallery');
 const pdfRoutes = require('./routes/pdf');
 const videoRoutes = require('./routes/video');
 const feesRoutes = require('./routes/fees');
+const adminOverviewRoutes = require('./routes/adminOverview');
 const studentRoutes = require('./routes/student');
 const studentDocumentsRoutes = require('./routes/studentDocuments');
 const teacherRoutes = require('./routes/teacher');
@@ -157,6 +158,7 @@ app.use('/api/gallery', auth, legacySingleTenantOnly, adminOnly, privateMediaRes
 app.use('/api/pdfs', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, pdfRoutes);
 app.use('/api/videos', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, videoRoutes);
 app.use('/api/fees', auth, legacySingleTenantOnly, adminOnly, feesRoutes);
+app.use('/api/admin/overview', auth, legacySingleTenantOnly, adminOnly, adminOverviewRoutes);
 app.use('/api/students', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, studentRoutes);
 app.use('/api/student-documents', auth, legacySingleTenantOnly, adminOnly, studentDocumentsRoutes);
 app.use('/api/teachers', auth, legacySingleTenantOnly, adminOnly, privateMediaResponse, teacherRoutes);
