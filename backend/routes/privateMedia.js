@@ -61,7 +61,7 @@ async function serveTenantMedia(req, res, claims) {
 
   try {
     const [user, organization, branch, membership, asset] = await Promise.all([
-      User.findById(claims.userId).select('_id role').lean(),
+      User.findById(claims.userId).select('_id role status authVersion').lean(),
       Organization.findOne({ _id: claims.organizationId, status: 'active' }).select('_id').lean(),
       Branch.findOne({
         _id: claims.branchId,
@@ -81,7 +81,8 @@ async function serveTenantMedia(req, res, claims) {
       }).select('+storageName').lean(),
     ]);
 
-    if (!user || !organization || !branch || !membership) {
+    const currentAuthVersion = Number.isInteger(user?.authVersion) ? user.authVersion : 0;
+    if (!user || user.status === 'suspended' || currentAuthVersion !== claims.authVersion || !organization || !branch || !membership) {
       return res.status(403).json({ message: 'Your active school access is required to view this private resource.' });
     }
     if (!activeMemberOfBranch(membership, claims.organizationId, claims.branchId) ||
@@ -182,8 +183,9 @@ router.get('/file', async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(claims.userId)) return res.status(403).json({ message: 'This private resource link is invalid.' });
 
   try {
-    const user = await User.findById(claims.userId).select('_id role').lean();
-    if (!user || user.role !== 'admin') {
+    const user = await User.findById(claims.userId).select('_id role status authVersion').lean();
+    const currentAuthVersion = Number.isInteger(user?.authVersion) ? user.authVersion : 0;
+    if (!user || user.role !== 'admin' || user.status === 'suspended' || currentAuthVersion !== claims.authVersion) {
       return res.status(403).json({ message: 'You are not allowed to access this school resource.' });
     }
 

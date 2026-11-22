@@ -15,6 +15,7 @@ function privateMediaResponse(req, res, next) {
 
     const rewritten = rewritePrivateMediaFields(body, {
       userId: req.user._id,
+      authVersion: Number.isInteger(req.user.authVersion) ? req.user.authVersion : 0,
       secret: process.env.JWT_SECRET,
       publicBaseUrl: mediaPublicBaseUrl(req),
     });

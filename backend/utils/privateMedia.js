@@ -57,12 +57,12 @@ function parsePrivateMediaReference(value) {
   };
 }
 
-function signPrivateMediaToken({ userId, type, filename, secret }) {
-  if (!secret || !userId || !isSafeMediaFilename(type, filename)) {
+function signPrivateMediaToken({ userId, type, filename, secret, authVersion = 0 }) {
+  if (!secret || !userId || !Number.isInteger(authVersion) || authVersion < 0 || !isSafeMediaFilename(type, filename)) {
     throw new TypeError('A valid user, resource path and signing secret are required.');
   }
   return jwt.sign(
-    { sub: String(userId), type, filename },
+    { sub: String(userId), type, filename, authVersion },
     secret,
     {
       expiresIn: MEDIA_TOKEN_TTL_SECONDS,
@@ -83,13 +83,15 @@ function verifyPrivateMediaToken(token, secret) {
     });
     if (!decoded || typeof decoded.sub !== 'string' || !/^[a-f\d]{24}$/i.test(decoded.sub)) return null;
     if (!isSafeMediaFilename(decoded.type, decoded.filename)) return null;
-    return { userId: decoded.sub, type: decoded.type, filename: decoded.filename };
+    const authVersion = decoded.authVersion === undefined ? 0 : decoded.authVersion;
+    if (!Number.isInteger(authVersion) || authVersion < 0) return null;
+    return { userId: decoded.sub, type: decoded.type, filename: decoded.filename, authVersion };
   } catch {
     return null;
   }
 }
 
-function mediaFieldToSignedUrl(value, userId, secret, publicBaseUrl) {
+function mediaFieldToSignedUrl(value, userId, authVersion, secret, publicBaseUrl) {
   const reference = parsePrivateMediaReference(value);
   if (!reference) return value;
   // Never turn a URL from an unrelated host into a local file capability.
@@ -104,6 +106,7 @@ function mediaFieldToSignedUrl(value, userId, secret, publicBaseUrl) {
   if (!reference.serveable) return '';
   const token = signPrivateMediaToken({
     userId,
+    authVersion,
     type: reference.type,
     filename: reference.filename,
     secret,
@@ -111,7 +114,7 @@ function mediaFieldToSignedUrl(value, userId, secret, publicBaseUrl) {
   return String(publicBaseUrl).replace(/\/+$/, '') + '/api/media/file?token=' + encodeURIComponent(token);
 }
 
-function rewritePrivateMediaFields(body, { userId, secret, publicBaseUrl }) {
+function rewritePrivateMediaFields(body, { userId, authVersion = 0, secret, publicBaseUrl }) {
   let clone;
   try {
     clone = JSON.parse(JSON.stringify(body));
@@ -129,7 +132,7 @@ function rewritePrivateMediaFields(body, { userId, secret, publicBaseUrl }) {
     for (const [key, child] of Object.entries(value)) {
       if (MEDIA_FIELDS.has(key) && typeof child === 'string') {
         try {
-          value[key] = mediaFieldToSignedUrl(child, userId, secret, publicBaseUrl);
+          value[key] = mediaFieldToSignedUrl(child, userId, authVersion, secret, publicBaseUrl);
         } catch {
           // Never leak the unprotected path if signing is unavailable.
           value[key] = '';

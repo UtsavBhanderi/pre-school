@@ -62,6 +62,7 @@ test('signed photo links are short lived and restricted to a specific user and f
     type: 'students',
     filename: 'child-1.jpg',
     secret,
+    authVersion: 4,
   });
   const claims = verifyPrivateMediaToken(token, secret);
 
@@ -69,6 +70,7 @@ test('signed photo links are short lived and restricted to a specific user and f
   assert.equal(claims.userId, userId);
   assert.equal(claims.type, 'students');
   assert.equal(claims.filename, 'child-1.jpg');
+  assert.equal(claims.authVersion, 4);
   assert.equal(verifyPrivateMediaToken(token, 'a-different-secret'), null);
   assert.equal(verifyPrivateMediaToken('not-a-token', secret), null);
 });
@@ -120,6 +122,7 @@ test('API payload rewriting signs nested photo fields without changing unrelated
   const rewritten = rewritePrivateMediaFields(payload, {
     userId,
     secret,
+    authVersion: 3,
     publicBaseUrl: 'https://api.example.test/',
   });
 
@@ -130,6 +133,7 @@ test('API payload rewriting signs nested photo fields without changing unrelated
   const videoClaims = verifyPrivateMediaToken(new URL(rewritten.resources[1].url).searchParams.get('token'), secret);
   const galleryClaims = verifyPrivateMediaToken(new URL(rewritten.gallery.url).searchParams.get('token'), secret);
   assert.equal(studentClaims.filename, 'child-1.jpg');
+  assert.equal(studentClaims.authVersion, 3);
   assert.equal(motherClaims.filename, 'mother.webp');
   assert.equal(teacherClaims.type, 'teachers');
   assert.equal(pdfClaims.type, 'pdf');
@@ -155,4 +159,28 @@ test('external avatar URLs and empty photo fields do not get signed or altered',
     userId, secret, publicBaseUrl: 'https://api.example.test',
   });
   assert.deepEqual(rewritten, payload);
+});
+
+
+test('historical private media tokens without an authVersion remain version zero', () => {
+  const token = jwt.sign(
+    { sub: userId, type: 'students', filename: 'legacy.jpg' },
+    secret,
+    { issuer: 'preschool-private-media', audience: 'school-private-media', expiresIn: 120 },
+  );
+  assert.deepEqual(verifyPrivateMediaToken(token, secret), {
+    userId,
+    type: 'students',
+    filename: 'legacy.jpg',
+    authVersion: 0,
+  });
+});
+
+test('private media tokens reject invalid auth-version claims', () => {
+  const token = jwt.sign(
+    { sub: userId, type: 'students', filename: 'legacy.jpg', authVersion: -1 },
+    secret,
+    { issuer: 'preschool-private-media', audience: 'school-private-media', expiresIn: 120 },
+  );
+  assert.equal(verifyPrivateMediaToken(token, secret), null);
 });

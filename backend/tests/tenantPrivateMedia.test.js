@@ -22,9 +22,9 @@ const organizationId = id();
 const branchId = id();
 
 test('tenant media links are purpose-specific and expire quickly', () => {
-  const token = signTenantMediaToken({ userId, assetId, organizationId, branchId, secret });
+  const token = signTenantMediaToken({ userId, assetId, organizationId, branchId, secret, authVersion: 5 });
   assert.equal(TENANT_MEDIA_TOKEN_TTL_SECONDS, 120);
-  assert.deepEqual(verifyTenantMediaToken(token, secret), { userId, assetId, organizationId, branchId });
+  assert.deepEqual(verifyTenantMediaToken(token, secret), { userId, authVersion: 5, assetId, organizationId, branchId });
   assert.equal(verifyTenantMediaToken(token, 'different-secret'), null);
   assert.equal(verifyTenantMediaToken('not-a-token', secret), null);
 });
@@ -67,4 +67,27 @@ test('teachers may view child photos only for an assigned class', () => {
   const asset = { category: 'child_photo', audience: 'staff_only', childId: id(), className: 'ENG JR.', status: 'active' };
   assert.equal(canReadMedia({ membership: teacher, asset }), true);
   assert.equal(canReadMedia({ membership: teacher, asset: { ...asset, className: 'ENG SR.' } }), false);
+});
+
+
+test('historical tenant media tokens without authVersion remain version zero', () => {
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign(
+    { purpose: 'tenant-media-read', assetId, organizationId, branchId },
+    secret,
+    {
+      subject: userId,
+      expiresIn: 120,
+      issuer: 'preschool-tenant-media',
+      audience: 'tenant-private-media',
+      algorithm: 'HS256',
+    },
+  );
+  assert.deepEqual(verifyTenantMediaToken(token, secret), {
+    userId,
+    authVersion: 0,
+    assetId,
+    organizationId,
+    branchId,
+  });
 });

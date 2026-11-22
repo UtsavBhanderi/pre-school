@@ -7,14 +7,15 @@ const TENANT_MEDIA_ISSUER = 'preschool-tenant-media';
 const TENANT_MEDIA_AUDIENCE = 'tenant-private-media';
 const TENANT_MEDIA_TOKEN_TTL_SECONDS = 120;
 
-function signTenantMediaToken({ userId, assetId, organizationId, branchId, secret }) {
+function signTenantMediaToken({ userId, assetId, organizationId, branchId, secret, authVersion = 0 }) {
   const ids = [userId, assetId, organizationId, branchId];
-  if (!secret || ids.some((id) => !mongoose.Types.ObjectId.isValid(String(id || '')))) {
+  if (!secret || !Number.isInteger(authVersion) || authVersion < 0 || ids.some((id) => !mongoose.Types.ObjectId.isValid(String(id || '')))) {
     throw new TypeError('A signing secret and valid user, asset, organization and branch IDs are required.');
   }
   return jwt.sign(
     {
       purpose: 'tenant-media-read',
+      authVersion,
       assetId: String(assetId),
       organizationId: String(organizationId),
       branchId: String(branchId),
@@ -43,8 +44,11 @@ function verifyTenantMediaToken(token, secret) {
           .every((id) => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id))) {
       return null;
     }
+    const authVersion = claims.authVersion === undefined ? 0 : claims.authVersion;
+    if (!Number.isInteger(authVersion) || authVersion < 0) return null;
     return {
       userId: claims.sub,
+      authVersion,
       assetId: claims.assetId,
       organizationId: claims.organizationId,
       branchId: claims.branchId,

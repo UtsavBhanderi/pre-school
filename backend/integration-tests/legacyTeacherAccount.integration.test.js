@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const { signPrivateMediaToken } = require('../utils/privateMedia');
 
 const configuredUri = String(process.env.MONGO_INTEGRATION_URI || '').trim();
 
@@ -268,5 +269,38 @@ test('school administrators manually create teacher logins that can sign in with
       body: { email: teacherEmail, password: 'IncorrectPassword123' },
     });
     assert.equal(response.status, 401);
+  });
+
+  await t.test('legacy private media links stop working after account revocation', async () => {
+    const mediaAdmin = await User.create({
+      username: 'Media Admin ' + tag,
+      email: 'media-admin-' + tag + '@example.test',
+      password: 'MediaAdminPassword123',
+      role: 'admin',
+      status: 'active',
+      authVersion: 0,
+    });
+    const staleToken = signPrivateMediaToken({
+      userId: String(mediaAdmin._id),
+      type: 'students',
+      filename: 'revocation-check.jpg',
+      secret: process.env.JWT_SECRET,
+      authVersion: 0,
+    });
+
+    await User.updateOne({ _id: mediaAdmin._id }, { $inc: { authVersion: 1 } });
+    const versionRevoked = await api('/api/media/file?token=' + encodeURIComponent(staleToken));
+    assert.equal(versionRevoked.status, 403);
+
+    const currentToken = signPrivateMediaToken({
+      userId: String(mediaAdmin._id),
+      type: 'students',
+      filename: 'revocation-check.jpg',
+      secret: process.env.JWT_SECRET,
+      authVersion: 1,
+    });
+    await User.updateOne({ _id: mediaAdmin._id }, { $set: { status: 'suspended' } });
+    const suspended = await api('/api/media/file?token=' + encodeURIComponent(currentToken));
+    assert.equal(suspended.status, 403);
   });
 });

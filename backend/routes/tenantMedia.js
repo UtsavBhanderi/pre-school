@@ -129,6 +129,7 @@ function buildSignedUrl(req, userId, asset) {
     assetId: asset._id,
     organizationId: asset.organizationId,
     branchId: asset.branchId,
+    authVersion: Number.isInteger(req.user.authVersion) ? req.user.authVersion : 0,
     secret,
   });
   return mediaPublicBaseUrl(req) + '/api/media/file?token=' + encodeURIComponent(token);
