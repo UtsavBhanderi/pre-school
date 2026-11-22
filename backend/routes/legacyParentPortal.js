@@ -10,6 +10,7 @@ const Calendar = require('../models/Calendar');
 const ReportCard = require('../models/ReportCard');
 const User = require('../models/User');
 const { parseDateOnly } = require('../utils/dateOnly');
+const { getTodayInTimeZone } = require('../utils/zonedDate');
 const { isValidNewPassword } = require('../utils/passwordResetTokens');
 
 const router = express.Router();
@@ -76,8 +77,11 @@ router.get('/summary', requireParentAccount, async (req, res) => {
   try {
     const children = await getChildren(req);
     const ids = children.map((child) => child._id);
-    const now = new Date();
-    const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    // Attendance is stored against UTC calendar-day keys, while the
+    // school day is determined from the configured school timezone.
+    const today = getTodayInTimeZone(process.env.SCHOOL_TIME_ZONE || 'Asia/Kolkata');
+    const start = today ? parseDateOnly(today) : null;
+    if (!start) return res.status(500).json({ message: 'The school timezone is not configured correctly.' });
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + 1);
 
@@ -85,13 +89,16 @@ router.get('/summary', requireParentAccount, async (req, res) => {
       organizationId: null,
       date: { $gte: start, $lt: end },
       'studentDetails.studentId': { $in: ids },
-    }).select('studentDetails').lean() : [];
+    }).sort({ updatedAt: -1, createdAt: -1, _id: -1 }).select('studentDetails').lean() : [];
 
+    const visibleChildIds = new Set(ids.map((id) => String(id)));
     const attendanceByChild = new Map();
     for (const record of attendance) {
       for (const detail of record.studentDetails || []) {
         const key = String(detail.studentId);
-        if (ids.some((id) => String(id) === key)) attendanceByChild.set(key, detail.status);
+        if (visibleChildIds.has(key) && !attendanceByChild.has(key)) {
+          attendanceByChild.set(key, detail.status);
+        }
       }
     }
 
@@ -111,7 +118,7 @@ router.get('/summary', requireParentAccount, async (req, res) => {
 
     return res.json({
       schoolName: String(process.env.SINGLE_SCHOOL_NAME || 'Pre-School').trim(),
-      date: start.toISOString().slice(0, 10),
+      date: today,
       children: children.length,
       attendanceToday: {
         present: [...attendanceByChild.values()].filter((value) => value === 'present').length,
@@ -149,12 +156,18 @@ router.get('/attendance', requireParentAccount, async (req, res) => {
       organizationId: null,
       date: { $gte: range.from, $lt: range.endExclusive },
       'studentDetails.studentId': { $in: children.map((child) => child._id) },
-    }).sort({ date: -1 }).select('date standard studentDetails').limit(1000).lean() : [];
+    }).sort({ date: -1, updatedAt: -1, createdAt: -1, _id: -1 })
+      .select('date standard studentDetails updatedAt createdAt').limit(1000).lean() : [];
     const grouped = new Map(children.map((child) => [String(child._id), []]));
+    const seenChildDays = new Set();
     for (const record of records) {
+      const dateKey = record.date ? new Date(record.date).toISOString().slice(0, 10) : '';
       for (const detail of record.studentDetails || []) {
         const key = String(detail.studentId);
-        if (!childById.has(key)) continue;
+        if (!childById.has(key) || !dateKey) continue;
+        const childDayKey = key + ':' + dateKey;
+        if (seenChildDays.has(childDayKey)) continue;
+        seenChildDays.add(childDayKey);
         grouped.get(key).push({
           date: record.date,
           status: detail.status,

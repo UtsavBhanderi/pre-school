@@ -29,6 +29,9 @@ test('single-school parent engagement supports homework, private messages and po
   const ParentPoll = require('../models/ParentPoll');
   const SchoolMessage = require('../models/SchoolMessage');
   const Announcement = require('../models/Announcement');
+  const Attendance = require('../models/Attendance');
+  const { getTodayInTimeZone } = require('../utils/zonedDate');
+  const { parseDateOnly } = require('../utils/dateOnly');
 
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
   const server = app.listen(0);
@@ -109,6 +112,36 @@ test('single-school parent engagement supports homework, private messages and po
     const engagementHomework = await api('/api/school-engagement/parent/homework', { token: teacherToken });
     assert.equal(engagementHomework.status, 403);
     assert.match(engagementHomework.data.message, /parent accounts/i);
+  });
+
+  await t.test('parent attendance summaries use the school date and show only the newest status once per child and day', async () => {
+    const today = getTodayInTimeZone(process.env.SCHOOL_TIME_ZONE || 'Asia/Kolkata');
+    const attendanceDate = parseDateOnly(today);
+    assert.ok(attendanceDate);
+
+    await Attendance.create({
+      date: attendanceDate,
+      standard: 'Nursery',
+      studentDetails: [{ studentId: student._id, status: 'absent', reason: 'Older duplicate entry' }],
+    });
+    await Attendance.create({
+      date: attendanceDate,
+      standard: 'Nursery',
+      studentDetails: [{ studentId: student._id, status: 'present' }],
+    });
+
+    const summary = await api('/api/parent-portal/summary', { token: parentToken });
+    assert.equal(summary.status, 200);
+    assert.equal(summary.data.date, today);
+    assert.equal(summary.data.attendanceToday.present, 1);
+    assert.equal(summary.data.attendanceToday.absent, 0);
+
+    const history = await api('/api/parent-portal/attendance?from=' + today + '&to=' + today, { token: parentToken });
+    assert.equal(history.status, 200);
+    const childHistory = history.data.children.find((item) => item.child.id === String(student._id));
+    assert.ok(childHistory);
+    assert.equal(childHistory.records.length, 1);
+    assert.equal(childHistory.records[0].status, 'present');
   });
 
   await t.test('staff publishes class homework and parents see only linked children', async () => {
