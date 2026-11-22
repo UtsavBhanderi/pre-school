@@ -50,7 +50,22 @@ async function sendFeeEmail(fee) {
 const allocateReceiptNumbers = async (count) => {
   if (!count) return [];
   const year = String(new Date().getFullYear());
-  const counter = await FeeReceiptCounter.findOneAndUpdate({ _id: year }, { $inc: { sequence: count } }, { new: true, upsert: true, setDefaultsOnInsert: true });
+  let counter;
+  try {
+    counter = await FeeReceiptCounter.findOneAndUpdate(
+      { _id: year },
+      { $inc: { sequence: count } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+  } catch (error) {
+    // A simultaneous first-time insert may win the unique annual counter _id.
+    if (error?.code !== 11000) throw error;
+    counter = await FeeReceiptCounter.findOneAndUpdate(
+      { _id: year },
+      { $inc: { sequence: count } },
+      { new: true },
+    );
+  }
   const first = counter.sequence - count + 1;
   return Array.from({ length: count }, (_, index) => 'RCPT-' + year + '-' + String(first + index).padStart(6, '0'));
 };
