@@ -15,7 +15,7 @@ router.post('/create', async (req, res) => {
   try {
     // A report template can be prepared before admissions are complete.
     // The live class roster is refreshed whenever the report is opened.
-    const students = await Student.find({ standard: validation.value.standard }).select('_id').lean();
+    const students = await Student.find({ standard: validation.value.standard, status: { $ne: 'withdrawn' } }).select('_id').lean();
     const newReport = await ReportCard.create({ ...validation.value, students: students.map((student) => student._id) });
     return res.status(201).json({ message: 'Report created successfully.', newReport });
   } catch (error) {
@@ -100,7 +100,7 @@ router.get('/:reportId/roster', async (req, res) => {
       // admission must still include that child.
       // Merge current admissions with the original template roster so
       // students who later move classes retain access to historical results.
-      Student.find({ $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
+      Student.find({ status: { $ne: 'withdrawn' }, $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
         .select('firstName middleName lastName stuNo standard marks')
         .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
         .lean(),
@@ -125,7 +125,7 @@ router.get('/:reportId/students', async (req, res) => {
   try {
     const report = await ReportCard.findById(req.params.reportId).select('reportName standard').lean();
     if (!report) return res.status(404).json({ message: 'Report template not found.' });
-    const roster = await Student.find({ $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
+    const roster = await Student.find({ status: { $ne: 'withdrawn' }, $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
       .select('firstName middleName lastName stuNo standard marks')
       .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
       .lean();

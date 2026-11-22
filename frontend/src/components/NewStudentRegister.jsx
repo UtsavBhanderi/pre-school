@@ -14,6 +14,7 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import PizZipUtils from "pizzip/utils/index.js";
 import "./NewStudentReg.css";
+import StudentLifecyclePanel from "./StudentLifecyclePanel.jsx";
 
 const API_URL = API_BASE_URL;
 
@@ -105,6 +106,7 @@ const NewStudentRegister = () => {
         lastName: "",
         standard: "",
         phoneNumber: "",
+        status: "",
     });
 
     const modalRef = useRef(null);
@@ -441,6 +443,7 @@ const NewStudentRegister = () => {
         lastName: "",
         standard: "",
         phoneNumber: "",
+        status: "",
     });
 
     const hasActiveFilters = Object.values(filter).some((value) => String(value ?? "").trim() !== "");
@@ -453,7 +456,8 @@ const NewStudentRegister = () => {
                 normalize(item.lastName).includes(normalize(filter.lastName)) &&
                 normalize(item.standard).includes(normalize(filter.standard)) &&
                 normalize(item.phoneNumber).includes(normalize(filter.phoneNumber)) &&
-                normalize(item.stuNo).includes(normalize(filter.stuNo))
+                normalize(item.stuNo).includes(normalize(filter.stuNo)) &&
+                (!filter.status || (item.status || "active") === filter.status)
             );
         });
     }, [students, filter]);
@@ -919,6 +923,8 @@ const NewStudentRegister = () => {
                 </div>
             </div>
 
+            <StudentLifecyclePanel students={students} onRefresh={fetchStudents} />
+
             {/* ======================================================
           FILTERS
       ====================================================== */}
@@ -1018,6 +1024,13 @@ const NewStudentRegister = () => {
                         ))}
                     </select>
                 </div>
+
+                <div className="simple-filter-field">
+                    <label className="simple-filter-label" htmlFor="student-filter-status">Enrolment status</label>
+                    <select id="student-filter-status" name="status" value={filter.status} onChange={handleFilterChange} className="form-select">
+                        <option value="">All students</option><option value="active">Active</option><option value="withdrawn">Withdrawn</option>
+                    </select>
+                </div>
             </div>
 
             {/* ======================================================
@@ -1059,6 +1072,7 @@ const NewStudentRegister = () => {
                             <th>Name</th>
                             <th>Mother Name</th>
                             <th>Class</th>
+                            <th>Status</th>
                             <th>D.O.B.</th>
                             <th>Gender</th>
                             <th>Register Mobile</th>
@@ -1072,7 +1086,7 @@ const NewStudentRegister = () => {
                     <tbody>
                         {loadingStudents ? (
                             <tr>
-                                <td colSpan="14" className="text-center py-4">
+                                <td colSpan="15" className="text-center py-4">
                                     <div
                                         className="spinner-border text-primary"
                                         role="status"
@@ -1156,6 +1170,8 @@ const NewStudentRegister = () => {
                                     <td>{item.FatherName || "-"}</td>
 
                                     <td>{item.standard || "-"}</td>
+
+                                    <td><span className={"badge " + ((item.status || "active") === "withdrawn" ? "text-bg-secondary" : "text-bg-success")}>{(item.status || "active") === "withdrawn" ? "Withdrawn" : "Active"}</span></td>
 
                                     <td>{dateToIndianFormat(item.dob) || "-"}</td>
 

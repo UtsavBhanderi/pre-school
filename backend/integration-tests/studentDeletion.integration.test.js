@@ -125,6 +125,48 @@ test('student deletion preserves parent, academic and paid-fee history', {
     assert.equal(response.data.attendance.records[1].reason, 'Fever');
   });
 
+
+  await t.test('promotion, transfer, withdrawal and reactivation preserve student and fee history', async () => {
+    const student = await Student.create({ firstName: 'Lifecycle', middleName: 'Test', lastName: 'Student', standard: 'ENG NR.', batchYear: '2026-2027', stuNo: 'LIFECYCLE-' + tag });
+    await Fees.updateOne({ stuNo: student.stuNo }, { $set: { totalFeesPaid: 250, paymentDetails: [{ date: '11/21/2026', time: '10:00 AM', amount: 250 }] } });
+    const promotion = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'promotion', effectiveDate: '2026-12-01', targetStandard: 'ENG JR.', targetBatchYear: '2027-2028', reason: 'Annual promotion' } });
+    assert.equal(promotion.status, 200);
+    assert.equal(promotion.data.student.standard, 'ENG JR.');
+    assert.equal(promotion.data.student.academicHistory.at(-1).action, 'promotion');
+    const feeAfterPromotion = await Fees.findOne({ stuNo: student.stuNo }).lean();
+    assert.equal(feeAfterPromotion.standard, 'ENG JR.');
+    assert.equal(feeAfterPromotion.batchYear, '2027-2028');
+    assert.equal(feeAfterPromotion.totalFeesPaid, 250);
+    assert.equal(feeAfterPromotion.paymentDetails.length, 1);
+    const transfer = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'transfer', effectiveDate: '2027-01-05', targetStandard: 'GUJ JR.', targetBatchYear: '2027-2028', reason: 'Language section change' } });
+    assert.equal(transfer.status, 200);
+    assert.equal(transfer.data.student.standard, 'GUJ JR.');
+    const withdrawal = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'withdraw', effectiveDate: '2027-02-01', reason: 'Family relocation' } });
+    assert.equal(withdrawal.status, 200);
+    assert.equal(withdrawal.data.student.status, 'withdrawn');
+    assert.ok(await Student.exists({ _id: student._id }));
+    const withdrawnRoster = await api('/api/students/GUJ JR.');
+    assert.equal(withdrawnRoster.status, 200);
+    assert.equal(withdrawnRoster.data.some((item) => String(item._id) === String(student._id)), false);
+    const reactivation = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'reactivate', effectiveDate: '2027-03-01', reason: 'Family returned' } });
+    assert.equal(reactivation.status, 200);
+    assert.equal(reactivation.data.student.status, 'active');
+    assert.equal(reactivation.data.student.academicHistory.length, 4);
+    const activeRoster = await api('/api/students/GUJ JR.');
+    assert.equal(activeRoster.data.some((item) => String(item._id) === String(student._id)), true);
+  });
+
+  await t.test('lifecycle endpoint rejects invalid dates, reasons and destination classes', async () => {
+    const student = await Student.create({ firstName: 'Invalid', standard: 'ENG NR.', stuNo: 'LIFECYCLE-INVALID-' + tag });
+    const invalidDate = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'promotion', effectiveDate: '2026-02-30', targetStandard: 'ENG JR.', reason: 'Promotion' } });
+    assert.equal(invalidDate.status, 400);
+    const noReason = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'withdraw', effectiveDate: '2026-11-22', reason: '' } });
+    assert.equal(noReason.status, 400);
+    const sameClass = await api('/api/students/' + student._id + '/lifecycle', { method: 'PATCH', body: { action: 'promotion', effectiveDate: '2026-11-22', targetStandard: 'ENG NR.', reason: 'Promotion' } });
+    assert.equal(sameClass.status, 400);
+    assert.equal((await Student.findById(student._id).lean()).status, 'active');
+  });
+
   await t.test('paid fee history blocks student deletion', async () => {
     const student = await Student.create({
       firstName: 'Paid',

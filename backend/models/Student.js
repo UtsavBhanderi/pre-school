@@ -2,6 +2,15 @@ const mongoose = require('mongoose');
 const Fee = require('./Fee');
 const { STANDARD_FEES } = require('../config/standardFees');
 
+const StudentLifecycleSchema = new mongoose.Schema({
+  action: { type: String, enum: ['admission', 'promotion', 'transfer', 'withdrawal', 'reactivation'], required: true },
+  effectiveDate: { type: String, required: true },
+  fromStandard: { type: String, default: '' }, toStandard: { type: String, default: '' },
+  fromBatchYear: { type: String, default: '' }, toBatchYear: { type: String, default: '' },
+  reason: { type: String, trim: true, maxlength: 250, default: '' },
+  notes: { type: String, trim: true, maxlength: 1000, default: '' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+}, { timestamps: true });
 const MarkSchema = new mongoose.Schema({
   subject: { type: String },
   mark: { type: Number },
@@ -32,6 +41,10 @@ const studentSchema = new mongoose.Schema({
   address: { type: String, required: false },
   phoneNumber: { type: String, required: false },
   standard: { type: String, required: false },
+  status: { type: String, enum: ['active', 'withdrawn'], default: 'active', index: true },
+  admissionDate: { type: String, default: '' },
+  leavingDetails: { date: { type: String, default: '' }, reason: { type: String, trim: true, default: '' }, notes: { type: String, trim: true, default: '' } },
+  academicHistory: { type: [StudentLifecycleSchema], default: [] },
   stuNo: { type: String, unique: true, required: false },
   batchYear: { type: String, required: false },
   studentProblem: { type: String },
@@ -91,6 +104,7 @@ const studentSchema = new mongoose.Schema({
 
 
 studentSchema.index({ organizationId: 1, branchId: 1, standard: 1, middleName: 1 });
+studentSchema.index({ status: 1, standard: 1, batchYear: 1 });
 studentSchema.index({ organizationId: 1, branchId: 1, createdAt: -1 });
 
 studentSchema.pre('save', function (next) {

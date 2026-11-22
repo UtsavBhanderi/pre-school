@@ -140,8 +140,12 @@ router.post('/', upload.fields([
     const batchYear = profileData.batchYear || `${year}-${year + 1}`;
     const files = req.files || {};
 
+    const admissionDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const newStudent = new Student({
       ...profileData,
+      status: 'active',
+      admissionDate,
+      academicHistory: [{ action: 'admission', effectiveDate: admissionDate, toStandard: standard, toBatchYear: batchYear, reason: 'Initial admission' }],
       ...(files.studentPhoto?.[0] && { studentPhoto: `uploads/students/${files.studentPhoto[0].filename}` }),
       ...(files.motherPhoto?.[0] && { motherPhoto: `uploads/students/${files.motherPhoto[0].filename}` }),
       ...(files.fatherPhoto?.[0] && { fatherPhoto: `uploads/students/${files.fatherPhoto[0].filename}` }),
@@ -197,6 +201,74 @@ router.put('/:id', upload.fields([
     await cleanupRequestUploads(req);
     console.error('Student update failed:', error);
     return res.status(400).json({ message: 'Unable to update student.' });
+  }
+});
+
+
+// Record a student's class and enrolment lifecycle without deleting historical data.
+router.patch('/:id/lifecycle', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Invalid student ID.' });
+  const body = req.body || {};
+  const action = String(body.action || '').trim().toLowerCase();
+  const effectiveDate = String(body.effectiveDate || '').trim();
+  const reason = String(body.reason || '').trim();
+  const notes = String(body.notes || '').trim();
+  if (!new Set(['promotion', 'transfer', 'withdraw', 'reactivate']).has(action)) return res.status(400).json({ message: 'Choose a valid student lifecycle action.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) return res.status(400).json({ message: 'Choose a valid effective date.' });
+  const [dateYear, dateMonth, dateDay] = effectiveDate.split('-').map(Number);
+  const dateCheck = new Date(dateYear, dateMonth - 1, dateDay);
+  if (dateCheck.getFullYear() !== dateYear || dateCheck.getMonth() !== dateMonth - 1 || dateCheck.getDate() !== dateDay) return res.status(400).json({ message: 'The effective date is not a valid calendar date.' });
+  if (!reason || reason.length > 250) return res.status(400).json({ message: 'Enter a reason between 1 and 250 characters.' });
+  if (notes.length > 1000) return res.status(400).json({ message: 'Notes must be 1,000 characters or fewer.' });
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+    const currentStatus = student.status || 'active';
+    if (action === 'withdraw' && currentStatus === 'withdrawn') return res.status(409).json({ message: 'This student is already marked as withdrawn.' });
+    if (action === 'reactivate' && currentStatus !== 'withdrawn') return res.status(409).json({ message: 'Only a withdrawn student can be reactivated.' });
+    if ((action === 'promotion' || action === 'transfer') && currentStatus === 'withdrawn') return res.status(409).json({ message: 'Reactivate the student before changing their class.' });
+    const fromStandard = String(student.standard || '');
+    const fromBatchYear = String(student.batchYear || '');
+    let toStandard = fromStandard;
+    let toBatchYear = fromBatchYear;
+    let historyAction = action;
+    if (action === 'promotion' || action === 'transfer') {
+      toStandard = String(body.targetStandard || '').trim();
+      toBatchYear = String(body.targetBatchYear || fromBatchYear).trim();
+      if (!toStandard || toStandard.length > 80) return res.status(400).json({ message: 'Choose a valid destination class.' });
+      if (toBatchYear && !/^\d{4}-\d{4}$/.test(toBatchYear)) return res.status(400).json({ message: 'Enter the academic year in YYYY-YYYY format.' });
+      if (toStandard === fromStandard && toBatchYear === fromBatchYear) return res.status(400).json({ message: 'The destination class or academic year must be different.' });
+      if (action === 'promotion' && toStandard === fromStandard) return res.status(400).json({ message: 'Choose the next class for promotion.' });
+      student.standard = toStandard;
+      student.batchYear = toBatchYear;
+    } else if (action === 'withdraw') {
+      student.status = 'withdrawn';
+      student.leavingDetails = { date: effectiveDate, reason, notes };
+      historyAction = 'withdrawal';
+    } else if (action === 'reactivate') {
+      student.status = 'active';
+      historyAction = 'reactivation';
+    }
+    student.academicHistory.push({
+      action: historyAction, effectiveDate, fromStandard,
+      toStandard: action === 'withdraw' ? '' : toStandard,
+      fromBatchYear, toBatchYear: action === 'withdraw' ? '' : toBatchYear,
+      reason, notes, createdBy: req.user?._id || null,
+    });
+    await student.save();
+    // Update only fee-register labels; amounts, discounts, receipts and schedules stay untouched.
+    if ((action === 'promotion' || action === 'transfer') && student.stuNo) {
+      try {
+        await Fees.updateOne({ stuNo: student.stuNo }, { $set: { standard: toStandard, batchYear: toBatchYear } });
+      } catch (feeError) {
+        console.error('Student lifecycle fee metadata sync failed:', feeError?.name || 'database_error');
+        return res.status(200).json({ message: 'Student class history was saved, but fee-register labels need an administrator review.', warning: 'FEE_METADATA_SYNC_PENDING', student });
+      }
+    }
+    return res.json({ message: 'Student lifecycle update saved successfully.', student });
+  } catch (error) {
+    console.error('Student lifecycle update failed:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'Unable to save the student lifecycle update.' });
   }
 });
 
@@ -393,7 +465,7 @@ router.get('/:standard', async (req, res) => {
   const { standard } = req.params;
 
   try {
-    const students = await Student.find({ standard });
+    const students = await Student.find({ standard, status: { $ne: 'withdrawn' } });
 
     if (!students) {
       return res.status(404).json({ message: 'No students found for this standard' });
