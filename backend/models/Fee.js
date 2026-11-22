@@ -11,6 +11,12 @@ const PaymentDetailSchema = new mongoose.Schema({
   receiptNumber: { type: String, maxlength: 32, default: '' },
 });
 
+const InstallmentSchema = new mongoose.Schema({
+  label: { type: String, required: true, trim: true, maxlength: 60 },
+  dueDate: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+  amount: { type: Number, required: true, min: 0.01 },
+}, { _id: true });
+
 const FeesSchema = new mongoose.Schema({
   // Optional tenant ownership added for explicit legacy migration. Existing
   // records remain unscoped until a signed-off migration assigns both fields.
@@ -31,6 +37,8 @@ const FeesSchema = new mongoose.Schema({
   openingBalancePaid: { type: Number, min: 0, default: undefined },
   totalFeesRemaining: { type: Number, min: 0, default: 0 },
   paymentDetails: { type: [PaymentDetailSchema], default: [] },
+  // Optional schedule; older fee records remain valid without installments.
+  installments: { type: [InstallmentSchema], default: [] },
   discount: { type: Number, min: 0, default: 0 },
 }, { timestamps: true });
 

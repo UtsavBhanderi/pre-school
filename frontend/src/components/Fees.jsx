@@ -6,6 +6,52 @@ import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 
 
+
+function InstallmentScheduleEditor({ installments, total, totalPaid, onChange, onRemove, onAdd, onGenerate }) {
+  const [count, setCount] = React.useState('3');
+  const [firstDueDate, setFirstDueDate] = React.useState(new Date().toISOString().slice(0, 10));
+  let allocated = Math.max(0, totalPaid);
+  const rows = installments.map((item) => {
+    const amount = Number(item.amount) || 0;
+    const paid = Math.min(amount, allocated);
+    allocated = Math.max(0, allocated - paid);
+    const balance = Math.max(0, amount - paid);
+    const overdue = balance > 0 && item.dueDate < new Date().toISOString().slice(0, 10);
+    return { ...item, paid, balance, status: balance <= 0 ? 'Paid' : paid > 0 ? 'Part-paid' : overdue ? 'Overdue' : 'Upcoming' };
+  });
+  const scheduled = installments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  return (
+    <div className="col-12">
+      <div className="d-flex flex-wrap align-items-end gap-2 mb-3">
+        <div><label className="form-label small">Number of installments</label><input className="form-control" type="number" min="1" max="24" value={count} onChange={(event) => setCount(event.target.value)} /></div>
+        <div><label className="form-label small">First due date</label><input className="form-control" type="date" value={firstDueDate} onChange={(event) => setFirstDueDate(event.target.value)} /></div>
+        <button type="button" className="btn btn-outline-primary" onClick={() => onGenerate(count, firstDueDate)}>Generate equal installments</button>
+        <button type="button" className="btn btn-outline-secondary" onClick={onAdd}>Add one installment</button>
+        {installments.length > 0 && <button type="button" className="btn btn-link text-danger" onClick={() => onRemove(-1)}>Clear schedule</button>}
+      </div>
+      {installments.length > 0 ? <>
+        <div className="table-responsive"><table className="table table-sm table-bordered align-middle">
+          <thead><tr><th>Installment</th><th>Due date</th><th>Amount (₹)</th><th>Paid (₹)</th><th>Balance (₹)</th><th>Status</th><th></th></tr></thead>
+          <tbody>{rows.map((item, index) => <tr key={index}>
+            <td><input className="form-control form-control-sm" maxLength="60" value={item.label} onChange={(event) => onChange(index, 'label', event.target.value)} aria-label={'Installment ' + (index + 1) + ' name'} /></td>
+            <td><input className="form-control form-control-sm" type="date" value={item.dueDate} onChange={(event) => onChange(index, 'dueDate', event.target.value)} aria-label={'Installment ' + (index + 1) + ' due date'} /></td>
+            <td><input className="form-control form-control-sm" type="number" min="0.01" step="0.01" value={item.amount} onChange={(event) => onChange(index, 'amount', event.target.value)} aria-label={'Installment ' + (index + 1) + ' amount'} /></td>
+            <td>₹{item.paid.toFixed(2)}</td><td>₹{item.balance.toFixed(2)}</td>
+            <td><span className={'badge ' + (item.status === 'Paid' ? 'bg-success' : item.status === 'Overdue' ? 'bg-danger' : 'bg-secondary')}>{item.status}</span></td>
+            <td><button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onRemove(index)} aria-label={'Remove installment ' + (index + 1)}>Remove</button></td>
+          </tr>)}</tbody>
+        </table></div>
+        <div className="d-flex flex-wrap justify-content-between small">
+          <span>Scheduled: <strong>₹{scheduled.toFixed(2)}</strong> of ₹{total.toFixed(2)}</span>
+          <span>Difference: <strong className={Math.abs(scheduled - total) <= 0.01 ? 'text-success' : 'text-danger'}>₹{(total - scheduled).toFixed(2)}</strong></span>
+          <span>Outstanding: <strong>₹{rows.reduce((sum, item) => sum + item.balance, 0).toFixed(2)}</strong></span>
+        </div>
+        {Math.abs(scheduled - total) > 0.01 && <p className="text-danger small mt-2 mb-0">The installment amounts must equal the fee after discount before you save.</p>}
+      </> : <p className="small text-muted mb-0">No schedule added. Flexible payments remain available.</p>}
+    </div>
+  );
+}
+
 const Fees = () => {
   const linkone = API_BASE_URL;
 
@@ -24,7 +70,8 @@ const Fees = () => {
     totalFeesPaid: 0,
     openingBalancePaid: 0,
     paymentDetails: [],
-    discount: 0,
+      installments: [],
+      discount: 0,
   });
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -119,6 +166,7 @@ const Fees = () => {
       totalFeesPaid: 0,
       openingBalancePaid: 0,
       paymentDetails: [],
+      installments: [],
       discount: 0,
     });
     setEditMode(false);
@@ -143,6 +191,7 @@ const Fees = () => {
       totalFeesPaid,
       openingBalancePaid,
       paymentDetails,
+      installments: Array.isArray(fees.installments) ? fees.installments.map((item) => ({ ...item })) : [],
       discount: Number(fees.discount) || 0,
     });
     setEditMode(true); setEditId(fees._id); setPageError(""); setPageSuccess("");
@@ -189,6 +238,30 @@ const Fees = () => {
     const updatedPaymentDetails = formData.paymentDetails.map((detail, detailIndex) => detailIndex === index ? { ...detail, [name]: value } : detail);
     const totalFeesPaid = Math.round((Number(formData.openingBalancePaid || 0) + updatedPaymentDetails.reduce((sum, detail) => sum + (Number(detail.amount) || 0), 0)) * 100) / 100;
     setFormData((prevFormData) => ({ ...prevFormData, paymentDetails: updatedPaymentDetails, totalFeesPaid }));
+  };
+
+
+  const updateInstallment = (index, field, value) => setFormData((current) => ({
+    ...current,
+    installments: current.installments.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
+  }));
+  const addInstallment = () => {
+    const next = formData.installments.length + 1;
+    setFormData((current) => ({ ...current, installments: [...current.installments, { label: 'Installment ' + next, dueDate: new Date().toISOString().slice(0, 10), amount: '' }] }));
+  };
+  const generateInstallments = (countValue, firstDueDate) => {
+    const count = Math.max(1, Math.min(24, Number(countValue) || 1));
+    if (!firstDueDate) { setPageError('Choose the first installment due date.'); return; }
+    const payable = Math.round((Number(formData.totalStandardFees || 0) - Number(formData.discount || 0)) * 100);
+    if (payable <= 0) { setPageError('Enter the class fee and discount before generating installments.'); return; }
+    const base = Math.floor(payable / count);
+    const first = new Date(firstDueDate + 'T12:00:00');
+    const schedule = Array.from({ length: count }, (_, index) => {
+      const due = new Date(first.getFullYear(), first.getMonth() + index, first.getDate());
+      return { label: 'Installment ' + (index + 1), dueDate: due.getFullYear() + '-' + String(due.getMonth() + 1).padStart(2, '0') + '-' + String(due.getDate()).padStart(2, '0'), amount: ((base + (index < payable % count ? 1 : 0)) / 100).toFixed(2) };
+    });
+    setFormData((current) => ({ ...current, installments: schedule }));
+    setPageError('');
   };
 
   const addPaymentDetail = () => {
@@ -532,8 +605,22 @@ const Fees = () => {
                 onChange={handleInputChange}
               />
             </div>
+
             <div className="col-12 fees-step-heading">
-              <h3>3. Money received</h3>
+              <h3>3. Optional payment schedule</h3>
+              <p>Split the net fee into due dates. Payments are automatically applied to the earliest installment first; saved receipts are never changed.</p>
+            </div>
+            <InstallmentScheduleEditor
+              installments={formData.installments}
+              total={Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.discount || 0))}
+              totalPaid={Number(formData.totalFeesPaid || 0)}
+              onChange={updateInstallment}
+              onRemove={(index) => setFormData((current) => ({ ...current, installments: index < 0 ? [] : current.installments.filter((_, itemIndex) => itemIndex !== index) }))}
+              onAdd={addInstallment}
+              onGenerate={generateInstallments}
+            />
+            <div className="col-12 fees-step-heading">
+              <h3>4. Money received</h3>
               <p>Click “Add a payment” for each payment you have collected. Enter the amount received; the totals update automatically.</p>
             </div>
             <div className="form-group col-12">

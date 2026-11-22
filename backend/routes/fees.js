@@ -8,6 +8,7 @@ const FeeReceiptCounter = require('../models/FeeReceiptCounter');
 const { STANDARD_FEES } = require('../config/standardFees');
 const { asAmount, calculateRemaining } = require('../utils/feeMath');
 const { validateFeeAmounts, validatePaymentHistoryUpdate, hasFeePaymentHistory } = require('../utils/feeValidation');
+const { normalizeInstallments, allocatePaymentsToInstallments } = require('../utils/feeInstallments');
 
 const router = express.Router();
 
@@ -153,6 +154,28 @@ const aggregatePayments = async (start, end) => {
 // Fee schedule endpoint keeps the frontend form in sync with the server-side schedule.
 router.get('/standard-fees', (req, res) => res.json(STANDARD_FEES));
 
+
+router.get('/installments/overview', async (req, res) => {
+  try {
+    const records = await Fees.find({ 'installments.0': { $exists: true } })
+      .select('studentName stuNo standard batchYear totalFeesPaid totalStandardFees discount installments')
+      .sort({ studentName: 1 }).lean();
+    const today = new Date().toISOString().slice(0, 10);
+    const items = records.flatMap((record) => allocatePaymentsToInstallments(record.installments, record.totalFeesPaid, today)
+      .map((installment) => ({ feeRecordId: String(record._id), studentName: record.studentName, stuNo: record.stuNo, standard: record.standard, batchYear: record.batchYear, ...installment })));
+    const summary = items.reduce((result, item) => {
+      result[item.status] = (result[item.status] || 0) + 1;
+      result.outstanding += item.balance;
+      return result;
+    }, { paid: 0, partial: 0, overdue: 0, upcoming: 0, outstanding: 0 });
+    summary.outstanding = asAmount(summary.outstanding);
+    return res.json({ today, summary, installments: items });
+  } catch (error) {
+    console.error('Failed to load installment overview:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'Unable to load installment overview.' });
+  }
+});
+
 router.get('/all', async (req, res) => {
   try {
     const fees = await Fees.find().sort({ studentName: 1 }).lean();
@@ -179,6 +202,11 @@ router.post('/create', async (req, res) => {
   if (!batchYear || batchYear.length > 12) return res.status(400).json({ message: 'Choose a valid school year.' });
   try {
     const feeData = { studentName, standard, batchYear, ...amounts.value };
+    if (body.installments !== undefined) {
+      const schedule = normalizeInstallments(body.installments, amounts.value.totalStandardFees, amounts.value.discount);
+      if (!schedule.valid) return res.status(400).json({ message: schedule.message });
+      feeData.installments = schedule.value;
+    }
     if (!Array.isArray(body.paymentDetails) && amounts.value.totalFeesPaid > 0) {
       feeData.openingBalancePaid = amounts.value.totalFeesPaid;
     }
@@ -234,6 +262,11 @@ router.put('/update/:id', async (req, res) => {
       ];
     }
     const updates = { ...amounts.value };
+    if (body.installments !== undefined) {
+      const schedule = normalizeInstallments(body.installments, amounts.value.totalStandardFees, amounts.value.discount);
+      if (!schedule.valid) return res.status(400).json({ message: schedule.message });
+      updates.installments = schedule.value;
+    }
     // A text-only edit must not replace receipt subdocuments or regenerate their IDs.
     if (!paymentDetailsProvided) delete updates.paymentDetails;
     if (paymentHistory) updates.openingBalancePaid = paymentHistory.openingBalancePaid;

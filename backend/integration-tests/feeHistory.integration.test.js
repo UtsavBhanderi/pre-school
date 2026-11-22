@@ -201,6 +201,34 @@ test('fee history is append-only and legacy paid balances remain intact', {
   });
 
 
+  await t.test('installment schedule validates totals and reports paid/overdue status', async () => {
+    const created = await api('/api/fees/create', { method: 'POST', body: {
+      studentName: 'Installment Family ' + tag, standard: 'Nursery', batchYear: '2026-2027',
+      totalStandardFees: 900, discount: 0,
+      paymentDetails: [{ date: '11/21/2026', time: '10:00 AM', amount: 300 }],
+      installments: [
+        { label: 'Admission', dueDate: '2026-11-01', amount: 300 },
+        { label: 'Term 1', dueDate: '2026-12-01', amount: 300 },
+        { label: 'Term 2', dueDate: '2027-01-01', amount: 300 },
+      ],
+    }});
+    assert.equal(created.status, 201);
+    assert.equal(created.data.installments.length, 3);
+    const invalid = await api('/api/fees/update/' + created.data._id, { method: 'PUT', body: {
+      installments: [{ label: 'Only one', dueDate: '2026-12-01', amount: 800 }],
+    }});
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.data.message, /must total the fee after discount/);
+    const overview = await api('/api/fees/installments/overview');
+    assert.equal(overview.status, 200);
+    const rows = overview.data.installments.filter((item) => item.feeRecordId === created.data._id);
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].paidAmount, 300);
+    assert.equal(rows[0].status, 'paid');
+    assert.equal(rows[1].status, 'upcoming');
+    assert.equal(rows[2].status, 'upcoming');
+  });
+
   await t.test('collection report groups recorded payments by date and method', async () => {
     await Fees.create({ studentName: 'Report Family ' + tag, standard: 'Nursery', batchYear: '2026-2027', stuNo: 'REPORT-' + tag, totalStandardFees: 1000, totalFeesPaid: 175, totalFeesRemaining: 825, paymentDetails: [
       { date: '11/24/2026', time: '09:00 AM', amount: 100, method: 'cash' },
