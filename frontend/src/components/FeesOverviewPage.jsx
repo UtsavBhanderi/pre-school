@@ -155,7 +155,7 @@ const FeesOverviewPage = () => {
     const quote = (value) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
     const rows = [["Payment date", "Student", "GR No.", "Class", "Amount (INR)", "Method", "Reference"],
       ...collectionReport.entries.map((entry) => [entry.date ? new Date(entry.date).toLocaleDateString("en-IN") : "", entry.studentName, entry.stuNo, entry.standard, entry.amount, entry.method, entry.reference])];
-    const blob = new Blob(["\\uFEFF" + rows.map((row) => row.map(quote).join(",")).join("\\r\\n")], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + rows.map((row) => row.map(quote).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
