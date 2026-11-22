@@ -4,14 +4,14 @@ This runbook supports an encrypted backup and a **non-production restore rehears
 
 ## Safety model
 
-- Backups are compressed MongoDB archives, encrypted to an **age** public recipient and accompanied by a SHA-256 checksum and non-sensitive metadata.
+- Backups contain a compressed MongoDB archive and a separate compressed archive of private student documents. Both archives are encrypted to an **age** public recipient and checksummed in one non-sensitive metadata sidecar (format v2). The restore helper still accepts older v1 database-only backups.
 - The backup helper reads **MONGO_URI** from the process environment and writes the connection string only to a mode-0600 temporary config file. The config is removed when the script exits.
-- The output directory is created with mode 0700. Backup and metadata files are mode 0600. The default path **backend/backups/** is excluded from Git.
-- Store the encrypted archive and its **.meta.json** sidecar in approved encrypted off-host storage. A backup on the same machine as the database is not a sufficient disaster-recovery plan.
+- The output directory is created with mode 0700. Both encrypted archives and metadata are mode 0600. The default paths **backend/backups/** and **backend/private-files/** are excluded from Git. Private documents are never copied into public uploads.
+- Store all three matching artifacts—the database **.archive.gz.age**, the **.student-documents.tar.gz.age**, and the database archive's **.meta.json** sidecar—in approved encrypted off-host storage. A backup on the same machine as the database is not a sufficient disaster-recovery plan.
 - Restores require an approved operator, a change-ticket reference, **RESTORE_TARGET_ENV=staging**, an exact target database confirmation, and a database named **restore_test_***.
 - The restore helper refuses to restore to the database name in the source metadata and refuses to restore to the same MongoDB endpoint fingerprint. Use a dedicated staging MongoDB deployment.
 - The restore helper uses namespace remapping and **--drop** only inside the dedicated **restore_test_*** database, and stops on a restore error.
-- After restore, verification checks for core organization/branch/membership records and the unique organization slug, branch-code, and membership indexes. It prints counts, not personal records.
+- After restore, verification checks core organization/branch/membership records, unique tenant indexes, and (for v2 backups) every private student-document file against its database storage name, size and SHA-256 checksum. It prints counts, not personal records.
 - Use MongoDB Database Tools 100.3 or newer, **age**, **python3**, Node.js/npm dependencies, and a MongoDB deployment that can restore the backup's index options.
 
 These gates lower the chance of a mistaken restore, but they are not a substitute for reviewing the destination URI, access controls, and approval before running the command.
@@ -43,17 +43,18 @@ bash ops/mongo-backup.sh
 The script creates files like:
 
 - **backend/backups/preschool-20261014T020000Z.archive.gz.age**
+- **backend/backups/preschool-20261014T020000Z.student-documents.tar.gz.age**
 - **backend/backups/preschool-20261014T020000Z.archive.gz.age.meta.json**
 
-The actual database name and UTC timestamp depend on the configured URI and run time. Copy both files to the approved off-host store and confirm the uploaded archive's checksum. Keep enough backups to meet your retention policy; this helper does not implement automatic retention/deletion.
+The actual database name and UTC timestamp depend on the configured URI and run time. Copy all three matching files to the approved off-host store and confirm both encrypted archive checksums against the metadata. The private document archive includes only flat, server-generated UUID filenames with supported extensions; unexpected files, symlinks or oversized documents make the backup fail safely. Keep enough backups to meet your retention policy; this helper does not implement automatic retention/deletion.
 
-The metadata contains the source database name, a hash of the endpoint authority, date, tool version, archive size, source label, and archive checksum. It never stores the connection URI or credentials.
+The metadata contains the source database name, a hash of the endpoint authority, date, tool version, each archive's size and SHA-256 checksum, source label, and the private-documents archive filename. It never stores the connection URI or credentials.
 
 ## Rehearse restore into a separate staging deployment
 
 First, provision a **separate staging MongoDB deployment** and a dedicated database name starting with **restore_test_**, for example **restore_test_20261014**. The destination account needs the privileges required to restore collections and indexes into that database. Do not point it at production. Avoid sharing destination credentials with the backup-only account.
 
-Make the encrypted archive and its **.meta.json** sidecar available to the approved operator, then run:
+Make the database archive, private-documents archive and matching **.meta.json** sidecar available to the approved operator. Create an empty, restricted staging directory for the private files, separate from the application's live **backend/private-files/student-documents/** directory. Then run:
 
 ~~~bash
 cd backend
@@ -63,29 +64,30 @@ export RESTORE_TARGET_ENV="staging"
 export RESTORE_CONFIRM_TARGET_DATABASE="restore_test_20261014"
 export RESTORE_APPROVED_BY="authorized-operator"
 export RESTORE_CHANGE_TICKET="CHG-12345"
+export RESTORE_PRIVATE_DOCUMENTS_DIR="/secure/staging/private-student-documents"
 bash ops/mongo-restore-to-staging.sh "/secure/backups/preschool-20261014T020000Z.archive.gz.age"
 ~~~
 
 The placeholder URI, database name, operator and ticket above are examples, not ready-to-use values. The confirmed database must exactly match the database in the target URI. The target endpoint must differ from the source endpoint recorded in backup metadata.
 
-The script verifies metadata and checksum before decrypting, restores the source namespace into the test database, then invokes **verify-restore.js**. Because **--drop** is used, rerunning a restore replaces matching collections **inside the named restore_test_* database**. Use a fresh test database for each rehearsal unless the approved change explicitly permits reusing it.
+The script verifies both encrypted archive checksums before decrypting, validates every private archive member (rejecting path traversal, links, non-regular files and unsupported names), restores the source namespace into the test database, and copies private files only into the explicitly supplied empty staging directory. It never overwrites live private storage. It then invokes **verify-restore.js** to compare the staged files with their restored database records. Because **--drop** is used, rerunning a restore replaces matching collections **inside the named restore_test_* database**. Use a fresh test database for each rehearsal unless the approved change explicitly permits reusing it.
 
 ## Acceptance checklist
 
 Record the outcome and elapsed time for each rehearsal:
 
-- [ ] Backup produced a non-empty encrypted archive and matching metadata.
-- [ ] Both files were copied to the approved off-host backup store.
-- [ ] Archive checksum matched the metadata before restore.
+- [ ] Backup produced two non-empty encrypted archives and matching v2 metadata.
+- [ ] All three artifacts were copied to the approved off-host backup store.
+- [ ] Both encrypted archive checksums and sizes matched the metadata before restore.
 - [ ] Restore ran against the separate test deployment and a **restore_test_*** database only.
 - [ ] Restore completed with no skipped/error documents.
-- [ ] Post-restore verification found organizations, branches, memberships and the required unique tenant isolation indexes.
+- [ ] Post-restore verification found organizations, branches, memberships, required unique tenant isolation indexes, and all private student documents matched their recorded size and SHA-256.
 - [ ] A responsible operator opened the restored application in a restricted staging environment and tested login, branch selection, child list, attendance, fee/receipt history and parent-link access using synthetic/test records.
 - [ ] Source/target counts and any known financial totals were compared; unexpected differences were investigated.
 - [ ] The rehearsal record includes approver, ticket, backup timestamp, restore timestamp, result and any follow-up actions.
 - [ ] Backup retention, access permissions, encryption-key recovery and disaster-recovery RTO/RPO were reviewed.
 
-A passing command only verifies technical restoration of a database snapshot; it does not prove user-facing workflows, integrations, uploads/private media, or every fee total are correct. Do not use production personal data in a public demo or unsecured staging environment. Restore testing must comply with the school's retention, consent and privacy policies.
+A passing command verifies technical restoration of a database snapshot and any attached private student documents; it does not prove user-facing workflows, integrations, other uploads/private media, or every fee total are correct. Do not use production personal data in a public demo or unsecured staging environment. Restore testing must comply with the school's retention, consent and privacy policies.
 
 ## What these scripts deliberately do not do
 

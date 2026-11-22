@@ -1,6 +1,9 @@
 'use strict';
 
 const mongoose = require('mongoose');
+const fs = require('fs/promises');
+const path = require('path');
+const crypto = require('crypto');
 
 const uri = String(process.env.MONGO_RESTORE_TARGET_URI || '').trim();
 
@@ -75,6 +78,77 @@ async function main() {
       return;
     }
 
+    const documentRecords = collectionNames.has('studentdocuments')
+      ? await database.collection('studentdocuments').find({}).project({
+          storageName: 1,
+          sizeBytes: 1,
+          sha256: 1,
+        }).toArray()
+      : [];
+    const documentsDirectory = String(process.env.RESTORE_PRIVATE_DOCUMENTS_DIR || '').trim();
+    if (documentRecords.length && !documentsDirectory) {
+      fail('RESTORE_PRIVATE_DOCUMENTS_DIR is required to verify restored student documents.');
+      return;
+    }
+
+    let verifiedStudentDocumentFiles = 0;
+    if (documentsDirectory) {
+      let realDocumentsRoot;
+      try {
+        realDocumentsRoot = await fs.realpath(documentsDirectory);
+      } catch {
+        fail('The restored private student-documents directory is missing.');
+        return;
+      }
+
+      const namePattern = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.(pdf|jpg|jpeg|png|webp)$/i;
+      const expectedNames = new Set();
+      for (const document of documentRecords) {
+        const name = String(document.storageName || '');
+        if (!namePattern.test(name) || expectedNames.has(name)) {
+          fail('A restored student document has an unsafe or duplicate storage name.');
+          return;
+        }
+        expectedNames.add(name);
+
+        const filePath = path.resolve(realDocumentsRoot, name);
+        if (!filePath.startsWith(realDocumentsRoot + path.sep)) {
+          fail('A restored student document resolved outside its private directory.');
+          return;
+        }
+
+        try {
+          const realFile = await fs.realpath(filePath);
+          if (!realFile.startsWith(realDocumentsRoot + path.sep)) {
+            fail('A restored student document resolved outside its private directory.');
+            return;
+          }
+          const [stat, buffer] = await Promise.all([fs.stat(realFile), fs.readFile(realFile)]);
+          const digest = crypto.createHash('sha256').update(buffer).digest('hex');
+          if (!stat.isFile() ||
+              stat.size !== Number(document.sizeBytes) ||
+              buffer.length !== Number(document.sizeBytes) ||
+              digest !== document.sha256) {
+            fail('A restored student document is missing, changed or has an invalid checksum.');
+            return;
+          }
+          verifiedStudentDocumentFiles += 1;
+        } catch {
+          fail('A restored student document file is missing or unreadable.');
+          return;
+        }
+      }
+
+      const entries = await fs.readdir(realDocumentsRoot, { withFileTypes: true });
+      const actualFiles = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+      if (entries.some((entry) => !entry.isFile()) ||
+          actualFiles.length !== expectedNames.size ||
+          actualFiles.some((name) => !expectedNames.has(name))) {
+        fail('The restored private directory contains missing, extra or unsupported files.');
+        return;
+      }
+    }
+
     console.log(JSON.stringify({
       verification: 'passed',
       database: databaseName,
@@ -84,6 +158,7 @@ async function main() {
         organizationMemberships: membershipCount,
       },
       uniqueTenantIsolationIndexes: 'verified',
+      verifiedStudentDocumentFiles,
       collectionCount: collectionNames.size,
       personalDataPrinted: false,
     }, null, 2));
