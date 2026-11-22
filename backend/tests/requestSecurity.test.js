@@ -42,6 +42,22 @@ test('API security headers disable sniffing, framing, referrers, browser capabil
   }
 });
 
+test('an untrusted X-Forwarded-Proto header cannot enable HSTS', () => {
+  const oldNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const response = mockResponse();
+    requestSecurityHeaders({
+      headers: { 'x-forwarded-proto': 'https' },
+      secure: false,
+    }, response, () => {});
+    assert.equal(response.headers['Strict-Transport-Security'], undefined);
+  } finally {
+    if (oldNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = oldNodeEnv;
+  }
+});
+
 test('HSTS is sent only in production over an HTTPS request', () => {
   const oldNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';

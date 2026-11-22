@@ -12,11 +12,9 @@ function requestSecurityHeaders(req, res, next) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 
-  const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '')
-    .split(',')[0]
-    .trim()
-    .toLowerCase();
-  if (process.env.NODE_ENV === 'production' && (req.secure === true || forwardedProto === 'https')) {
+  // req.secure respects Express's explicitly configured trust proxy count.
+  // Do not inspect X-Forwarded-Proto directly: an untrusted client can spoof it.
+  if (process.env.NODE_ENV === 'production' && req.secure === true) {
     res.setHeader('Strict-Transport-Security', 'max-age=15552000');
   }
 
