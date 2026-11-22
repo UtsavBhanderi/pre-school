@@ -17,7 +17,7 @@ function InstallmentScheduleEditor({ installments, total, totalPaid, onChange, o
     allocated = Math.max(0, allocated - paid);
     const balance = Math.max(0, amount - paid);
     const overdue = balance > 0 && item.dueDate < new Date().toISOString().slice(0, 10);
-    return { ...item, paid, balance, status: balance <= 0 ? 'Paid' : paid > 0 ? 'Part-paid' : overdue ? 'Overdue' : 'Upcoming' };
+    return { ...item, paid, balance, status: balance <= 0 ? 'Paid' : overdue ? 'Overdue' : paid > 0 ? 'Part-paid' : 'Upcoming' };
   });
   const scheduled = installments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   return (
@@ -52,6 +52,55 @@ function InstallmentScheduleEditor({ installments, total, totalPaid, onChange, o
   );
 }
 
+
+function InstallmentOverview() {
+  const [data, setData] = React.useState(null);
+  const [status, setStatus] = React.useState('all');
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+  React.useEffect(() => {
+    let active = true;
+    axios.get(API_BASE_URL + '/api/fees/installments/overview')
+      .then((response) => { if (active) setData(response.data || null); })
+      .catch((requestError) => { if (active) setError(requestError.response?.data?.message || 'Unable to load installment overview.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+  const summary = data?.summary || {};
+  const rows = (data?.installments || []).filter((item) => status === 'all' || item.status === status);
+  const currency = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0);
+  return (
+    <section className="page-card mb-4" aria-label="Installment tracking">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div><h3 className="mb-1">Installment tracking</h3><p className="page-subtitle mb-0">Upcoming dues, overdue balances and payment progress across students.</p></div>
+        <select className="form-select" style={{ maxWidth: '190px' }} value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter installments by status">
+          <option value="all">All installments</option><option value="overdue">Overdue</option><option value="upcoming">Upcoming</option><option value="partial">Part-paid</option><option value="paid">Paid</option>
+        </select>
+      </div>
+      {error && <div className="alert alert-warning">{error}</div>}
+      <div className="overview-stat-grid mb-3">
+        <div className="overview-stat-card"><div className="overview-stat-label">Overdue installments</div><div className="overview-stat-value">{loading ? '—' : Number(summary.overdue || 0).toLocaleString('en-IN')}</div></div>
+        <div className="overview-stat-card"><div className="overview-stat-label">Upcoming installments</div><div className="overview-stat-value">{loading ? '—' : Number(summary.upcoming || 0).toLocaleString('en-IN')}</div></div>
+        <div className="overview-stat-card"><div className="overview-stat-label">Scheduled outstanding</div><div className="overview-stat-value">{loading ? '—' : currency(summary.outstanding)}</div></div>
+      </div>
+      <div className="table-responsive">
+        <table className="table table-hover align-middle mb-0">
+          <thead><tr><th>Student</th><th>GR No.</th><th>Installment</th><th>Due date</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan="8" className="text-center py-3">Loading installment schedule…</td></tr> :
+              rows.length ? rows.map((item) => <tr key={item.feeRecordId + '-' + item._id}>
+                <td>{item.studentName || '—'}</td><td>{item.stuNo || '—'}</td><td>{item.label}</td>
+                <td>{item.dueDate ? new Date(item.dueDate + 'T00:00:00').toLocaleDateString('en-IN') : '—'}</td>
+                <td>{currency(item.amount)}</td><td>{currency(item.paidAmount)}</td><td>{currency(item.balance)}</td>
+                <td><span className={'badge ' + (item.status === 'paid' ? 'bg-success' : item.status === 'overdue' ? 'bg-danger' : 'bg-secondary')}>{item.status}</span></td>
+              </tr>) : <tr><td colSpan="8" className="text-center text-muted py-3">{status === 'all' ? 'No installment schedules have been created yet.' : 'No installments match this status.'}</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 const Fees = () => {
   const linkone = API_BASE_URL;
 
@@ -70,8 +119,8 @@ const Fees = () => {
     totalFeesPaid: 0,
     openingBalancePaid: 0,
     paymentDetails: [],
-      installments: [],
-      discount: 0,
+    installments: [],
+    discount: 0,
   });
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -489,6 +538,7 @@ const Fees = () => {
             <p className="page-subtitle">Enter a child’s fee details, record money received, and print a receipt.</p>
           </div>
         </div>
+        <InstallmentOverview />
         <form className="page-card fees-entry-card" onSubmit={handleFormSubmit}>
           <div className="row g-3">
             <div className="col-12 fees-step-heading">

@@ -33,7 +33,7 @@ function allocatePaymentsToInstallments(installments, totalPaid, today = new Dat
     const paidAmount = Math.min(amount, Math.round(remainingPaid * 100) / 100);
     remainingPaid = Math.max(0, Math.round((remainingPaid - paidAmount) * 100) / 100);
     const balance = Math.max(0, Math.round((amount - paidAmount) * 100) / 100);
-    return { ...item, paidAmount, balance, status: balance <= 0 ? 'paid' : paidAmount > 0 ? 'partial' : item.dueDate < today ? 'overdue' : 'upcoming' };
+    return { ...item, paidAmount, balance, status: balance <= 0 ? 'paid' : item.dueDate < today ? 'overdue' : paidAmount > 0 ? 'partial' : 'upcoming' };
   });
 }
 module.exports = { MAX_INSTALLMENTS, normalizeInstallments, allocatePaymentsToInstallments };
