@@ -129,7 +129,7 @@ test('backup scripts parse cleanly with bash', () => {
 
 test('backup creates an age-encrypted archive and verified sidecar metadata', (t) => {
   const sandbox = createSandbox(t);
-  const { archivePath, metadataPath, metadata } = createBackup(sandbox);
+  const { archivePath, metadataPath, metadata, studentDocumentsArchivePath } = createBackup(sandbox);
 
   assert.equal(metadata.format, 'preschool-mongodb-backup-v2');
   assert.equal(metadata.database, 'preschool');
@@ -254,5 +254,5 @@ test('restore remains compatible with older database-only backup metadata', (t) 
   const result = runBash(RESTORE_SCRIPT, sandbox.env, [archivePath]);
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.equal(fs.readdirSync(sandbox.restoredDocuments).length, 0);
-  assert.match(fs.readFileSync(sandbox.env.MOCK_NODE_LOG, 'utf8'), /verify-restore\\.js/);
+  assert.match(fs.readFileSync(sandbox.env.MOCK_NODE_LOG, 'utf8'), /verify-restore\.js/);
 });
