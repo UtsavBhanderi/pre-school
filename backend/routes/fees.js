@@ -197,8 +197,15 @@ router.put('/update/:id', async (req, res) => {
         return res.status(409).json({ code: paymentHistory.code, message: paymentHistory.message });
       }
       amounts.value.totalFeesPaid = paymentHistory.totalFeesPaid;
+      const existingPaymentCount = Array.isArray(existing.paymentDetails) ? existing.paymentDetails.length : 0;
+      amounts.value.paymentDetails = [
+        ...existing.paymentDetails,
+        ...amounts.value.paymentDetails.slice(existingPaymentCount),
+      ];
     }
     const updates = { ...amounts.value };
+    // A text-only edit must not replace receipt subdocuments or regenerate their IDs.
+    if (!paymentDetailsProvided) delete updates.paymentDetails;
     if (paymentHistory) updates.openingBalancePaid = paymentHistory.openingBalancePaid;
     const allowedTextFields = ['studentName', 'studentPhoneNumber', 'ParentsPhoneNumber', 'ParentsMobileNumber', 'EmergencyMobileNumber', 'parentEmail', 'batchYear', 'standard', 'stuNo'];
     for (const field of allowedTextFields) {
@@ -212,8 +219,24 @@ router.put('/update/:id', async (req, res) => {
     if (updates.standard !== undefined && !updates.standard) return res.status(400).json({ message: 'Choose a valid class.' });
     if (updates.batchYear !== undefined && !updates.batchYear) return res.status(400).json({ message: 'Choose a valid school year.' });
     updates.totalFeesRemaining = calculateRemaining(amounts.value.totalStandardFees, amounts.value.totalFeesPaid, amounts.value.discount);
-    const updatedFees = await Fees.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
-    if (!updatedFees) return res.status(404).json({ message: 'Fee record not found.' });
+    // Compare-and-set the document version so two staff members cannot overwrite
+    // each other's changes after reading the same fee record.
+    const expectedVersion = Number.isInteger(existing.__v) ? existing.__v : null;
+    const versionFilter = expectedVersion === null
+      ? { _id: req.params.id, $or: [{ __v: { $exists: false } }, { __v: null }] }
+      : { _id: req.params.id, __v: expectedVersion };
+    const updateOperation = expectedVersion === null
+      ? { $set: { ...updates, __v: 1 } }
+      : { $set: updates, $inc: { __v: 1 } };
+    const updatedFees = await Fees.findOneAndUpdate(versionFilter, updateOperation, { new: true, runValidators: true });
+    if (!updatedFees) {
+      const stillExists = await Fees.exists({ _id: req.params.id });
+      if (!stillExists) return res.status(404).json({ message: 'Fee record not found.' });
+      return res.status(409).json({
+        code: 'FEE_RECORD_CHANGED',
+        message: 'This fee record was updated by another request. Reopen the student’s fee record before trying again.',
+      });
+    }
     if (amounts.value.totalFeesPaid > asAmount(existing.totalFeesPaid)) {
       try { await sendFeeEmail(updatedFees); }
       catch (emailError) { console.error('Fee record saved, but email notification failed:', emailError?.name || 'email_error'); }
@@ -233,7 +256,7 @@ router.delete('/delete/:id', async (req, res) => {
 
     // A paid fee record is part of the school's financial history. Do not
     // allow a profile-screen cleanup action to erase receipts or payment data.
-    const existing = await Fees.findById(req.params.id).select('totalFeesPaid paymentDetails').lean();
+    const existing = await Fees.findById(req.params.id).select('totalFeesPaid openingBalancePaid paymentDetails').lean();
     if (!existing) return res.status(404).json({ message: 'Fee record not found.' });
     if (hasFeePaymentHistory(existing)) {
       return res.status(409).json({
@@ -247,7 +270,8 @@ router.delete('/delete/:id', async (req, res) => {
     const deleted = await Fees.findOneAndDelete({
       _id: req.params.id,
       $and: [
-        { $or: [{ totalFeesPaid: { $lte: 0 } }, { totalFeesPaid: { $exists: false } }] },
+        { $or: [{ totalFeesPaid: { $lte: 0 } }, { totalFeesPaid: { $exists: false } }, { totalFeesPaid: null }] },
+        { $or: [{ openingBalancePaid: { $lte: 0 } }, { openingBalancePaid: { $exists: false } }, { openingBalancePaid: null }] },
         { $or: [{ paymentDetails: { $size: 0 } }, { paymentDetails: { $exists: false } }, { paymentDetails: null }] },
       ],
     });

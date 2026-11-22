@@ -100,6 +100,19 @@ test('fee history is append-only and legacy paid balances remain intact', {
     assert.equal(response.data.paymentDetails.length, 1);
   });
 
+  await t.test('ordinary profile edits preserve saved receipt identifiers', async () => {
+    const before = await Fees.findById(paid._id).lean();
+    const originalPaymentId = String(before.paymentDetails[0]._id);
+    const response = await api('/api/fees/update/' + paid._id, {
+      method: 'PUT',
+      body: { studentName: 'Receipt Preserved Family ' + tag },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(String(response.data.paymentDetails[0]._id), originalPaymentId);
+    assert.equal(response.data.paymentDetails[0].amount, 50);
+    assert.equal(response.data.totalFeesPaid, 150);
+  });
+
   await t.test('a recorded payment cannot be edited or removed', async () => {
     const changed = await api('/api/fees/update/' + paid._id, {
       method: 'PUT',
@@ -134,6 +147,55 @@ test('fee history is append-only and legacy paid balances remain intact', {
     assert.equal(response.data.totalFeesPaid, 175);
     assert.equal(response.data.paymentDetails.length, 2);
     assert.equal(response.data.paymentDetails[0].amount, 50);
+  });
+
+  await t.test('parallel payment submissions cannot silently overwrite one another', async () => {
+    const concurrent = await Fees.create({
+      studentName: 'Concurrent Family ' + tag,
+      standard: 'Nursery',
+      batchYear: '2026-2027',
+      stuNo: 'CONCURRENT-' + tag,
+      totalStandardFees: 1000,
+      totalFeesPaid: 0,
+      totalFeesRemaining: 1000,
+      paymentDetails: [],
+    });
+
+    const responses = await Promise.all([100, 200].map((amount, index) => api('/api/fees/update/' + concurrent._id, {
+      method: 'PUT',
+      body: {
+        paymentDetails: [{
+          date: '11/22/2026',
+          time: index === 0 ? '10:00 AM' : '10:01 AM',
+          amount,
+        }],
+      },
+    })));
+
+    assert.equal(responses.filter((response) => response.status === 200).length, 1);
+    assert.equal(responses.filter((response) => response.status === 409).length, 1);
+    const saved = await Fees.findById(concurrent._id);
+    assert.equal(saved.paymentDetails.length, 1);
+    assert.equal(saved.totalFeesPaid, saved.paymentDetails[0].amount);
+    assert.equal(saved.__v, 1);
+  });
+
+  await t.test('a legacy opening balance prevents deletion even without itemized receipts', async () => {
+    const legacy = await Fees.create({
+      studentName: 'Opening Balance Family ' + tag,
+      standard: 'Nursery',
+      batchYear: '2026-2027',
+      stuNo: 'OPENING-' + tag,
+      totalStandardFees: 1000,
+      totalFeesPaid: 0,
+      openingBalancePaid: 50,
+      totalFeesRemaining: 950,
+      paymentDetails: [],
+    });
+    const response = await api('/api/fees/delete/' + legacy._id, { method: 'DELETE' });
+    assert.equal(response.status, 409);
+    assert.equal(response.data.code, 'FEE_PAYMENT_HISTORY_PRESERVED');
+    assert.ok(await Fees.exists({ _id: legacy._id }));
   });
 
   await t.test('an unpaid fee record can still be deleted', async () => {

@@ -94,7 +94,11 @@ const Fees = () => {
       resetForm();
     } catch (error) {
       console.error("Error saving fees data:", error);
-      setPageError(error.response?.data?.message || "Unable to save this fee record.");
+      const message = error.response?.data?.message || "Unable to save this fee record.";
+      if (error.response?.data?.code === "FEE_RECORD_CHANGED") {
+        await fetchFeesData();
+      }
+      setPageError(message);
     } finally {
       setSavingFees(false);
     }
@@ -215,6 +219,13 @@ const Fees = () => {
     setFilter({ ...filter, [e.target.name]: e.target.value });
   };
   
+  const getRemainingBalance = (record = {}) => Math.max(
+    0,
+    (Number(record.totalStandardFees) || 0)
+      - (Number(record.totalFeesPaid) || 0)
+      - (Number(record.discount) || 0)
+  );
+
   // const filteredfeesData = feesData;
   const filteredfeesData = feesData.filter(
     (pdf) =>
@@ -259,7 +270,7 @@ const Fees = () => {
         totalStandardFees: student.totalStandardFees,
         totalFeesPaid: student.totalFeesPaid,
         TotalRemainingFees:
-          student.totalStandardFees - student.discount - student.totalFeesPaid,
+          getRemainingBalance(student),
         // discount: student.discount,
       }))
     );
@@ -336,7 +347,7 @@ const Fees = () => {
         totalStandardFees: student.totalStandardFees,
         totalFeesPaid: student.totalFeesPaid,
         TotalRemainingFees:
-          student.totalStandardFees - student.discount - student.totalFeesPaid,
+          getRemainingBalance(student),
         // discount: student.discount,
       }));
     const worksheet = XLSX.utils.json_to_sheet(filteredStudents);
@@ -701,7 +712,7 @@ const Fees = () => {
                   <td>{fees.totalStandardFees}</td>
                   <td>{fees.totalFeesPaid}</td>
                   <td>
-                    {fees.totalStandardFees - fees.discount - fees.totalFeesPaid}
+                    {getRemainingBalance(fees)}
                   </td>
                   <td>{fees.discount}</td>
                   <td>
@@ -763,14 +774,14 @@ const Fees = () => {
               <tr>
                 <td colSpan="1"></td>
                 <td colSpan="7" className="fw-bold text-start">Total</td>
-                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.totalStandardFees), 0)}</td>
-                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.totalFeesPaid), 0)}</td>
-                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.totalStandardFees - fees.discount - fees.totalFeesPaid), 0)}</td>
-                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.discount), 0)}</td>
-                {/* <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.totalStandardFees), 0))}</td>
-              <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.totalFeesPaid), 0))}</td>
-              <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.totalStandardFees - fees.discount - fees.totalFeesPaid), 0))}</td>
-              <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + parseFloat(fees.discount), 0))}</td> */}
+                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + (Number(fees.totalStandardFees) || 0), 0)}</td>
+                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + (Number(fees.totalFeesPaid) || 0), 0)}</td>
+                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + getRemainingBalance(fees), 0)}</td>
+                <td colSpan="1" className="fw-bold">₹{filteredfeesData.reduce((sum, fees) => sum + (Number(fees.discount) || 0), 0)}</td>
+                {/* <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + (Number(fees.totalStandardFees) || 0), 0))}</td>
+              <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + (Number(fees.totalFeesPaid) || 0), 0))}</td>
+              <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + getRemainingBalance(fees), 0))}</td>
+              <td colSpan="1" className="fw-bold">₹{calculateSum(filteredfeesData.reduce((sum, fees) => sum + (Number(fees.discount) || 0), 0))}</td> */}
                 <td colSpan="1"></td>
               </tr>
 

@@ -39,6 +39,7 @@ test('discount cannot exceed class fees and payment entries determine total paid
 test('fee records with payment history must be retained for financial audit', () => {
   assert.equal(hasFeePaymentHistory({ totalFeesPaid: 0, paymentDetails: [] }), false);
   assert.equal(hasFeePaymentHistory({ totalFeesPaid: 100, paymentDetails: [] }), true);
+  assert.equal(hasFeePaymentHistory({ totalFeesPaid: 0, openingBalancePaid: 50, paymentDetails: [] }), true);
   assert.equal(hasFeePaymentHistory({ totalFeesPaid: 0, paymentDetails: [{ amount: 1 }] }), true);
   assert.equal(hasFeePaymentHistory({}), false);
 });
