@@ -244,7 +244,29 @@ router.patch('/lifecycle/bulk', async (req, res) => {
       },
     }));
     const result = await Student.bulkWrite(operations, { ordered: false });
-    const studentNumbers = students.filter((student) => student.stuNo).map((student) => student.stuNo);
+
+    // Bulk writes do not expose a reliable per-student success list. Re-read
+    // only students carrying this exact promotion history entry so a student
+    // changed concurrently is never given new fee-register class labels.
+    const confirmedPromotions = await Student.find({
+      _id: { $in: students.map((student) => student._id) },
+      standard: targetStandard,
+      batchYear: targetBatchYear,
+      academicHistory: {
+        $elemMatch: {
+          action: 'promotion',
+          effectiveDate,
+          fromStandard: sourceStandard,
+          toStandard: targetStandard,
+          fromBatchYear: sourceBatchYear,
+          toBatchYear: targetBatchYear,
+          reason,
+          notes,
+          createdBy: req.user._id,
+        },
+      },
+    }).select('stuNo').lean();
+    const studentNumbers = confirmedPromotions.map((student) => student.stuNo).filter(Boolean);
     let feeWarning = false;
     if (studentNumbers.length) {
       try {

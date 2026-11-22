@@ -194,6 +194,54 @@ test('student deletion preserves parent, academic and paid-fee history', {
     assert.equal(fee.paymentDetails.length, 1);
   });
 
+  await t.test('bulk promotion fee labels change only for students whose promotion was actually applied', async () => {
+    const first = await Student.create({ firstName: 'Concurrent', standard: 'ENG NR.', batchYear: '2026-2027', stuNo: 'BULK-CONCURRENT-ONE-' + tag });
+    const second = await Student.create({ firstName: 'Concurrent', standard: 'ENG NR.', batchYear: '2026-2027', stuNo: 'BULK-CONCURRENT-TWO-' + tag });
+    const originalBulkWrite = Student.bulkWrite;
+
+    Student.bulkWrite = async function (operations, options) {
+      // Simulate another administrator withdrawing one selected student
+      // after selection but immediately before the conditional bulk update.
+      await Student.updateOne({ _id: second._id }, { $set: { status: 'withdrawn' } });
+      return originalBulkWrite.call(this, operations, options);
+    };
+
+    let response;
+    try {
+      response = await api('/api/students/lifecycle/bulk', {
+        method: 'PATCH',
+        body: {
+          sourceStandard: 'ENG NR.',
+          sourceBatchYear: '2026-2027',
+          targetStandard: 'ENG JR.',
+          targetBatchYear: '2027-2028',
+          effectiveDate: '2027-04-01',
+          reason: 'Concurrent promotion test',
+          notes: 'Fee labels must follow confirmed promotion history.',
+        },
+      });
+    } finally {
+      Student.bulkWrite = originalBulkWrite;
+    }
+
+    assert.equal(response.status, 200);
+    assert.equal(response.data.requestedCount, 2);
+    assert.equal(response.data.updatedCount, 1);
+
+    const [firstAfter, secondAfter, firstFee, secondFee] = await Promise.all([
+      Student.findById(first._id).lean(),
+      Student.findById(second._id).lean(),
+      Fees.findOne({ stuNo: first.stuNo }).lean(),
+      Fees.findOne({ stuNo: second.stuNo }).lean(),
+    ]);
+    assert.equal(firstAfter.standard, 'ENG JR.');
+    assert.equal(firstFee.standard, 'ENG JR.');
+    assert.equal(secondAfter.status, 'withdrawn');
+    assert.equal(secondAfter.standard, 'ENG NR.');
+    assert.equal(secondFee.standard, 'ENG NR.');
+    assert.equal(secondFee.batchYear, '2026-2027');
+  });
+
   await t.test('paid fee history blocks student deletion', async () => {
     const student = await Student.create({
       firstName: 'Paid',
