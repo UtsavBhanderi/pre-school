@@ -546,18 +546,26 @@ router.get('/staff/polls', async (req, res) => {
   try {
     let audienceFilter = {};
     if (req.user.role === 'teacher') {
-      const scope = await resolveStaffClassScope(req, res);
-      if (!scope) {
-        if (res.headersSent) return;
-        audienceFilter = { audience: { $in: ['all', 'teachers'] } };
-      } else {
-        audienceFilter = {
-          $or: [
-            { audience: { $in: ['all', 'teachers'] } },
-            { audience: 'parents', createdBy: req.user._id, standard: scope.standard },
-          ],
-        };
+      // Teachers without a currently assigned classroom can still read staff
+      // polls and school-wide polls, but cannot see class-targeted parent polls.
+      let assignedStandard = '';
+      try {
+        const scope = await getLegacyTeacherScope(req.user, '');
+        if (scope.allowed) assignedStandard = scope.standard;
+      } catch (error) {
+        console.error('Unable to resolve teacher poll visibility:', error?.name || 'teacher_scope_error');
+        return res.status(503).json({ message: 'Teacher poll access could not be verified.' });
       }
+
+      const visiblePolls = [{ audience: { $in: ['all', 'teachers'] } }];
+      if (assignedStandard) {
+        visiblePolls.push({
+          audience: 'parents',
+          createdBy: req.user._id,
+          standard: assignedStandard,
+        });
+      }
+      audienceFilter = { $or: visiblePolls };
     }
     const polls = await ParentPoll.find(audienceFilter).sort({ createdAt: -1 }).limit(150).lean();
     return res.json({ polls: polls.map((poll) => ({

@@ -220,7 +220,7 @@ export default function SchoolCommunication({ embedded = false }) {
     { id: "complaints", label: "Parent messages", Icon: MdFeedback },
     { id: "polls", label: "Polls", Icon: MdPoll },
     { id: "messages", label: "School messages", Icon: MdCampaign },
-  ];
+  ].filter((item) => isAdmin || item.id !== "complaints");
 
   return (
     <div className={embedded ? "school-communication embedded" : "school-communication container-fluid py-3"}>

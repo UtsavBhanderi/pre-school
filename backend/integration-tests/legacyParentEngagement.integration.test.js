@@ -38,6 +38,7 @@ test('single-school parent engagement supports homework, private messages and po
   const parent = await User.create({ username: 'Family Parent ' + tag, email: 'parent-' + tag + '@example.test', password: 'parent-test-password-123', role: 'parent' });
   const outsider = await User.create({ username: 'Other Parent ' + tag, email: 'other-' + tag + '@example.test', password: 'other-test-password-123', role: 'parent' });
   const teacher = await User.create({ username: 'Class Teacher ' + tag, email: 'teacher-' + tag + '@example.test', password: 'teacher-test-password-123', role: 'teacher' });
+  const unassignedTeacher = await User.create({ username: 'Unassigned Teacher ' + tag, email: 'unassigned-teacher-' + tag + '@example.test', password: 'unassigned-teacher-password-123', role: 'teacher' });
   const withdrawnParent = await User.create({ username: 'Former Family ' + tag, email: 'former-parent-' + tag + '@example.test', password: 'former-parent-password-123', role: 'parent' });
   const teacherProfile = await Teacher.create({ Email: teacher.email, standard: 'Nursery', GR_No: 'ENG-TEACHER-' + tag });
   const student = await Student.create({
@@ -67,6 +68,7 @@ test('single-school parent engagement supports homework, private messages and po
   const parentToken = tokenFor(parent);
   const outsiderToken = tokenFor(outsider);
   const teacherToken = tokenFor(teacher);
+  const unassignedTeacherToken = tokenFor(unassignedTeacher);
   const withdrawnParentToken = tokenFor(withdrawnParent);
   async function api(path, { token, method = 'GET', body } = {}) {
     const url = new URL(path, 'http://127.0.0.1:' + server.address().port);
@@ -89,7 +91,7 @@ test('single-school parent engagement supports homework, private messages and po
     await Promise.allSettled([
       HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}), SchoolMessage.deleteMany({}), Announcement.deleteMany({}),
       ParentAccount.deleteMany({}), Teacher.deleteOne({ _id: teacherProfile._id }), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id, withdrawnStudent._id, differentClassStudent._id] } }),
-      User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id, withdrawnParent._id] } }),
+      User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id, unassignedTeacher._id, withdrawnParent._id] } }),
       mongoose.connection.dropDatabase(),
     ]);
     await new Promise((resolve) => server.close(resolve));
@@ -459,6 +461,18 @@ test('single-school parent engagement supports homework, private messages and po
       token: teacherToken, method: 'PATCH', body: { isActive: false },
     });
     assert.equal(manageAdminPoll.status, 404);
+  });
+
+  await t.test('teachers without an assigned class can still read staff polls but never class-targeted parent polls', async () => {
+    const classes = await api('/api/school-engagement/staff/classes', { token: unassignedTeacherToken });
+    assert.equal(classes.status, 403);
+    const homework = await api('/api/school-engagement/staff/homework', { token: unassignedTeacherToken });
+    assert.equal(homework.status, 403);
+
+    const polls = await api('/api/school-engagement/staff/polls', { token: unassignedTeacherToken });
+    assert.equal(polls.status, 200);
+    assert.ok(polls.data.polls.length > 0, 'Staff-wide polls should remain visible to unassigned teachers.');
+    assert.ok(polls.data.polls.every((poll) => ['all', 'teachers'].includes(poll.audience)));
   });
 
   await t.test('withdrawn families retain private school contact but cannot receive new homework or vote in new polls', async () => {
