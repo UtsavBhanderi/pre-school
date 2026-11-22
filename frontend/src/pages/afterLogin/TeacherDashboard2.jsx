@@ -83,10 +83,10 @@ function SummaryCard({ label, value, note, icon: Icon, tone = "blue" }) {
   );
 }
 
-function TeacherOverview({ user, reports, notices, complaints, homework, loading, onNavigate, onRefresh, refreshError }) {
+function TeacherOverview({ user, reports, notices, messages, homework, loading, onNavigate, onRefresh, refreshError }) {
   const todayKey = localDateKey();
   const reportsToday = reports.filter((report) => String(report.date || "").slice(0, 10) === todayKey).length;
-  const openMessages = complaints.filter((item) => item.status !== "resolved").length;
+  const unreadMessages = messages.filter((item) => !item.hasRead).length;
   const reportTotalHours = reports.reduce((sum, item) => sum + (Number(item.todaysWorkingHours) || 0), 0);
   const urgentNotices = notices.filter((item) => item.priority === "urgent").length;
   const recentNotices = notices.slice(0, 3);
@@ -122,7 +122,7 @@ function TeacherOverview({ user, reports, notices, complaints, homework, loading
 
       <section className="teacher-summary-grid" aria-label="Your activity summary">
         <SummaryCard label="Reports today" value={reportsToday} note="Daily classroom updates" icon={MdAssignment} tone="blue" />
-        <SummaryCard label="Parent messages" value={openMessages} note="Awaiting follow-up" icon={MdForum} tone="amber" />
+        <SummaryCard label="Unread school messages" value={unreadMessages} note="Updates from the school office" icon={MdCampaign} tone="amber" />
         <SummaryCard label="Homework posts" value={homework.length} note="Published assignments" icon={MdCheckCircle} tone="green" />
         <SummaryCard label="Hours reported" value={reportTotalHours.toFixed(1)} note="Across your reports" icon={MdAccessTime} tone="violet" />
       </section>
@@ -198,7 +198,7 @@ export default function TeacherDashboard() {
   const [overviewError, setOverviewError] = useState("");
   const [reports, setReports] = useState([]);
   const [notices, setNotices] = useState([]);
-  const [complaints, setComplaints] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [homework, setHomework] = useState([]);
 
   const activeItem = ALL_ITEMS.find((item) => item.id === activePage) || ALL_ITEMS[0];
@@ -210,7 +210,7 @@ export default function TeacherDashboard() {
     const results = await Promise.allSettled([
       axios.get(API_BASE_URL + "/api/dailyWorkReport"),
       axios.get(API_BASE_URL + "/api/announcements"),
-      axios.get(API_BASE_URL + "/api/school-engagement/staff/complaints"),
+      axios.get(API_BASE_URL + "/api/school-engagement/staff/messages"),
       axios.get(API_BASE_URL + "/api/school-engagement/staff/homework"),
     ]);
     let failed = 0;
@@ -218,7 +218,7 @@ export default function TeacherDashboard() {
     else failed += 1;
     if (results[1].status === "fulfilled") setNotices(Array.isArray(results[1].value.data) ? results[1].value.data : []);
     else failed += 1;
-    if (results[2].status === "fulfilled") setComplaints(results[2].value.data?.complaints || []);
+    if (results[2].status === "fulfilled") setMessages(results[2].value.data?.messages || []);
     else failed += 1;
     if (results[3].status === "fulfilled") setHomework(results[3].value.data?.homework || []);
     else failed += 1;
@@ -274,7 +274,7 @@ export default function TeacherDashboard() {
               <div className="teacher-nav-group-label">{group.label}</div>
               {group.items.map(({ id, label, Icon }) => (
                 <button type="button" key={id} title={label} className={"teacher-nav-link " + (activePage === id ? "active" : "")} onClick={() => navigateTo(id)} aria-current={activePage === id ? "page" : undefined}>
-                  <Icon aria-hidden="true" /><span>{label}</span>{id === "communication" && complaints.filter((item) => item.status !== "resolved").length > 0 && <small>{complaints.filter((item) => item.status !== "resolved").length}</small>}
+                  <Icon aria-hidden="true" /><span>{label}</span>{id === "communication" && messages.filter((item) => !item.hasRead).length > 0 && <small>{messages.filter((item) => !item.hasRead).length}</small>}
                 </button>
               ))}
             </div>
@@ -314,7 +314,7 @@ export default function TeacherDashboard() {
               user={user}
               reports={reports}
               notices={notices}
-              complaints={complaints}
+              messages={messages}
               homework={homework}
               loading={overviewLoading}
               refreshError={overviewError}

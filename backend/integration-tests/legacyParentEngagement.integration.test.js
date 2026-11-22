@@ -247,6 +247,31 @@ test('single-school parent engagement supports homework, private messages and po
     const parentManageDenied = await api('/api/announcements/manage', { token: parentToken });
     assert.equal(parentManageDenied.status, 403);
   });
+  await t.test('archived school messages disappear from teacher feeds but remain visible to administrators', async () => {
+    const created = await api('/api/school-engagement/staff/messages', {
+      token: adminToken,
+      method: 'POST',
+      body: { title: 'Temporary teacher update', message: 'This message will be archived for the visibility test.', audience: 'teachers' },
+    });
+    assert.equal(created.status, 201);
+    const messageId = created.data.item.id;
+
+    const archived = await api('/api/school-engagement/staff/messages/' + messageId + '/status', {
+      token: adminToken, method: 'PATCH', body: { isActive: false },
+    });
+    assert.equal(archived.status, 200);
+
+    const [teacherFeed, adminFeed] = await Promise.all([
+      api('/api/school-engagement/staff/messages', { token: teacherToken }),
+      api('/api/school-engagement/staff/messages', { token: adminToken }),
+    ]);
+    assert.equal(teacherFeed.status, 200);
+    assert.ok(teacherFeed.data.messages.every((item) => item.id !== messageId));
+    const archivedForAdmin = adminFeed.data.messages.find((item) => item.id === messageId);
+    assert.ok(archivedForAdmin);
+    assert.equal(archivedForAdmin.isActive, false);
+  });
+
   await t.test('admin messages and teacher polls are delivered only to their selected audiences', async () => {
     const teachersOnly = await api('/api/school-engagement/staff/messages', {
       token: adminToken, method: 'POST',

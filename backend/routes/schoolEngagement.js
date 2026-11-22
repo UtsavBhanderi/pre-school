@@ -661,7 +661,10 @@ router.get('/staff/messages', async (req, res) => {
   if (!isStaff(req, res)) return;
   try {
     const now = new Date();
-    const audienceFilter = req.user.role === 'admin' ? {} : { audience: { $in: ['all', 'teachers'] } };
+    const audienceFilter = req.user.role === 'admin' ? {} : {
+      audience: { $in: ['all', 'teachers'] },
+      isActive: true,
+    };
     const messages = await SchoolMessage.find({
       ...audienceFilter,
       startsAt: { $lte: now },
