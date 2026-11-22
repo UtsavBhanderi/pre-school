@@ -9,6 +9,7 @@ const HomeworkAssignment = require('../models/HomeworkAssignment');
 const ParentComplaint = require('../models/ParentComplaint');
 const ParentPoll = require('../models/ParentPoll');
 const SchoolMessage = require('../models/SchoolMessage');
+const { getLegacyTeacherScope } = require('../utils/legacyTeacherClass');
 
 const router = express.Router();
 const COMPLAINT_CATEGORIES = ['general', 'fees', 'classroom', 'transport', 'food', 'health', 'safety', 'staff', 'other'];
@@ -51,6 +52,32 @@ const isAdmin = (req, res) => {
   res.status(403).json({ message: 'Only an administrator can send school-wide messages.' });
   return false;
 };
+
+async function resolveStaffClassScope(req, res, requestedStandard = '') {
+  if (req.user?.role !== 'teacher') {
+    return { allowed: true, isTeacher: false, standard: String(requestedStandard || '').trim() };
+  }
+
+  try {
+    const requested = String(requestedStandard || '').trim();
+    const scope = await getLegacyTeacherScope(req.user, requested === 'all' ? '' : requested);
+    if (!scope.allowed) {
+      res.status(403).json({ code: scope.code, message: scope.message });
+      return null;
+    }
+    return scope;
+  } catch (error) {
+    console.error('Unable to resolve teacher classroom scope:', error?.name || 'teacher_scope_error');
+    res.status(503).json({ message: 'Your assigned classroom could not be verified.' });
+    return null;
+  }
+}
+
+const isAdministrator = (req, res) => {
+  if (req.user?.role === 'admin') return true;
+  res.status(403).json({ message: 'This action is restricted to school administrators.' });
+  return false;
+}
 
 function serializeMessage(message, userId, includeReadCount = false) {
   const receipts = message.readBy || [];
@@ -97,6 +124,9 @@ function serializePoll(poll, userId, includeVoterCounts = true, role = 'parent')
     isActive: open,
     status: open ? 'open' : ((!poll.isActive || poll.endsAt <= now) ? 'closed' : 'scheduled'),
     hasVoted: Boolean(ownVote),
+    canVote: open && (role === 'teacher'
+      ? ['all', 'teachers'].includes(poll.audience)
+      : role === 'parent' && ['all', 'parents', null].includes(poll.audience)),
     votedOption: ownVote ? ownVote.optionIndex : null,
     totalVotes: (poll.votes || []).length,
     results: includeVoterCounts ? counts : [],
@@ -347,10 +377,13 @@ router.post('/parent/polls/:id/votes', async (req, res) => {
   }
 });
 
-// Staff endpoints. Teachers and administrators can manage school-wide communication.
+// Staff endpoints. Administrators manage school-wide records; teachers are restricted to their assigned class.
 router.get('/staff/classes', async (req, res) => {
   if (!isStaff(req, res)) return;
+  const scope = await resolveStaffClassScope(req, res);
+  if (!scope) return;
   try {
+    if (scope.isTeacher) return res.json({ classes: [scope.standard] });
     const classes = await Student.distinct('standard', { $or: [{ organizationId: null }, { organizationId: { $exists: false } }] });
     return res.json({ classes: classes.map((item) => String(item || '').trim()).filter(Boolean).sort((a, b) => a.localeCompare(b)) });
   } catch (error) {
@@ -360,27 +393,44 @@ router.get('/staff/classes', async (req, res) => {
 
 router.get('/staff/homework', async (req, res) => {
   if (!isStaff(req, res)) return;
+  const scope = await resolveStaffClassScope(req, res);
+  if (!scope) return;
   try {
-    const homework = await HomeworkAssignment.find().sort({ createdAt: -1 }).limit(150)
-      .populate({ path: 'submissions.studentId', select: 'firstName middleName lastName stuNo standard' })
-      .populate({ path: 'submissions.parentUserId', select: 'username email' }).lean();
-    return res.json({ homework: homework.map((assignment) => ({
-      id: String(assignment._id),
-      title: assignment.title,
-      instructions: assignment.instructions,
-      standard: assignment.standard,
-      dueDate: assignment.dueDate,
-      isActive: assignment.isActive,
-      createdAt: assignment.createdAt,
-      submissionCount: (assignment.submissions || []).length,
-      submissions: (assignment.submissions || []).map((submission) => ({
-        child: displayName(submission.studentId),
-        admissionNumber: submission.studentId?.stuNo || '',
-        parent: submission.parentUserId?.username || 'Parent',
-        responseText: submission.responseText || '',
-        submittedAt: submission.submittedAt,
-      })),
-    })) });
+    const homeworkFilter = scope.isTeacher
+      ? { standard: { $in: [scope.standard, 'all'] } }
+      : {};
+    const query = HomeworkAssignment.find(homeworkFilter).sort({ createdAt: -1 }).limit(150);
+    query.populate({
+      path: 'submissions.studentId',
+      ...(scope.isTeacher ? { match: { standard: scope.standard } } : {}),
+      select: 'firstName middleName lastName stuNo standard',
+    });
+    query.populate({ path: 'submissions.parentUserId', select: 'username email' });
+    const homework = await query.lean();
+    return res.json({ homework: homework.map((assignment) => {
+      const visibleSubmissions = (assignment.submissions || []).filter((submission) => {
+        if (!scope.isTeacher) return Boolean(submission.studentId);
+        return Boolean(submission.studentId && submission.studentId.standard === scope.standard);
+      });
+      return {
+        id: String(assignment._id),
+        title: assignment.title,
+        instructions: assignment.instructions,
+        standard: assignment.standard,
+        dueDate: assignment.dueDate,
+        isActive: assignment.isActive,
+        createdAt: assignment.createdAt,
+        canManage: !scope.isTeacher || String(assignment.createdBy) === String(req.user._id),
+        submissionCount: visibleSubmissions.length,
+        submissions: visibleSubmissions.map((submission) => ({
+          child: displayName(submission.studentId),
+          admissionNumber: submission.studentId?.stuNo || '',
+          parent: submission.parentUserId?.username || 'Parent',
+          responseText: submission.responseText || '',
+          submittedAt: submission.submittedAt,
+        })),
+      };
+    }) });
   } catch (error) {
     return res.status(503).json({ message: 'Homework list could not be loaded.' });
   }
@@ -390,21 +440,30 @@ router.post('/staff/homework', async (req, res) => {
   if (!isStaff(req, res)) return;
   const title = String(req.body?.title || '').trim();
   const instructions = String(req.body?.instructions || '').trim();
-  const standard = String(req.body?.standard || 'all').trim();
+  const requestedStandard = String(req.body?.standard || 'all').trim();
   const dueDate = validDate(req.body?.dueDate);
-  if (title.length < 3 || title.length > 120 || !instructions || instructions.length > 3000 || !dueDate || standard.length > 80) {
+  if (title.length < 3 || title.length > 120 || !instructions || instructions.length > 3000 || !dueDate || requestedStandard.length > 80) {
     return res.status(400).json({ message: 'Enter a title, instructions, class and valid due date.' });
   }
+
+  const scope = await resolveStaffClassScope(req, res, requestedStandard);
+  if (!scope) return;
+  const standard = scope.isTeacher ? scope.standard : (requestedStandard || 'all');
   try {
     if (standard !== 'all') {
       const classes = await Student.distinct('standard', { $or: [{ organizationId: null }, { organizationId: { $exists: false } }] });
-      if (!classes.map((item) => String(item).trim()).includes(standard)) return res.status(400).json({ message: 'Choose a class that exists in the student records.' });
+      if (!classes.map((item) => String(item).trim()).includes(standard)) {
+        return res.status(400).json({ message: 'Choose a class that exists in the student records.' });
+      }
     }
     const assignment = await HomeworkAssignment.create({
       title, instructions, standard, dueDate, createdBy: req.user._id,
       createdByName: req.user.username || '',
     });
-    return res.status(201).json({ message: 'Homework published to the selected class.', homeworkId: String(assignment._id) });
+    return res.status(201).json({
+      message: 'Homework published to ' + (standard === 'all' ? 'all classes.' : standard + '.'),
+      homeworkId: String(assignment._id),
+    });
   } catch (error) {
     return res.status(503).json({ message: 'Homework could not be published.' });
   }
@@ -413,9 +472,20 @@ router.post('/staff/homework', async (req, res) => {
 router.patch('/staff/homework/:id/status', async (req, res) => {
   if (!isStaff(req, res)) return;
   if (!idIsValid(req.params.id) || typeof req.body?.isActive !== 'boolean') return res.status(400).json({ message: 'Choose a valid homework record and status.' });
+  const scope = await resolveStaffClassScope(req, res);
+  if (!scope) return;
   try {
-    const assignment = await HomeworkAssignment.findByIdAndUpdate(req.params.id, { $set: { isActive: req.body.isActive } }, { new: true, runValidators: true });
-    if (!assignment) return res.status(404).json({ message: 'Homework record not found.' });
+    const filter = { _id: req.params.id };
+    if (scope.isTeacher) {
+      filter.createdBy = req.user._id;
+      filter.standard = scope.standard;
+    }
+    const assignment = await HomeworkAssignment.findOneAndUpdate(
+      filter,
+      { $set: { isActive: req.body.isActive } },
+      { new: true, runValidators: true },
+    );
+    if (!assignment) return res.status(404).json({ message: 'Homework record not found or you do not manage this assignment.' });
     return res.json({ message: assignment.isActive ? 'Homework published.' : 'Homework archived.' });
   } catch (error) {
     return res.status(503).json({ message: 'Homework status could not be updated.' });
@@ -423,7 +493,7 @@ router.patch('/staff/homework/:id/status', async (req, res) => {
 });
 
 router.get('/staff/complaints', async (req, res) => {
-  if (!isStaff(req, res)) return;
+  if (!isAdministrator(req, res)) return;
   try {
     const complaints = await ParentComplaint.find().sort({ createdAt: -1 }).limit(250)
       .populate({ path: 'studentId', select: 'firstName middleName lastName stuNo standard' })
@@ -449,7 +519,7 @@ router.get('/staff/complaints', async (req, res) => {
 });
 
 router.patch('/staff/complaints/:id', async (req, res) => {
-  if (!isStaff(req, res)) return;
+  if (!isAdministrator(req, res)) return;
   if (!idIsValid(req.params.id)) return res.status(400).json({ message: 'Invalid parent message.' });
   const status = String(req.body?.status || 'in_progress');
   const schoolReply = typeof req.body?.schoolReply === 'string' ? req.body.schoolReply.trim() : '';
@@ -474,10 +544,26 @@ router.patch('/staff/complaints/:id', async (req, res) => {
 router.get('/staff/polls', async (req, res) => {
   if (!isStaff(req, res)) return;
   try {
-    const audienceFilter = req.user.role === 'admin' ? {} : { audience: { $in: ['all', 'teachers'] } };
+    let audienceFilter = {};
+    if (req.user.role === 'teacher') {
+      const scope = await resolveStaffClassScope(req, res);
+      if (!scope) {
+        if (res.headersSent) return;
+        audienceFilter = { audience: { $in: ['all', 'teachers'] } };
+      } else {
+        audienceFilter = {
+          $or: [
+            { audience: { $in: ['all', 'teachers'] } },
+            { audience: 'parents', createdBy: req.user._id, standard: scope.standard },
+          ],
+        };
+      }
+    }
     const polls = await ParentPoll.find(audienceFilter).sort({ createdAt: -1 }).limit(150).lean();
     return res.json({ polls: polls.map((poll) => ({
       ...serializePoll(poll, req.user._id, true, req.user.role),
+      canManage: req.user.role === 'admin' ||
+        (String(poll.createdBy) === String(req.user._id) && poll.audience === 'parents'),
       createdAt: poll.createdAt,
     })) });
   } catch (error) {
@@ -489,7 +575,7 @@ router.post('/staff/polls', async (req, res) => {
   if (!isStaff(req, res)) return;
   const question = String(req.body?.question || '').trim();
   const description = String(req.body?.description || '').trim();
-  const standard = String(req.body?.standard || 'all').trim();
+  const requestedStandard = String(req.body?.standard || 'all').trim();
   const audience = String(req.body?.audience || 'parents');
   const options = Array.isArray(req.body?.options) ? req.body.options.map((option) => String(option || '').trim()).filter(Boolean) : [];
   const startsAt = req.body?.startsAt ? validDate(req.body.startsAt) : new Date();
@@ -497,6 +583,10 @@ router.post('/staff/polls', async (req, res) => {
   const normalizedOptions = [...new Set(options)];
   if (!['parents', 'teachers', 'all'].includes(audience)) return res.status(400).json({ message: 'Choose Parents, Teachers or Both as the poll audience.' });
   if (req.user.role !== 'admin' && audience !== 'parents') return res.status(403).json({ message: 'Teachers can create parent polls only.' });
+
+  const scope = await resolveStaffClassScope(req, res, requestedStandard);
+  if (!scope) return;
+  const standard = scope.isTeacher ? scope.standard : requestedStandard;
   if (audience !== 'parents' && standard !== 'all') return res.status(400).json({ message: 'Class targeting is available for parent polls only.' });
   if (question.length < 5 || question.length > 240 || description.length > 1200 || standard.length > 80 ||
       normalizedOptions.length < 2 || normalizedOptions.length > 6 || normalizedOptions.some((option) => option.length > 80) ||
@@ -512,7 +602,11 @@ router.post('/staff/polls', async (req, res) => {
       question, description, options: normalizedOptions, standard, audience, startsAt, endsAt,
       createdBy: req.user._id, createdByName: req.user.username || '',
     });
-    return res.status(201).json({ message: audience === 'all' ? 'Poll published to parents and teachers.' : 'Poll published to ' + audience + '.', pollId: String(poll._id) });
+    return res.status(201).json({
+      message: audience === 'all' ? 'Poll published to parents and teachers.' :
+        'Poll published to ' + audience + (standard === 'all' ? '.' : ' in ' + standard + '.'),
+      pollId: String(poll._id),
+    });
   } catch (error) {
     return res.status(503).json({ message: 'Poll could not be published.' });
   }
@@ -630,9 +724,21 @@ router.patch('/staff/messages/:id/status', async (req, res) => {
 router.patch('/staff/polls/:id/status', async (req, res) => {
   if (!isStaff(req, res)) return;
   if (!idIsValid(req.params.id) || typeof req.body?.isActive !== 'boolean') return res.status(400).json({ message: 'Choose a valid poll and status.' });
+  const scope = await resolveStaffClassScope(req, res);
+  if (!scope) return;
   try {
-    const poll = await ParentPoll.findByIdAndUpdate(req.params.id, { $set: { isActive: req.body.isActive } }, { new: true, runValidators: true });
-    if (!poll) return res.status(404).json({ message: 'Poll not found.' });
+    const filter = { _id: req.params.id };
+    if (scope.isTeacher) {
+      filter.createdBy = req.user._id;
+      filter.audience = 'parents';
+      filter.standard = scope.standard;
+    }
+    const poll = await ParentPoll.findOneAndUpdate(
+      filter,
+      { $set: { isActive: req.body.isActive } },
+      { new: true, runValidators: true },
+    );
+    if (!poll) return res.status(404).json({ message: 'Poll not found or you do not manage this poll.' });
     return res.json({ message: poll.isActive ? 'Poll reopened.' : 'Poll closed.' });
   } catch (error) {
     return res.status(503).json({ message: 'Poll status could not be updated.' });

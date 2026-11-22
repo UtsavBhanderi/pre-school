@@ -59,7 +59,7 @@ export default function SchoolCommunication({ embedded = false }) {
       const sectionResults = await Promise.allSettled([
         api("/api/school-engagement/staff/classes"),
         api("/api/school-engagement/staff/homework"),
-        api("/api/school-engagement/staff/complaints"),
+        isAdmin ? api("/api/school-engagement/staff/complaints") : Promise.resolve({ complaints: [] }),
         api("/api/school-engagement/staff/polls"),
         api("/api/school-engagement/staff/messages"),
       ]);
@@ -87,7 +87,7 @@ export default function SchoolCommunication({ embedded = false }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -233,7 +233,7 @@ export default function SchoolCommunication({ embedded = false }) {
 
       <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
         <div className="school-communication-tabs" role="tablist" aria-label="School communication sections">
-          {nav.map(({ id, label, Icon }) => <button type="button" key={id} role="tab" aria-selected={activeTab === id} className={activeTab === id ? "active" : ""} onClick={() => setActiveTab(id)}><Icon />{label}</button>)}
+          {nav.filter(({ id }) => isAdmin || id !== "complaints").map(({ id, label, Icon }) => <button type="button" key={id} role="tab" aria-selected={activeTab === id} className={activeTab === id ? "active" : ""} onClick={() => setActiveTab(id)}><Icon />{label}</button>)}
         </div>
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={load} disabled={loading}><MdRefresh className="me-1" />{loading ? "Refreshing…" : "Refresh"}</button>
       </div>
@@ -242,12 +242,12 @@ export default function SchoolCommunication({ embedded = false }) {
         <div className="col-12 col-xl-5">
           <section className="card border-0 shadow-sm h-100">
             <div className="card-body p-3 p-lg-4">
-              <SectionTitle icon={MdAssignment} title="Publish homework" description="Share an activity with one class or the whole preschool." />
+              <SectionTitle icon={MdAssignment} title="Publish homework" description={isAdmin ? "Share an activity with one class or the whole preschool." : "Share an activity with your assigned class. Administrators manage school-wide assignments."} />
               <form onSubmit={publishHomework} className="d-grid gap-3">
                 <div><label className="form-label small fw-semibold">Homework title</label><input className="form-control" value={homeworkForm.title} onChange={(e) => setHomeworkForm({ ...homeworkForm, title: e.target.value })} minLength={3} maxLength={120} required placeholder="e.g. Practice letter A" /></div>
                 <div><label className="form-label small fw-semibold">Instructions</label><textarea className="form-control" rows="4" value={homeworkForm.instructions} onChange={(e) => setHomeworkForm({ ...homeworkForm, instructions: e.target.value })} maxLength={3000} required placeholder="Explain what the child should practise or complete." /></div>
                 <div className="row g-2">
-                  <div className="col-12 col-sm-6"><label className="form-label small fw-semibold">Send to</label><select className="form-select" value={homeworkForm.standard} onChange={(e) => setHomeworkForm({ ...homeworkForm, standard: e.target.value })}><option value="all">All classes</option>{classes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+                  <div className="col-12 col-sm-6"><label className="form-label small fw-semibold">Send to</label><select className="form-select" value={homeworkForm.standard} onChange={(e) => setHomeworkForm({ ...homeworkForm, standard: e.target.value })}><option value="all">{isAdmin ? "All classes" : "My assigned class"}</option>{classes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
                   <div className="col-12 col-sm-6"><label className="form-label small fw-semibold">Due date</label><input className="form-control" type="date" value={homeworkForm.dueDate} onChange={(e) => setHomeworkForm({ ...homeworkForm, dueDate: e.target.value })} required /></div>
                 </div>
                 <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? "Publishing…" : "Publish homework"}</button>
@@ -261,7 +261,7 @@ export default function SchoolCommunication({ embedded = false }) {
               <SectionTitle icon={MdAssignment} title="Published homework" description="See completion notes sent by parents." count={homework.length} />
               {loading ? <p className="text-secondary small mb-0">Loading homework…</p> : homework.length ? <div className="d-grid gap-3">
                 {homework.map((item) => <article className="school-communication-item" key={item.id}>
-                  <div className="d-flex justify-content-between gap-2 align-items-start"><div><h4>{item.title}</h4><p className="text-secondary small mb-1">{item.standard === "all" ? "All classes" : item.standard} · Due {dateLabel(item.dueDate)}</p></div><button type="button" className={"btn btn-sm " + (item.isActive ? "btn-outline-secondary" : "btn-outline-primary")} onClick={() => setStatus("homework", item.id, !item.isActive)} disabled={busyId === item.id}>{item.isActive ? "Archive" : "Republish"}</button></div>
+                  <div className="d-flex justify-content-between gap-2 align-items-start"><div><h4>{item.title}</h4><p className="text-secondary small mb-1">{item.standard === "all" ? (isAdmin ? "All classes" : "School-wide · your class responses only") : item.standard} · Due {dateLabel(item.dueDate)}</p></div>{item.canManage && <button type="button" className={"btn btn-sm " + (item.isActive ? "btn-outline-secondary" : "btn-outline-primary")} onClick={() => setStatus("homework", item.id, !item.isActive)} disabled={busyId === item.id}>{item.isActive ? "Archive" : "Republish"}</button>}</div>
                   <p className="school-communication-preserve">{item.instructions}</p>
                   <div className="small fw-semibold text-secondary mb-2">{item.submissionCount} completion response{item.submissionCount === 1 ? "" : "s"}</div>
                   {item.submissions?.length > 0 && <div className="table-responsive"><table className="table table-sm align-middle mb-0"><thead><tr><th>Child</th><th>Parent</th><th>Note</th><th>Submitted</th></tr></thead><tbody>{item.submissions.map((submission, index) => <tr key={item.id + "-" + index}><td>{submission.child}<small className="d-block text-secondary">{submission.admissionNumber}</small></td><td>{submission.parent}</td><td>{submission.responseText || "Completed"}</td><td>{dateLabel(submission.submittedAt)}</td></tr>)}</tbody></table></div>}
@@ -272,7 +272,7 @@ export default function SchoolCommunication({ embedded = false }) {
         </div>
       </div>}
 
-      {activeTab === "complaints" && <section className="card border-0 shadow-sm">
+      {isAdmin && activeTab === "complaints" && <section className="card border-0 shadow-sm">
         <div className="card-body p-3 p-lg-4">
           <SectionTitle icon={MdFeedback} title="Messages from parents" description="These are private family messages. Reply here and update the follow-up status." count={complaints.length} />
           {loading ? <p className="text-secondary small">Loading parent messages…</p> : complaints.length ? <div className="d-grid gap-3">
@@ -301,7 +301,7 @@ export default function SchoolCommunication({ embedded = false }) {
               <div><label className="form-label small fw-semibold">Options (one per line, 2–6)</label><textarea className="form-control" rows="4" value={pollForm.options} onChange={(e) => setPollForm({ ...pollForm, options: e.target.value })} required placeholder={"Saturday\nSunday"} /></div>
               <div className="row g-2">
                 {isAdmin && <div className="col-12"><label className="form-label small fw-semibold">Poll audience</label><select className="form-select" value={pollForm.audience} onChange={(e) => setPollForm({ ...pollForm, audience: e.target.value, standard: e.target.value === "parents" ? pollForm.standard : "all" })}><option value="parents">Parents</option><option value="teachers">Teachers</option><option value="all">Both parents and teachers</option></select></div>}
-                <div className="col-12 col-sm-6"><label className="form-label small fw-semibold">Send to</label><select className="form-select" value={pollForm.standard} onChange={(e) => setPollForm({ ...pollForm, standard: e.target.value })} disabled={isAdmin && pollForm.audience !== "parents"}><option value="all">All classes</option>{classes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+                <div className="col-12 col-sm-6"><label className="form-label small fw-semibold">Send to</label><select className="form-select" value={pollForm.standard} onChange={(e) => setPollForm({ ...pollForm, standard: e.target.value })} disabled={isAdmin && pollForm.audience !== "parents"}><option value="all">{isAdmin ? "All classes" : "My assigned class"}</option>{classes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
                 <div className="col-12 col-sm-6"><label className="form-label small fw-semibold">Voting closes</label><input className="form-control" type="date" value={pollForm.endsAt} onChange={(e) => setPollForm({ ...pollForm, endsAt: e.target.value })} required /></div>
               </div>
               <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? "Publishing…" : "Publish poll"}</button>
@@ -312,10 +312,10 @@ export default function SchoolCommunication({ embedded = false }) {
           <SectionTitle icon={MdPoll} title="Poll results" description="Only totals are shown. Individual parent votes are private." count={polls.length} />
           {loading ? <p className="text-secondary small">Loading polls…</p> : polls.length ? <div className="d-grid gap-3">
             {polls.map((poll) => <article className="school-communication-item" key={poll.id}>
-              <div className="d-flex justify-content-between gap-2"><div><h4>{poll.question}</h4><p className="text-secondary small">{poll.audience === "all" ? "Parents & teachers" : poll.audience === "teachers" ? "Teachers" : "Parents"}{poll.audience !== "teachers" ? " · " + (poll.standard === "all" ? "All classes" : poll.standard) : ""} · Closes {dateLabel(poll.endsAt)}</p></div>{isAdmin && <button type="button" className={"btn btn-sm " + (poll.isActive ? "btn-outline-secondary" : "btn-outline-primary")} onClick={() => setStatus("polls", poll.id, !poll.isActive)} disabled={busyId === poll.id}>{poll.isActive ? "Close poll" : "Reopen poll"}</button>}</div>
+              <div className="d-flex justify-content-between gap-2"><div><h4>{poll.question}</h4><p className="text-secondary small">{poll.audience === "all" ? "Parents & teachers" : poll.audience === "teachers" ? "Teachers" : "Parents"}{poll.audience !== "teachers" ? " · " + (poll.standard === "all" ? "All classes" : poll.standard) : ""} · Closes {dateLabel(poll.endsAt)}</p></div>{poll.canManage && <button type="button" className={"btn btn-sm " + (poll.isActive ? "btn-outline-secondary" : "btn-outline-primary")} onClick={() => setStatus("polls", poll.id, !poll.isActive)} disabled={busyId === poll.id}>{poll.isActive ? "Close poll" : "Reopen poll"}</button>}</div>
               {poll.description && <p className="small text-secondary">{poll.description}</p>}
-              {poll.options.map((option, index) => { const count = poll.results?.[index] || 0; const pct = poll.totalVotes ? Math.round(count / poll.totalVotes * 100) : 0; return <div className="school-communication-result" key={option}>{!isAdmin && !poll.hasVoted && poll.isActive ? <label className="d-flex gap-2 align-items-center"><input type="radio" name={"teacher-poll-" + poll.id} checked={String(replyDrafts["poll:" + poll.id]) === String(index)} onChange={() => setReplyDrafts((previous) => ({ ...previous, ["poll:" + poll.id]: String(index) }))} />{option}</label> : <div><span>{option}</span><strong>{count} · {pct}%</strong></div>}{(isAdmin || poll.hasVoted || !poll.isActive) && <i><b style={{ width: pct + "%" }} /></i>}</div>; })}
-              <small className="text-secondary">{poll.totalVotes} total vote{poll.totalVotes === 1 ? "" : "s"} · {poll.audience === "all" ? "Parents & teachers" : poll.audience === "teachers" ? "Teachers" : "Parents"}</small>{!isAdmin && poll.isActive && !poll.hasVoted && <button type="button" className="btn btn-primary btn-sm mt-2" onClick={() => voteInTeacherPoll(poll.id)} disabled={busyId === poll.id}>{busyId === poll.id ? "Submitting…" : "Submit my vote"}</button>}{!isAdmin && poll.hasVoted && <small className="d-block text-success">Your vote is recorded.</small>}
+              {poll.options.map((option, index) => { const count = poll.results?.[index] || 0; const pct = poll.totalVotes ? Math.round(count / poll.totalVotes * 100) : 0; return <div className="school-communication-result" key={option}>{poll.canVote && !poll.hasVoted ? <label className="d-flex gap-2 align-items-center"><input type="radio" name={"teacher-poll-" + poll.id} checked={String(replyDrafts["poll:" + poll.id]) === String(index)} onChange={() => setReplyDrafts((previous) => ({ ...previous, ["poll:" + poll.id]: String(index) }))} />{option}</label> : <div><span>{option}</span><strong>{count} · {pct}%</strong></div>}{(isAdmin || poll.hasVoted || !poll.isActive) && <i><b style={{ width: pct + "%" }} /></i>}</div>; })}
+              <small className="text-secondary">{poll.totalVotes} total vote{poll.totalVotes === 1 ? "" : "s"} · {poll.audience === "all" ? "Parents & teachers" : poll.audience === "teachers" ? "Teachers" : "Parents"}</small>{poll.canVote && !poll.hasVoted && <button type="button" className="btn btn-primary btn-sm mt-2" onClick={() => voteInTeacherPoll(poll.id)} disabled={busyId === poll.id}>{busyId === poll.id ? "Submitting…" : "Submit my vote"}</button>}{!isAdmin && poll.hasVoted && <small className="d-block text-success">Your vote is recorded.</small>}
             </article>)}
           </div> : <div className="text-secondary small">No polls created yet.</div>}
         </div></section></div>

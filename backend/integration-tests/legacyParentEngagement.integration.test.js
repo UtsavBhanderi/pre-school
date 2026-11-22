@@ -22,6 +22,7 @@ test('single-school parent engagement supports homework, private messages and po
   const { app } = require('../server');
   const User = require('../models/User');
   const Student = require('../models/Student');
+  const Teacher = require('../models/Teacher');
   const ParentAccount = require('../models/ParentAccount');
   const HomeworkAssignment = require('../models/HomeworkAssignment');
   const ParentComplaint = require('../models/ParentComplaint');
@@ -38,6 +39,7 @@ test('single-school parent engagement supports homework, private messages and po
   const outsider = await User.create({ username: 'Other Parent ' + tag, email: 'other-' + tag + '@example.test', password: 'other-test-password-123', role: 'parent' });
   const teacher = await User.create({ username: 'Class Teacher ' + tag, email: 'teacher-' + tag + '@example.test', password: 'teacher-test-password-123', role: 'teacher' });
   const withdrawnParent = await User.create({ username: 'Former Family ' + tag, email: 'former-parent-' + tag + '@example.test', password: 'former-parent-password-123', role: 'parent' });
+  const teacherProfile = await Teacher.create({ Email: teacher.email, standard: 'Nursery', GR_No: 'ENG-TEACHER-' + tag });
   const student = await Student.create({
     stuNo: 'GR-' + tag, firstName: 'Aarav', middleName: 'Family', lastName: 'Child',
     standard: 'Nursery', batchYear: '2026-2027', parentEmail: parent.email,
@@ -51,6 +53,10 @@ test('single-school parent engagement supports homework, private messages and po
     stuNo: 'GR-OTHER-' + tag, firstName: 'Other', lastName: 'Child',
     standard: 'Nursery', batchYear: '2026-2027', parentEmail: outsider.email,
     FatherName: outsider.username, FatherMobileNumber: 9123456789,
+  });
+  const differentClassStudent = await Student.create({
+    stuNo: 'GR-PRIMARY-' + tag, firstName: 'Primary', lastName: 'Only Child',
+    standard: 'Primary', batchYear: '2026-2027', parentEmail: outsider.email,
   });
   await ParentAccount.create({ userId: parent._id, studentIds: [student._id], registeredPhone: '9876543210' });
   await ParentAccount.create({ userId: outsider._id, studentIds: [otherStudent._id], registeredPhone: '9123456789' });
@@ -82,7 +88,7 @@ test('single-school parent engagement supports homework, private messages and po
   t.after(async () => {
     await Promise.allSettled([
       HomeworkAssignment.deleteMany({}), ParentComplaint.deleteMany({}), ParentPoll.deleteMany({}), SchoolMessage.deleteMany({}), Announcement.deleteMany({}),
-      ParentAccount.deleteMany({}), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id, withdrawnStudent._id] } }),
+      ParentAccount.deleteMany({}), Teacher.deleteOne({ _id: teacherProfile._id }), Student.deleteMany({ _id: { $in: [student._id, otherStudent._id, withdrawnStudent._id, differentClassStudent._id] } }),
       User.deleteMany({ _id: { $in: [admin._id, parent._id, outsider._id, teacher._id, withdrawnParent._id] } }),
       mongoose.connection.dropDatabase(),
     ]);
@@ -323,6 +329,137 @@ test('single-school parent engagement supports homework, private messages and po
     assert.equal(JSON.stringify(teacherPolls.data).includes(String(parent._id)), false);
   });
 
+
+  await t.test('teachers are restricted to their assigned class and cannot access private parent complaints', async () => {
+    const classes = await api('/api/school-engagement/staff/classes', { token: teacherToken });
+    assert.equal(classes.status, 200);
+    assert.deepEqual(classes.data.classes, ['Nursery']);
+
+    const primaryHomework = await HomeworkAssignment.create({
+      title: 'Primary only activity',
+      instructions: 'This is not a Nursery activity.',
+      standard: 'Primary',
+      dueDate: new Date(Date.now() + 86400000),
+      createdBy: admin._id,
+    });
+    const allClassHomework = await HomeworkAssignment.create({
+      title: 'School activity',
+      instructions: 'All classes may participate.',
+      standard: 'all',
+      dueDate: new Date(Date.now() + 86400000),
+      createdBy: admin._id,
+      submissions: [
+        { studentId: student._id, parentUserId: parent._id, responseText: 'Nursery response' },
+        { studentId: differentClassStudent._id, parentUserId: outsider._id, responseText: 'Primary response' },
+      ],
+    });
+
+    const homeworkList = await api('/api/school-engagement/staff/homework', { token: teacherToken });
+    assert.equal(homeworkList.status, 200);
+    assert.equal(homeworkList.data.homework.some((item) => item.id === String(primaryHomework._id)), false);
+    const schoolAssignment = homeworkList.data.homework.find((item) => item.id === String(allClassHomework._id));
+    assert.ok(schoolAssignment);
+    assert.equal(schoolAssignment.submissionCount, 1);
+    assert.equal(schoolAssignment.submissions[0].child, 'Aarav Family Child');
+    assert.equal(JSON.stringify(homeworkList.data).includes('Primary Only Child'), false);
+
+    const crossClassHomework = await api('/api/school-engagement/staff/homework', {
+      token: teacherToken,
+      method: 'POST',
+      body: {
+        title: 'Unauthorised Primary activity',
+        instructions: 'Must not be created by the Nursery teacher.',
+        standard: 'Primary',
+        dueDate: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(crossClassHomework.status, 403);
+
+    const assignedHomework = await api('/api/school-engagement/staff/homework', {
+      token: teacherToken,
+      method: 'POST',
+      body: {
+        title: 'Nursery class activity',
+        instructions: 'Practise shapes together.',
+        standard: 'all',
+        dueDate: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(assignedHomework.status, 201);
+    const savedAssignment = await HomeworkAssignment.findById(assignedHomework.data.homeworkId).lean();
+    assert.equal(savedAssignment.standard, 'Nursery');
+
+    const manageOwn = await api('/api/school-engagement/staff/homework/' + assignedHomework.data.homeworkId + '/status', {
+      token: teacherToken, method: 'PATCH', body: { isActive: false },
+    });
+    assert.equal(manageOwn.status, 200);
+    const manageAdminHomework = await api('/api/school-engagement/staff/homework/' + homeworkId + '/status', {
+      token: teacherToken, method: 'PATCH', body: { isActive: false },
+    });
+    assert.equal(manageAdminHomework.status, 404);
+
+    const complaintList = await api('/api/school-engagement/staff/complaints', { token: teacherToken });
+    assert.equal(complaintList.status, 403);
+    const complaintReply = await api('/api/school-engagement/staff/complaints/' + complaintId, {
+      token: teacherToken, method: 'PATCH',
+      body: { status: 'resolved', schoolReply: 'Unauthorised response.' },
+    });
+    assert.equal(complaintReply.status, 403);
+  });
+
+  await t.test('teachers can publish parent polls only for their assigned class and manage only their own polls', async () => {
+    const crossClassPoll = await api('/api/school-engagement/staff/polls', {
+      token: teacherToken, method: 'POST',
+      body: {
+        question: 'Which activity suits Primary families?',
+        options: ['Art', 'Music'],
+        standard: 'Primary',
+        audience: 'parents',
+        endsAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(crossClassPoll.status, 403);
+
+    const assignedPoll = await api('/api/school-engagement/staff/polls', {
+      token: teacherToken, method: 'POST',
+      body: {
+        question: 'Which Nursery activity should we plan?',
+        options: ['Art', 'Music'],
+        standard: 'all',
+        audience: 'parents',
+        endsAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    assert.equal(assignedPoll.status, 201);
+    const savedPoll = await ParentPoll.findById(assignedPoll.data.pollId).lean();
+    assert.equal(savedPoll.standard, 'Nursery');
+
+    const parentPollList = await api('/api/school-engagement/parent/polls', { token: parentToken });
+    const familyPoll = parentPollList.data.polls.find((item) => item.id === assignedPoll.data.pollId);
+    assert.ok(familyPoll, 'Parents in the assigned class receive the teacher poll.');
+    assert.equal(familyPoll.canVote, true);
+
+    const list = await api('/api/school-engagement/staff/polls', { token: teacherToken });
+    assert.equal(list.status, 200);
+    const ownPoll = list.data.polls.find((item) => item.id === assignedPoll.data.pollId);
+    assert.ok(ownPoll);
+    assert.equal(ownPoll.canManage, true);
+    assert.equal(ownPoll.canVote, false);
+    const cannotVoteInParentPoll = await api('/api/school-engagement/staff/polls/' + assignedPoll.data.pollId + '/votes', {
+      token: teacherToken, method: 'POST', body: { optionIndex: 0 },
+    });
+    assert.equal(cannotVoteInParentPoll.status, 404);
+    assert.equal(list.data.polls.some((item) => item.id === pollId), false);
+
+    const manageOwn = await api('/api/school-engagement/staff/polls/' + assignedPoll.data.pollId + '/status', {
+      token: teacherToken, method: 'PATCH', body: { isActive: false },
+    });
+    assert.equal(manageOwn.status, 200);
+    const manageAdminPoll = await api('/api/school-engagement/staff/polls/' + pollId + '/status', {
+      token: teacherToken, method: 'PATCH', body: { isActive: false },
+    });
+    assert.equal(manageAdminPoll.status, 404);
+  });
 
   await t.test('withdrawn families retain private school contact but cannot receive new homework or vote in new polls', async () => {
     const homework = await api('/api/school-engagement/parent/homework', { token: withdrawnParentToken });
