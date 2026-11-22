@@ -16,6 +16,9 @@ const router = express.Router();
 
 function requireParentAccount(req, res, next) {
   if (!req.user?._id) return res.status(401).json({ message: 'Sign in to access your family portal.' });
+  if (req.user.role !== 'parent') {
+    return res.status(403).json({ message: 'The family portal is available only to parent accounts.' });
+  }
   ParentAccount.findOne({ userId: req.user._id }).select('studentIds').lean()
     .then((account) => {
       if (!account || !Array.isArray(account.studentIds) || !account.studentIds.length) {

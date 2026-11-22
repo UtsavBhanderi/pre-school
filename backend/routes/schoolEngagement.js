@@ -28,7 +28,12 @@ const isStaff = (req, res) => {
 };
 
 async function getParentChildren(req, res) {
-  // User.status is checked by auth middleware before this helper runs.
+  // Authentication checks the current user status; these endpoints also require
+  // the parent role before consulting any family-link records.
+  if (req.user?.role !== 'parent') {
+    res.status(403).json({ message: 'The family portal is available only to parent accounts.' });
+    return null;
+  }
   // ParentAccount.status is a legacy mirror and may be stale after restoration;
   // this document is authoritative only for the linked-child allow-list.
   const account = await ParentAccount.findOne({ userId: req.user?._id }).select('studentIds').lean();

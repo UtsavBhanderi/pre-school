@@ -136,7 +136,7 @@ app.use('/api/parent-access/activate', parentAccessIpRateLimit, parentAccessIden
 app.use('/api/parent-access/login', parentAccessIpRateLimit, parentAccessIdentityRateLimit);
 app.use('/api/parent-access', parentAccessRoutes);
 app.use('/api/media', privateMediaRoutes);
-app.use('/api/parent-portal', auth, legacyParentPortalRoutes);
+app.use('/api/parent-portal', auth, legacySingleTenantOnly, legacyParentPortalRoutes);
 app.use('/api/teacher-portal', auth, legacySingleTenantOnly, teacherPortalCalendarRoutes);
 app.use('/api/school-engagement', auth, legacySingleTenantOnly, schoolEngagementRoutes);
 

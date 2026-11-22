@@ -61,6 +61,9 @@ test('single-school parent engagement supports homework, private messages and po
   });
   await ParentAccount.create({ userId: parent._id, studentIds: [student._id], registeredPhone: '9876543210' });
   await ParentAccount.create({ userId: outsider._id, studentIds: [otherStudent._id], registeredPhone: '9123456789' });
+  // Regression fixture: a non-parent role must not gain parent portal access
+  // even if a legacy family-link document is accidentally attached to it.
+  await ParentAccount.create({ userId: teacher._id, studentIds: [student._id], registeredPhone: '9876543210' });
   await ParentAccount.create({ userId: withdrawnParent._id, studentIds: [withdrawnStudent._id], registeredPhone: '9000000000' });
 
   const tokenFor = (user) => jwt.sign({ user: { id: String(user._id), role: user.role, authVersion: 0 } }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -99,6 +102,15 @@ test('single-school parent engagement supports homework, private messages and po
   });
 
   let homeworkId;
+  await t.test('a teacher role cannot use a linked parent account to access family data', async () => {
+    const legacySummary = await api('/api/parent-portal/summary', { token: teacherToken });
+    assert.equal(legacySummary.status, 403);
+
+    const engagementHomework = await api('/api/school-engagement/parent/homework', { token: teacherToken });
+    assert.equal(engagementHomework.status, 403);
+    assert.match(engagementHomework.data.message, /parent accounts/i);
+  });
+
   await t.test('staff publishes class homework and parents see only linked children', async () => {
     const published = await api('/api/school-engagement/staff/homework', {
       token: adminToken, method: 'POST',
