@@ -84,7 +84,10 @@ export default function LayoutAdmin() {
         setCommandOpen(true);
         setCommandQuery("");
       }
-      if (event.key === "Escape") setCommandOpen(false);
+      if (event.key === "Escape") {
+        setCommandOpen(false);
+        setMenuOpen(false);
+      }
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
@@ -93,6 +96,15 @@ export default function LayoutAdmin() {
   useEffect(() => {
     if (commandOpen) commandInputRef.current?.focus();
   }, [commandOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [menuOpen]);
 
   const openCommand = () => {
     setCommandQuery("");

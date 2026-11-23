@@ -1195,6 +1195,20 @@ test('administrator navigation remains usable with touch input from 320px to 430
 
   await menuButton.click();
   await page.locator('.admin-sidebar.is-open').waitFor();
+  assert.equal(await menuButton.getAttribute('aria-expanded'), 'true',
+    'Opening administrator navigation must update its expanded state.');
+  assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden',
+    'The page behind the administrator drawer must not scroll.');
+
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.admin-sidebar')?.classList.contains('is-open'));
+  assert.equal(await menuButton.getAttribute('aria-expanded'), 'false',
+    'Escape must close administrator navigation.');
+  assert.equal(await page.evaluate(() => document.body.style.overflow), '',
+    'Closing administrator navigation must restore page scrolling.');
+
+  await menuButton.click();
+  await page.locator('.admin-sidebar.is-open').waitFor();
   const sidebarSize = await page.locator('.admin-sidebar').evaluate((element) => ({
     zIndex: Number(getComputedStyle(element).zIndex),
     height: element.getBoundingClientRect().height,
