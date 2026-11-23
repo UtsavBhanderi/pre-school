@@ -135,7 +135,7 @@ test('login form exposes labels and the password visibility control works', asyn
 });
 
 test('manually-created teacher signs in with email and password and gets a mobile-friendly workspace', async () => {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   await mockSchoolApi(page, { userRole: 'teacher' });
   await page.goto(BASE_URL + '/login');
   await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
@@ -147,6 +147,13 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await menuButton.click();
   await page.locator('.teacher-sidebar.is-open').waitFor();
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'true');
+  const drawerLayers = await page.evaluate(() => ({
+    drawer: Number(getComputedStyle(document.querySelector('.teacher-sidebar')).zIndex),
+    backdrop: Number(getComputedStyle(document.querySelector('.teacher-sidebar-backdrop')).zIndex),
+    dock: Number(getComputedStyle(document.querySelector('.teacher-mobile-nav')).zIndex),
+  }));
+  assert.ok(drawerLayers.drawer > drawerLayers.backdrop && drawerLayers.backdrop > drawerLayers.dock,
+    'The open teacher drawer and backdrop must cover the fixed bottom dock: ' + JSON.stringify(drawerLayers));
   await page.locator('.teacher-sidebar-backdrop').click({ position: { x: 350, y: 420 } });
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'false');
 
@@ -166,14 +173,28 @@ test('manually-created teacher signs in with email and password and gets a mobil
   await page.getByRole('heading', { name: 'School calendar' }).waitFor();
   await page.getByText('No upcoming school events').waitFor();
 
-  const dimensions = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    document: document.documentElement.scrollWidth,
-  }));
-  assert.ok(
-    dimensions.document <= dimensions.viewport + 1,
-    'Teacher workspace should not overflow horizontally on a 390px mobile viewport: ' + JSON.stringify(dimensions),
-  );
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const mobileLayout = await page.evaluate(() => {
+      const dock = document.querySelector('.teacher-mobile-nav');
+      return {
+        viewport: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
+        dockWidth: dock.getBoundingClientRect().width,
+        dockButtons: Array.from(dock.querySelectorAll('button')).map((button) => ({
+          height: button.getBoundingClientRect().height,
+          right: button.getBoundingClientRect().right,
+          labelWidth: button.querySelector('span')?.getBoundingClientRect().width || 0,
+          labelScrollWidth: button.querySelector('span')?.scrollWidth || 0,
+        })),
+      };
+    });
+    assert.ok(mobileLayout.document <= mobileLayout.viewport + 1,
+      'Teacher workspace overflowed at ' + width + 'px: ' + JSON.stringify(mobileLayout));
+    assert.ok(mobileLayout.dockWidth <= width + 1, 'Teacher dock must fit the viewport at ' + width + 'px.');
+    assert.ok(mobileLayout.dockButtons.every((button) => button.height >= 48 && button.right <= width + 1),
+      'Every teacher dock destination must remain thumb-sized and inside the viewport at ' + width + 'px: ' + JSON.stringify(mobileLayout));
+  }
   await page.close();
 });
 
@@ -855,7 +876,7 @@ test('single-school release does not expose organization signup or invitation sc
 });
 
 test('single-school parent portal opens with family-scoped child information on mobile', async () => {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   await page.addInitScript(() => localStorage.setItem('token', 'parent-browser-smoke-token'));
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -907,7 +928,30 @@ test('single-school parent portal opens with family-scoped child information on 
 
   const parentMobileNav = page.locator('.legacy-parent-mobile-nav');
   assert.equal(await parentMobileNav.isVisible(), true, 'Parent quick navigation should be visible on a phone.');
-  assert.equal(await parentMobileNav.locator('button').count(), 6, 'The parent mobile dock should show five primary destinations plus More.');
+  assert.equal(await parentMobileNav.locator('button').count(), 5, 'The parent mobile dock should show four primary destinations plus More.');
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const mobileLayout = await page.evaluate(() => {
+      const dock = document.querySelector('.legacy-parent-mobile-nav');
+      return {
+        viewport: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
+        dockWidth: dock.getBoundingClientRect().width,
+        dockButtons: Array.from(dock.querySelectorAll('button')).map((button) => ({
+          height: button.getBoundingClientRect().height,
+          right: button.getBoundingClientRect().right,
+          labelWidth: button.querySelector('span')?.getBoundingClientRect().width || 0,
+          labelScrollWidth: button.querySelector('span')?.scrollWidth || 0,
+        })),
+      };
+    });
+    assert.ok(mobileLayout.document <= mobileLayout.viewport + 1,
+      'Parent portal overflowed at ' + width + 'px: ' + JSON.stringify(mobileLayout));
+    assert.ok(mobileLayout.dockWidth <= width + 1, 'Parent dock must fit the viewport at ' + width + 'px.');
+    assert.ok(mobileLayout.dockButtons.every((button) => button.height >= 48 && button.right <= width + 1),
+      'Every parent dock destination must remain thumb-sized and inside the viewport at ' + width + 'px: ' + JSON.stringify(mobileLayout));
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   await parentMobileNav.getByRole('button', { name: 'More' }).click();
   const moreSheet = page.getByRole('dialog', { name: 'More from your school' });
   await moreSheet.waitFor();
@@ -1122,5 +1166,58 @@ test('report cards reuse class assessment dates and move to the next child after
   await printArea.getByText('Blooming Buds Preschool').waitFor();
   assert.equal(await printArea.getByText('20 Nov 2026', { exact: true }).count(), 2, 'Each subject row should print its saved assessment date.');
   await printArea.getByText('TOTAL SCORE').waitFor();
+  await page.close();
+});
+
+
+test('administrator navigation remains usable with touch input from 320px to 430px', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 320, height: 740 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  await mockSchoolApi(page);
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('admin@example.com');
+  await page.locator('#login-password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL((url) => url.pathname.endsWith('/dashboard/home'));
+
+  const menuButton = page.locator('.admin-menu-button');
+  assert.equal(await menuButton.isVisible(), true);
+  const menuSize = await menuButton.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  assert.ok(menuSize.width >= 44 && menuSize.height >= 44,
+    'Administrator menu must have a minimum 44px touch target: ' + JSON.stringify(menuSize));
+
+  await menuButton.click();
+  await page.locator('.admin-sidebar.is-open').waitFor();
+  const sidebarSize = await page.locator('.admin-sidebar').evaluate((element) => ({
+    zIndex: Number(getComputedStyle(element).zIndex),
+    height: element.getBoundingClientRect().height,
+    viewportHeight: window.innerHeight,
+  }));
+  assert.ok(sidebarSize.zIndex > 1000 && sidebarSize.height >= sidebarSize.viewportHeight - 1,
+    'Administrator drawer must cover the screen and stay above the overlay: ' + JSON.stringify(sidebarSize));
+
+  const closeLink = page.locator('.admin-sidebar').getByRole('link', { name: 'Help and guides' });
+  await closeLink.click();
+  await page.getByRole('heading', { name: /Help & guides/ }).waitFor();
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 740 });
+    const mobileLayout = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      contentRight: document.querySelector('.admin-main-content').getBoundingClientRect().right,
+    }));
+    assert.ok(mobileLayout.document <= mobileLayout.viewport + 1,
+      'Administrator page overflowed at ' + width + 'px: ' + JSON.stringify(mobileLayout));
+    assert.ok(mobileLayout.contentRight <= width + 1,
+      'Administrator content must stay within the viewport at ' + width + 'px: ' + JSON.stringify(mobileLayout));
+  }
   await page.close();
 });

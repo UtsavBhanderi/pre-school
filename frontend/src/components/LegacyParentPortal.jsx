@@ -25,7 +25,7 @@ const PARENT_NAV = [
   { id: "security", label: "Sign-in help", title: "How parent sign-in works", Icon: MdShield },
 ];
 
-const MOBILE_PARENT_NAV = PARENT_NAV.filter((item) => ["overview", "children", "attendance", "fees", "engagement"].includes(item.id));
+const MOBILE_PARENT_NAV = PARENT_NAV.filter((item) => ["overview", "attendance", "fees", "engagement"].includes(item.id));
 const MORE_PARENT_NAV = PARENT_NAV.filter((item) => !MOBILE_PARENT_NAV.some((primary) => primary.id === item.id));
 
 const localDate = (date) => {

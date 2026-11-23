@@ -495,3 +495,40 @@
   .teacher-mobile-nav button svg { font-size:1.05rem; }
   .teacher-summary-grid { grid-template-columns:1fr 1fr; }
 }
+
+
+/* Device-level mobile corrections: the drawer must sit above the fixed quick-navigation dock. */
+@media (max-width:650px) {
+  .teacher-sidebar {
+    z-index:40;
+    max-height:100dvh;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    padding-bottom:calc(.9rem + env(safe-area-inset-bottom));
+  }
+  .teacher-sidebar-backdrop { z-index:35; }
+  .teacher-mobile-nav { z-index:30; }
+  .teacher-navigation { flex:1 1 auto; min-height:0; }
+  .teacher-sidebar-bottom { flex:0 0 auto; }
+  .teacher-sidebar-close,
+  .teacher-menu-button { min-width:44px; min-height:44px; }
+  .teacher-mobile-nav button {
+    min-height:48px;
+    padding-inline:.06rem;
+    font-size:clamp(.56rem,2.25vw,.64rem);
+    touch-action:manipulation;
+  }
+  .teacher-mobile-nav button span {
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+}
+@media (max-width:360px) {
+  .teacher-topbar { padding-inline:.55rem; }
+  .teacher-main-content { padding-inline:.5rem; }
+  .teacher-mobile-nav { gap:0; padding-inline:.1rem; }
+  .teacher-mobile-nav button { font-size:.55rem; }
+  .teacher-mobile-nav button svg { font-size:1.08rem; }
+}
