@@ -1197,6 +1197,8 @@ test('administrator navigation remains usable with touch input from 320px to 430
   await page.locator('.admin-sidebar.is-open').waitFor();
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'true',
     'Opening administrator navigation must update its expanded state.');
+  await page.waitForFunction(() => document.body.style.overflow === 'hidden',
+    null, { timeout: 3000 });
   assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden',
     'The page behind the administrator drawer must not scroll.');
 
@@ -1204,6 +1206,8 @@ test('administrator navigation remains usable with touch input from 320px to 430
   await page.waitForFunction(() => !document.querySelector('.admin-sidebar')?.classList.contains('is-open'));
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'false',
     'Escape must close administrator navigation.');
+  await page.waitForFunction(() => document.body.style.overflow === '',
+    null, { timeout: 3000 });
   assert.equal(await page.evaluate(() => document.body.style.overflow), '',
     'Closing administrator navigation must restore page scrolling.');
 
@@ -1219,7 +1223,7 @@ test('administrator navigation remains usable with touch input from 320px to 430
 
   const closeLink = page.locator('.admin-sidebar').getByRole('link', { name: 'Help and guides' });
   await closeLink.click();
-  await page.getByRole('heading', { name: /Help & guides/ }).waitFor();
+  await page.getByRole('heading', { name: /step by step/i }).waitFor();
 
   for (const width of [320, 360, 390, 430]) {
     await page.setViewportSize({ width, height: 740 });
