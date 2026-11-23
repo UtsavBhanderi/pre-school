@@ -538,236 +538,103 @@ const Fees = () => {
             <p className="page-subtitle">Enter a child’s fee details, record money received, and print a receipt.</p>
           </div>
         </div>
-        <InstallmentOverview />
-        <form className="page-card fees-entry-card" onSubmit={handleFormSubmit}>
+        <details className="fees-overview-disclosure mb-3">
+          <summary><strong>Installment tracking</strong><span>View upcoming dues and overdue balances</span></summary>
+          <InstallmentOverview />
+        </details>
+        <form className="page-card fees-entry-card fees-entry-compact" onSubmit={handleFormSubmit}>
+          <div className="fees-entry-heading">
+            <div><span className="fees-entry-kicker">FEE MANAGEMENT</span><h3>{editMode ? "Update fee record" : "Add fee record"}</h3></div>
+            {editMode && <button type="button" className="btn btn-link btn-sm text-secondary" onClick={resetForm}>Cancel editing</button>}
+          </div>
           <div className="row g-3">
-            <div className="col-12 fees-step-heading">
-              <h3>{editMode ? "Update a fee record" : "1. Child details"}</h3>
-              <p>Enter the child’s name, parent contact number, class and school year.</p>
+            <div className="form-group col-12 col-md-6">
+              <label htmlFor="fee-student-name">Student name</label>
+              <input id="fee-student-name" type="text" name="studentName" value={formData.studentName} onChange={handleInputChange} className="form-control" placeholder="Enter student name" required />
             </div>
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Child’s full name</label>
-              <input
-                type="text"
-                name="studentName"
-                value={formData.studentName}
-                onChange={handleInputChange}
-                className="form-control"
-                required
-              />
+            <div className="form-group col-12 col-md-6">
+              <label htmlFor="fee-parent-phone">Parent mobile number</label>
+              <input id="fee-parent-phone" type="tel" inputMode="tel" autoComplete="tel" name="studentPhoneNumber" value={formData.studentPhoneNumber} onChange={handleInputChange} className="form-control" placeholder="Parent / guardian mobile" required />
             </div>
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Parent / guardian mobile number</label>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                name="studentPhoneNumber"
-                value={formData.studentPhoneNumber}
-                onChange={handleInputChange}
-                className="form-control"
-                required
-              />
-            </div>
-
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>School year</label>
-              <select
-                name="batchYear"
-                className="form-select"
-                value={formData.batchYear}
-                onChange={handleInputChange}
-                required={!editMode}
-              >
-                <option value="">Choose school year</option>
-                <option value="2022-23">2022-2023</option>
-                <option value="2023-24">2023-2024</option>
-                <option value="2024-25">2024-2025 (legacy)</option>
-                {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - 3 + index).map((year) => (
-                  <option key={year} value={`${year}-${year + 1}`}>{year}-{year + 1}</option>
-                ))}
+            <div className="form-group col-12 col-md-6">
+              <label htmlFor="fee-school-year">Academic year</label>
+              <select id="fee-school-year" name="batchYear" className="form-select" value={formData.batchYear} onChange={handleInputChange} required={!editMode}>
+                <option value="">Choose academic year</option>
+                <option value="2022-23">2022-2023</option><option value="2023-24">2023-2024</option><option value="2024-25">2024-2025 (legacy)</option>
+                {Array.from({ length: 6 }, (_, index) => new Date().getFullYear() - 3 + index).map((year) => <option key={year} value={`${year}-${year + 1}`}>{year}-{year + 1}</option>)}
               </select>
             </div>
-
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Class</label>
-              <select
-                name="standard"
-                value={formData.standard}
-                onChange={handleInputChange}
-                className="form-control"
-                required
-              >
+            <div className="form-group col-12 col-md-6">
+              <label htmlFor="fee-standard">Class / standard</label>
+              <select id="fee-standard" name="standard" value={formData.standard} onChange={handleInputChange} className="form-select" required>
                 <option value="">Choose class</option>
-                {Object.keys(standardFees).map((key) => (
-                  <option key={key} value={key}>
-                    {key}
-                  </option>
-                ))}
+                {Object.keys(standardFees).map((key) => <option key={key} value={key}>{key}</option>)}
               </select>
             </div>
-
-            <div className="col-12 fees-step-heading">
-              <h3>2. Fee summary</h3>
-              <p>Check the class fee, amount already paid and remaining balance. These totals update automatically.</p>
-            </div>
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Total class fees (₹)</label>
-              <input
-                type="number"
-                name="totalStandardFees"
-                value={formData.totalStandardFees}
-                onChange={handleInputChange}
-                className="form-control"
-                readOnly
+          </div>
+          <div className="fees-summary-strip" aria-label="Fee summary">
+            <article><span>Class fee</span><strong>₹{Number(formData.totalStandardFees || 0).toLocaleString("en-IN")}</strong></article>
+            <article><span>Paid so far</span><strong className="text-success">₹{Number(formData.totalFeesPaid || 0).toLocaleString("en-IN")}</strong></article>
+            <article><span>Balance due</span><strong className="text-danger">₹{Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.totalFeesPaid || 0) - Number(formData.discount || 0)).toLocaleString("en-IN")}</strong></article>
+            {Number(formData.discount || 0) > 0 && <article><span>Discount</span><strong>₹{Number(formData.discount).toLocaleString("en-IN")}</strong></article>}
+          </div>
+          <details className="fees-advanced-options">
+            <summary><span>Discount & installment options</span><small>Optional settings</small></summary>
+            <div className="row g-3 pt-3">
+              <div className="form-group col-12 col-md-4">
+                <label htmlFor="fee-discount">Discount (₹)</label>
+                <input id="fee-discount" type="number" className="form-control" name="discount" value={formData.discount} min="0" max={formData.totalStandardFees} step="0.01" onChange={handleInputChange} />
+              </div>
+              <InstallmentScheduleEditor
+                installments={formData.installments}
+                total={Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.discount || 0))}
+                totalPaid={Number(formData.totalFeesPaid || 0)}
+                onChange={updateInstallment}
+                onRemove={(index) => setFormData((current) => ({ ...current, installments: index < 0 ? [] : current.installments.filter((_, itemIndex) => itemIndex !== index) }))}
+                onAdd={addInstallment}
+                onGenerate={generateInstallments}
               />
             </div>
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Total paid so far (₹)</label>
-              <input
-                type="number"
-                name="totalFeesPaid"
-                value={formData.totalFeesPaid}
-                onChange={handleInputChange}
-                className="form-control"
-                readOnly
-              />
+          </details>
+          <section className="fees-payments-block" aria-label="Payments received">
+            <div className="fees-payments-heading">
+              <div><h4>Payments received</h4><p>Add the amount and method. Date and time are recorded automatically.</p></div>
+              <button type="button" onClick={addPaymentDetail} className="btn btn-primary btn-sm">+ Add payment</button>
             </div>
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Balance still due (₹)</label>
-              <input
-                type="number"
-                value={Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.totalFeesPaid || 0) - Number(formData.discount || 0))}
-                className="form-control"
-                readOnly
-              />
-            </div>
-            <div className="form-group col-12 col-md-6 col-xl-3">
-              <label>Discount (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                name="discount"
-                value={formData.discount}
-                min="0"
-                max={formData.totalStandardFees}
-                step="0.01"
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="col-12 fees-step-heading">
-              <h3>3. Optional payment schedule</h3>
-              <p>Split the net fee into due dates. Payments are automatically applied to the earliest installment first; saved receipts are never changed.</p>
-            </div>
-            <InstallmentScheduleEditor
-              installments={formData.installments}
-              total={Math.max(0, Number(formData.totalStandardFees || 0) - Number(formData.discount || 0))}
-              totalPaid={Number(formData.totalFeesPaid || 0)}
-              onChange={updateInstallment}
-              onRemove={(index) => setFormData((current) => ({ ...current, installments: index < 0 ? [] : current.installments.filter((_, itemIndex) => itemIndex !== index) }))}
-              onAdd={addInstallment}
-              onGenerate={generateInstallments}
-            />
-            <div className="col-12 fees-step-heading">
-              <h3>4. Money received</h3>
-              <p>Click “Add a payment” for each payment you have collected. Enter the amount received; the totals update automatically.</p>
-            </div>
-            <div className="form-group col-12">
-              <label className="fw-semibold">Payments received</label>
-              {editMode && Number(formData.openingBalancePaid) > 0 && (
-                <p className="small text-muted mb-2">
-                  Earlier paid balance of ₹{Number(formData.openingBalancePaid).toFixed(2)} is retained as an opening balance. New receipts are recorded separately.
-                </p>
-              )}
-              {editMode && formData.paymentDetails.some((detail) => detail._id) && (
-                <p className="small text-muted mb-2">Previously recorded payments are locked for receipt accuracy. Add a new entry to record another payment.</p>
-              )}
-              <button
-                type="button"
-                onClick={addPaymentDetail}
-                className="btn btn-primary btn-sm ms-2 fw-semibold"
-              >
-                Add a payment
-              </button>
-              {formData.paymentDetails.map((detail, index) => (
-                <div key={detail._id || index} className="form-row row g-3">
-                  <div className="col-12 col-md-3">
-                    <label className="form-label small mb-1" htmlFor={"fee-payment-date-" + index}>Date received</label>
-                    <input
-                      id={"fee-payment-date-" + index}
-                      aria-label={"Date received for payment " + (index + 1)}
-                      type="text"
-                      name="date"
-                      value={detail.date}
-                      onChange={(e) => handlePaymentDetailChange(index, e)}
-                      className="form-control"
-                      readOnly
-                    />
+            {editMode && Number(formData.openingBalancePaid) > 0 && <p className="fees-payment-note">Earlier paid balance of ₹{Number(formData.openingBalancePaid).toFixed(2)} is retained as an opening balance.</p>}
+            {editMode && formData.paymentDetails.some((detail) => detail._id) && <p className="fees-payment-note">Previously saved receipts are locked. Add a new payment to record another collection.</p>}
+            {formData.paymentDetails.length === 0 && <div className="fees-no-payments">No payment added yet. Use <strong>Add payment</strong> when money is received.</div>}
+            {formData.paymentDetails.map((detail, index) => {
+              const savedPayment = editMode && Boolean(detail._id);
+              return (
+                <div key={detail._id || index} className="fees-payment-row">
+                  <div className="fees-payment-meta"><strong>Payment {index + 1}</strong><small>{[detail.date, detail.time].filter(Boolean).join(" · ") || "New payment"}</small></div>
+                  <div className="fees-payment-fields">
+                    <div>
+                      <label className="form-label" htmlFor={"fee-payment-amount-" + index}>Amount (₹)</label>
+                      <input id={"fee-payment-amount-" + index} type="number" name="amount" value={detail.amount} min="0.01" step="0.01" required disabled={savedPayment} aria-label={`Payment amount ${index + 1}`} onChange={(event) => handlePaymentDetailChange(index, event)} className="form-control" />
+                    </div>
+                    <div>
+                      <label className="form-label" htmlFor={"fee-payment-method-" + index}>Method</label>
+                      <select id={"fee-payment-method-" + index} name="method" className="form-select" value={detail.method || "cash"} onChange={(event) => handlePaymentDetailChange(index, event)} disabled={savedPayment}>
+                        <option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option><option value="card">Card</option><option value="cheque">Cheque</option><option value="other">Other</option>
+                      </select>
+                    </div>
+                    <details className="fees-payment-reference" open={Boolean(detail.reference)}>
+                      <summary>Reference {detail.reference ? "saved" : "(optional)"}</summary>
+                      <input name="reference" type="text" maxLength="80" className="form-control" value={detail.reference || ""} placeholder="UPI / cheque reference" onChange={(event) => handlePaymentDetailChange(index, event)} disabled={savedPayment} aria-label={"Reference for payment " + (index + 1)} />
+                    </details>
                   </div>
-                  <div className="col-12 col-md-3">
-                    <label className="form-label small mb-1" htmlFor={"fee-payment-time-" + index}>Time received</label>
-                    <input
-                      id={"fee-payment-time-" + index}
-                      aria-label={"Time received for payment " + (index + 1)}
-                      type="text"
-                      name="time"
-                      value={detail.time}
-                      onChange={(e) => handlePaymentDetailChange(index, e)}
-                      className="form-control"
-                      readOnly
-                    />
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <label className="form-label small mb-1" htmlFor={"fee-payment-amount-" + index}>Amount received (₹)</label>
-                    <input
-                      id={"fee-payment-amount-" + index}
-                      type="number"
-                      name="amount"
-                      value={detail.amount}
-                      min="0.01"
-                      step="0.01"
-                      required
-                      disabled={editMode && Boolean(detail._id)}
-                      aria-label={`Payment amount ${index + 1}`}
-                      onChange={(e) => handlePaymentDetailChange(index, e)}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <label className="form-label small mb-1" htmlFor={"fee-payment-method-" + index}>Payment method</label>
-                    <select id={"fee-payment-method-" + index} name="method" className="form-select" value={detail.method || "cash"} onChange={(e) => handlePaymentDetailChange(index, e)} disabled={editMode && Boolean(detail._id)}>
-                      <option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option><option value="card">Card</option><option value="cheque">Cheque</option><option value="other">Other</option>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <label className="form-label small mb-1" htmlFor={"fee-payment-reference-" + index}>Transaction / cheque reference</label>
-                    <input id={"fee-payment-reference-" + index} name="reference" type="text" maxLength="80" className="form-control" value={detail.reference || ""} placeholder="Optional reference" onChange={(e) => handlePaymentDetailChange(index, e)} disabled={editMode && Boolean(detail._id)} />
-                  </div>
-                  <div className="col-auto align-self-end"><button type="button" onClick={() => removePaymentDetail(index)} className="btn btn-outline-danger" aria-label={`Remove payment ${index + 1}`} disabled={editMode && Boolean(detail._id)}>Remove</button></div>
+                  <button type="button" onClick={() => removePaymentDetail(index)} className="btn btn-outline-danger btn-sm fees-payment-remove" aria-label={`Remove payment ${index + 1}`} disabled={savedPayment}>Remove</button>
                 </div>
-              ))}
-            </div>
-            <div className="row m-1 mt-2 gap-3">
-              <button type="submit" className="btn btn-primary col-12 col-md-4" disabled={savingFees}>
-                {savingFees ? "Saving…" : editMode ? "Save changes" : "Save fee record"}
-              </button>
-              {/* <div className="btn btn-primary col-2" onClick={exportToExcel}> */}
-              <button
-                type="button"
-                className="btn btn-outline-primary"
-                onClick={exportToExcelConfirm}
-              >
-                Export filtered
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-primary"
-                disabled={selectedStudents.length === 0}
-                onClick={exportCheckedToExcelConfirm}
-              >
-                Export selected
-              </button>
+              );
+            })}
+          </section>
+          <div className="fees-form-actions">
+            <button type="submit" className="btn btn-primary" disabled={savingFees}>{savingFees ? "Saving…" : editMode ? "Save changes" : "Save fee record"}</button>
+            <div className="d-flex flex-wrap gap-2">
+              <button type="button" className="btn btn-outline-primary" onClick={exportToExcelConfirm}>Export filtered</button>
+              <button type="button" className="btn btn-outline-primary" disabled={selectedStudents.length === 0} onClick={exportCheckedToExcelConfirm}>Export selected</button>
             </div>
           </div>
         </form>

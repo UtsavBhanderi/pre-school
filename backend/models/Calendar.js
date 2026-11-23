@@ -8,6 +8,8 @@ const eventSchema = new mongoose.Schema({
   // Admin chooses whether an event is visible to everyone, parents or teachers.
   // Missing values in older records are treated as "all" by the portal queries.
   audience: { type: String, enum: ['all', 'parents', 'teachers'], default: 'all', index: true },
+  // Empty means every standard. Otherwise only matching parent/teacher classes can see the event.
+  standards: { type: [{ type: String, trim: true, maxlength: 80 }], default: [] },
 });
 
 // module.exports = mongoose.model('Event', eventSchema);

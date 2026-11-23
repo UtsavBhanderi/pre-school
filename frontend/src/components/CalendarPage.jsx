@@ -18,6 +18,7 @@ const CalendarPage = () => {
   const [deletingEvent, setDeletingEvent] = useState(false);
 
   const [events, setEvents] = useState([]);
+  const [standardOptions, setStandardOptions] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalEvent, setModalEvent] = useState({
     id: null,
@@ -26,27 +27,41 @@ const CalendarPage = () => {
     end: "",
     color: "#3788d8", // Default color
     audience: "all",
+    standards: [],
     isEdit: false,
   });
 
-  // Fetch events from the database
+  // Load events and class options independently so the calendar remains usable
+  // even if fee configuration is temporarily unavailable.
   useEffect(() => {
-    axios
-      .get(`${linkone}/api/events`)
+    let active = true;
+    axios.get(`${linkone}/api/events`)
       .then((response) => {
+        if (!active) return;
         const rows = Array.isArray(response.data) ? response.data : [];
         setEvents(rows.map((event) => ({
           ...event,
           id: event._id || event.id,
           color: event.color || "#3788d8",
+          standards: Array.isArray(event.standards) ? event.standards : [],
         })));
       })
       .catch((error) => {
+        if (!active) return;
         console.error("Error fetching events:", error);
         setPageError(error.response?.data?.message || "Unable to load the school calendar.");
       })
-      .finally(() => setLoadingEvents(false));
-  }, []);
+      .finally(() => { if (active) setLoadingEvents(false); });
+
+    axios.get(`${linkone}/api/fees/standard-fees`)
+      .then((response) => {
+        if (active) setStandardOptions(Object.keys(response.data || {}).sort((a, b) => a.localeCompare(b)));
+      })
+      .catch((error) => {
+        if (active) setPageError((current) => current || error.response?.data?.message || "Class options could not be loaded. Try again before targeting a standard.");
+      });
+    return () => { active = false; };
+  }, [linkone]);
 
   // Open modal to create a new event
   const handleDateClick = (info) => {
@@ -57,6 +72,7 @@ const CalendarPage = () => {
       end: info.dateStr.length === 10 ? info.dateStr + "T10:00" : info.dateStr.slice(0, 16),
       color: "#3788d8", // Default color
       audience: "all",
+      standards: [],
       isEdit: false,
     });
     setShowModal(true);
@@ -72,13 +88,14 @@ const CalendarPage = () => {
       end: (() => { const raw = String(clickInfo.event.endStr || clickInfo.event.startStr || ""); return raw.length === 10 ? raw + "T10:00" : raw.slice(0, 16); })(),
       color: clickInfo.event.backgroundColor || "#3788d8",
       audience: clickInfo.event.extendedProps?.audience || "all",
+      standards: Array.isArray(clickInfo.event.extendedProps?.standards) ? clickInfo.event.extendedProps.standards : [],
       isEdit: true,
     });
     setShowModal(true);
   };
 
   const handleSaveEvent = async () => {
-    const { title, start, end, color, audience, isEdit, id } = modalEvent;
+    const { title, start, end, color, audience, standards = [], isEdit, id } = modalEvent;
     if (!title.trim()) {
       setPageError("Enter an event title before saving.");
       return;
@@ -95,7 +112,7 @@ const CalendarPage = () => {
     setSavingEvent(true);
     setPageError("");
     setPageSuccess("");
-    const eventData = { title: title.trim(), start, end, color, audience };
+    const eventData = { title: title.trim(), start, end, color, audience, standards };
     try {
       if (isEdit) {
         const response = await axios.put(`${linkone}/api/events/${id}`, eventData);
@@ -233,6 +250,37 @@ const CalendarPage = () => {
                 <option value="teachers">Teachers only</option>
               </Form.Select>
               <Form.Text className="text-muted">Administrators can always see and manage every event. This setting controls visibility in the parent and teacher portals.</Form.Text>
+            </Form.Group>
+
+
+            <Form.Group controlId="formEventStandards" className="mt-3 calendar-standard-targeting">
+              <div className="calendar-standard-heading">
+                <div>
+                  <Form.Label className="mb-1">Which standards should receive this?</Form.Label>
+                  <small className="text-muted d-block">Select one or more classes, or leave all unchecked for the whole school.</small>
+                </div>
+                <Button type="button" size="sm" variant="outline-secondary" onClick={() => setModalEvent((previous) => ({ ...previous, standards: [] }))} disabled={!modalEvent.standards?.length}>All standards</Button>
+              </div>
+              {standardOptions.length ? (
+                <div className="calendar-standard-grid" role="group" aria-label="Select standards for this event">
+                  {standardOptions.map((standard) => (
+                    <Form.Check key={standard} id={"calendar-standard-" + standard.replace(/[^a-z0-9]+/gi, "-")} type="checkbox" label={standard}
+                      checked={(modalEvent.standards || []).includes(standard)}
+                      onChange={(event) => setModalEvent((previous) => ({
+                        ...previous,
+                        standards: event.target.checked
+                          ? [...new Set([...(previous.standards || []), standard])]
+                          : (previous.standards || []).filter((value) => value !== standard),
+                      }))}
+                    />
+                  ))}
+                </div>
+              ) : <div className="calendar-standard-empty">Class list is unavailable. Whole-school targeting is still available.</div>}
+              <Form.Text className="text-muted">
+                {modalEvent.standards?.length
+                  ? "Visible to families with children in " + modalEvent.standards.join(", ") + " and teachers assigned to those classes."
+                  : "Visible to all parents and teachers allowed by the audience setting."}
+              </Form.Text>
             </Form.Group>
 
             <Form.Group controlId="formEventStart" className="mt-3">

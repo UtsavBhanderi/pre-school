@@ -23,6 +23,7 @@ test('single-school calendar events respect parent and teacher visibility while 
   const User = require('../models/User');
   const Student = require('../models/Student');
   const ParentAccount = require('../models/ParentAccount');
+  const Teacher = require('../models/Teacher');
   const Calendar = require('../models/Calendar');
   await mongoose.connect(isolatedUri, { serverSelectionTimeoutMS: 10000 });
 
@@ -36,6 +37,7 @@ test('single-school calendar events respect parent and teacher visibility while 
   const admin = await User.create({ username: 'Calendar Admin ' + tag, email: 'calendar-admin-' + tag + '@example.test', password: 'CalendarAdminPassword123', role: 'admin' });
   const teacher = await User.create({ username: 'Calendar Teacher ' + tag, email: 'calendar-teacher-' + tag + '@example.test', password: 'CalendarTeacherPassword123', role: 'teacher' });
   const parent = await User.create({ username: 'Calendar Parent ' + tag, email: 'calendar-parent-' + tag + '@example.test', password: 'CalendarParentPassword123', role: 'parent' });
+  await Teacher.create({ Email: teacher.email, standard: 'Nursery' });
   const student = await Student.create({
     firstName: 'Calendar', lastName: 'Child', standard: 'Nursery',
     stuNo: 'CAL-' + tag, parentEmail: parent.email,
@@ -80,13 +82,13 @@ test('single-school calendar events respect parent and teacher visibility while 
     date.setHours(9, 0, 0, 0);
     return date;
   };
-  const createEvent = async (title, audience) => {
+  const createEvent = async (title, audience, standards = []) => {
     const startsAt = start(4);
     const endsAt = new Date(startsAt);
     endsAt.setHours(endsAt.getHours() + 1);
     return api('/api/events', {
       role: 'admin', method: 'POST',
-      body: { title, audience, start: startsAt.toISOString(), end: endsAt.toISOString(), color: '#3788d8' },
+      body: { title, audience, standards, start: startsAt.toISOString(), end: endsAt.toISOString(), color: '#3788d8' },
     });
   };
 
@@ -107,6 +109,25 @@ test('single-school calendar events respect parent and teacher visibility while 
   const calendarTo = calendarToDate.toISOString().slice(0, 10);
   const calendarParams = { from: calendarFrom, to: calendarTo };
 
+
+  await t.test('administrator can target events to selected standards only', async () => {
+    const nursery = await createEvent('Nursery selected standards', 'all', ['Nursery']);
+    const junior = await createEvent('Junior selected standards', 'all', ['ENG JR.']);
+    assert.equal(nursery.status, 201);
+    assert.deepEqual(nursery.data.standards, ['Nursery']);
+    assert.equal(junior.status, 201);
+    assert.deepEqual(junior.data.standards, ['ENG JR.']);
+
+    const parentCalendar = await api('/api/parent-portal/calendar', { role: 'parent', params: calendarParams });
+    const teacherCalendar = await api('/api/teacher-portal/calendar', { role: 'teacher', params: calendarParams });
+    const parentTitles = parentCalendar.data.events.map((event) => event.title);
+    const teacherTitles = teacherCalendar.data.events.map((event) => event.title);
+    assert.ok(parentTitles.includes('Nursery selected standards'));
+    assert.ok(!parentTitles.includes('Junior selected standards'));
+    assert.ok(teacherTitles.includes('Nursery selected standards'));
+    assert.ok(!teacherTitles.includes('Junior selected standards'));
+  });
+
   await t.test('parents and teachers see only the events addressed to their audience', async () => {
     const parentCalendar = await api('/api/parent-portal/calendar', { role: 'parent', params: calendarParams });
     const teacherCalendar = await api('/api/teacher-portal/calendar', { role: 'teacher', params: calendarParams });
@@ -115,8 +136,8 @@ test('single-school calendar events respect parent and teacher visibility while 
 
     const parentTitles = parentCalendar.data.events.map((event) => event.title);
     const teacherTitles = teacherCalendar.data.events.map((event) => event.title);
-    assert.deepEqual(parentTitles.sort(), ['Everyone', 'Parents only']);
-    assert.deepEqual(teacherTitles.sort(), ['Everyone', 'Teachers only']);
+    assert.deepEqual(parentTitles.sort(), ['Everyone', 'Nursery selected standards', 'Parents only']);
+    assert.deepEqual(teacherTitles.sort(), ['Everyone', 'Nursery selected standards', 'Teachers only']);
   });
 
   await t.test('administrator can change event visibility and still retain full calendar access', async () => {
@@ -152,7 +173,7 @@ test('single-school calendar events respect parent and teacher visibility while 
     assert.ok(refreshedAfterDragTeachers.data.events.some((event) => event.title === 'Parents only'));
 
     const refreshedAdmin = await api('/api/events', { role: 'admin' });
-    assert.equal(refreshedAdmin.data.length, 3);
+    assert.equal(refreshedAdmin.data.length, 5);
   });
 
   await t.test('a parent cannot read the teacher calendar endpoint or administer events', async () => {

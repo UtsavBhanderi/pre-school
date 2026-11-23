@@ -592,3 +592,70 @@
 @media (max-width: 575.98px) {
   .ops-notice-search { padding: .4rem .55rem; }
 }
+
+
+
+/* Compact fee entry: routine collection uses four fields and one payment row. */
+.fees-overview-disclosure { overflow:hidden; border:1px solid #e2e8f1; border-radius:12px; background:#fff; }
+.fees-overview-disclosure > summary { display:flex; align-items:center; justify-content:space-between; gap:.75rem; min-height:48px; padding:.75rem 1rem; color:#30445f; cursor:pointer; list-style:none; }
+.fees-overview-disclosure > summary::-webkit-details-marker { display:none; }
+.fees-overview-disclosure > summary::after { content:"+"; color:#5168bd; font-size:1.2rem; font-weight:800; }
+.fees-overview-disclosure[open] > summary::after { content:"−"; }
+.fees-overview-disclosure > summary span { margin-left:auto; color:#8995a7; font-size:.72rem; }
+.fees-overview-disclosure > .page-card { margin:0 !important; border:0; border-top:1px solid #edf1f6; border-radius:0; box-shadow:none; }
+.fees-entry-compact { display:grid; gap:1rem; padding:clamp(.9rem,2vw,1.25rem); }
+.fees-entry-heading { display:flex; align-items:center; justify-content:space-between; gap:.8rem; padding-bottom:.8rem; border-bottom:1px solid #edf1f6; }
+.fees-entry-heading h3 { margin:.15rem 0 0; color:#263a57; font-size:1.05rem; font-weight:850; }
+.fees-entry-kicker { color:#7b89a0; font-size:.62rem; font-weight:850; letter-spacing:.1em; }
+.fees-entry-compact .form-group > label { display:block; margin-bottom:.35rem; color:#4f6078; font-size:.75rem; font-weight:750; }
+.fees-entry-compact .form-control,.fees-entry-compact .form-select { min-height:43px; border-color:#dce4ef; border-radius:9px; font-size:.86rem; }
+.fees-summary-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+.fees-summary-strip article { display:grid; gap:.22rem; min-width:0; padding:.7rem .8rem; border:1px solid #e6ebf3; border-radius:10px; background:#f9fbfe; }
+.fees-summary-strip article span { color:#8190a4; font-size:.67rem; font-weight:750; }
+.fees-summary-strip article strong { overflow-wrap:anywhere; color:#2c405d; font-size:1.05rem; font-weight:850; }
+.fees-advanced-options { border:1px solid #e5eaf2; border-radius:10px; background:#fbfcff; }
+.fees-advanced-options > summary { display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.75rem .9rem; color:#425570; cursor:pointer; font-size:.76rem; font-weight:800; list-style:none; }
+.fees-advanced-options > summary::-webkit-details-marker { display:none; }
+.fees-advanced-options > summary::after { content:"+"; margin-left:auto; color:#5168bd; font-size:1rem; }
+.fees-advanced-options[open] > summary::after { content:"−"; }
+.fees-advanced-options > summary small { color:#98a3b2; font-size:.65rem; font-weight:650; }
+.fees-advanced-options > .row { margin:0; padding:0 .85rem .9rem; }
+.fees-payments-block { display:grid; gap:.7rem; }
+.fees-payments-heading { display:flex; align-items:center; justify-content:space-between; gap:.7rem; }
+.fees-payments-heading h4 { margin:0; color:#2f435f; font-size:.92rem; font-weight:850; }
+.fees-payments-heading p { margin:.2rem 0 0; color:#8692a4; font-size:.68rem; }
+.fees-payment-note { margin:0; color:#77869a; font-size:.7rem; line-height:1.45; }
+.fees-no-payments { padding:.75rem .85rem; border:1px dashed #d8e1ed; border-radius:9px; color:#8290a2; background:#fbfcff; font-size:.72rem; }
+.fees-payment-row { display:grid; grid-template-columns:125px minmax(0,1fr) auto; align-items:end; gap:.7rem; padding:.8rem; border:1px solid #e4eaf2; border-radius:10px; background:#fff; }
+.fees-payment-meta { display:grid; gap:.18rem; align-self:center; min-width:0; }
+.fees-payment-meta strong { color:#3a4f6d; font-size:.76rem; }
+.fees-payment-meta small { color:#929eae; font-size:.65rem; overflow-wrap:anywhere; }
+.fees-payment-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) minmax(130px,.7fr); align-items:end; gap:.6rem; min-width:0; }
+.fees-payment-fields > div { min-width:0; }
+.fees-payment-fields .form-label { margin-bottom:.3rem; color:#6e7e94; font-size:.67rem; font-weight:750; }
+.fees-payment-fields .form-control,.fees-payment-fields .form-select { min-height:39px; font-size:.78rem; }
+.fees-payment-reference { min-width:0; align-self:end; }
+.fees-payment-reference summary { min-height:39px; display:flex; align-items:center; color:#60739a; cursor:pointer; font-size:.7rem; font-weight:750; }
+.fees-payment-reference input { margin-top:.35rem; }
+.fees-payment-remove { min-height:38px; }
+.fees-form-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.7rem; padding-top:.85rem; border-top:1px solid #edf1f6; }
+.fees-form-actions > .btn-primary { min-width:180px; min-height:44px; font-weight:800; }
+@media(max-width:767.98px) {
+  .fees-summary-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fees-payment-row { grid-template-columns:minmax(0,1fr) auto; align-items:start; }
+  .fees-payment-meta { grid-column:1/-1; }
+  .fees-payment-fields { grid-column:1/-1; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fees-payment-reference { grid-column:1/-1; }
+  .fees-payment-remove { justify-self:end; }
+}
+@media(max-width:480px) {
+  .fees-overview-disclosure > summary { align-items:flex-start; flex-direction:column; gap:.15rem; }
+  .fees-overview-disclosure > summary span { margin-left:0; }
+  .fees-summary-strip article { padding:.6rem; }
+  .fees-summary-strip article strong { font-size:.95rem; }
+  .fees-payment-fields { grid-template-columns:1fr; }
+  .fees-payment-reference { grid-column:auto; }
+  .fees-payments-heading { align-items:flex-start; }
+  .fees-form-actions > .btn-primary,.fees-form-actions > .d-flex { width:100%; }
+  .fees-form-actions > .d-flex > .btn { flex:1 1 0; }
+}

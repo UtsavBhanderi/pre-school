@@ -454,3 +454,44 @@
   .teacher-sidebar-toggle,.teacher-feature-content,.attendance-progress-present,.attendance-progress-absent,
   .teacher-attendance-table tbody tr,.daily-report-table tbody tr { transition:none !important; animation:none !important; }
 }
+
+
+
+/* Keep every teacher workspace feature within the viewport on touch devices. */
+.teacher-workspace,.teacher-workspace-main,.teacher-main-content,.teacher-feature-content { min-width:0; max-width:100%; }
+.teacher-workspace { width:100%; max-width:100vw; overflow-x:clip; }
+.teacher-workspace-main { width:100%; min-width:0; }
+.teacher-topbar,.teacher-page-heading,.teacher-overview-section,.teacher-overview-columns { min-width:0; max-width:100%; }
+.teacher-feature-content { overflow-x:clip; }
+.teacher-feature-content > * { max-width:100%; }
+.teacher-feature-content .page-card,.teacher-feature-content .card,.teacher-feature-content form { min-width:0; max-width:100%; }
+.teacher-feature-content .form-group,.teacher-feature-content [class*="col-"] { min-width:0; }
+.teacher-feature-content input,.teacher-feature-content select,.teacher-feature-content textarea { max-width:100%; }
+.teacher-feature-content .table-responsive { width:100%; max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
+.teacher-feature-content .table-responsive > table { margin-bottom:0; }
+.teacher-feature-content p,.teacher-feature-content label,.teacher-feature-content th,.teacher-feature-content td { overflow-wrap:anywhere; }
+@media(max-width:650px) {
+  .teacher-workspace { width:100%; min-width:0; overflow-x:clip; padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+  .teacher-workspace-main { min-height:100dvh; }
+  .teacher-topbar { width:100%; flex-wrap:wrap; gap:.45rem; }
+  .teacher-topbar-left { flex:1 1 auto; min-width:0; }
+  .teacher-breadcrumb { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .teacher-topbar-right { flex:0 0 auto; min-width:0; }
+  .teacher-main-content { width:100%; min-width:0; padding-inline:clamp(.55rem,3vw,.8rem); }
+  .teacher-page-heading > div { min-width:0; }
+  .teacher-page-heading h1 { overflow-wrap:anywhere; }
+  .teacher-welcome-card { max-width:100%; }
+  .teacher-summary-card { min-width:0; }
+  .teacher-summary-copy span { white-space:normal; overflow-wrap:anywhere; }
+  .teacher-feature-content .page-header { flex-wrap:wrap; }
+  .teacher-feature-content .table-responsive > table { min-width:620px; }
+  .teacher-feature-content .modal-dialog { margin:.35rem; }
+  .teacher-feature-content .modal-content { max-width:calc(100vw - .7rem); }
+  .teacher-mobile-nav { z-index:30; padding-bottom:calc(.35rem + env(safe-area-inset-bottom)); }
+}
+@media(max-width:380px) {
+  .teacher-main-content { padding-inline:.5rem; }
+  .teacher-mobile-nav button { font-size:.52rem; }
+  .teacher-mobile-nav button svg { font-size:1.05rem; }
+  .teacher-summary-grid { grid-template-columns:1fr 1fr; }
+}

@@ -12,6 +12,7 @@ const User = require('../models/User');
 const { parseDateOnly } = require('../utils/dateOnly');
 const { getTodayInTimeZone } = require('../utils/zonedDate');
 const { isValidNewPassword } = require('../utils/passwordResetTokens');
+const { buildCalendarStandardVisibilityFilter } = require('../utils/calendarStandardVisibility');
 
 const router = express.Router();
 
@@ -247,14 +248,17 @@ router.get('/calendar', requireParentAccount, async (req, res) => {
   const range = getRange(req.query.from, req.query.to, 90);
   if (!range) return res.status(400).json({ message: 'Choose a valid school calendar date range.' });
   try {
+    const children = await getChildren(req);
+    const childStandards = [...new Set(children.map((child) => String(child.standard || '').trim()).filter(Boolean))];
     const events = await Calendar.find({
       start: { $lt: range.endExclusive },
       $and: [
         { $or: [{ end: null }, { end: { $gte: range.from } }] },
         // Old events without an audience keep their previous Everyone visibility.
         { $or: [{ audience: { $in: ['all', 'parents'] } }, { audience: { $exists: false } }] },
+        buildCalendarStandardVisibilityFilter(childStandards),
       ],
-    }).select('title start end color audience').sort({ start: 1 }).limit(250).lean();
+    }).select('title start end color audience standards').sort({ start: 1 }).limit(250).lean();
     return res.json({ events: events.map((event) => ({
       id: String(event._id),
       title: event.title || 'School event',
@@ -262,6 +266,7 @@ router.get('/calendar', requireParentAccount, async (req, res) => {
       endsAt: event.end || event.start || null,
       color: event.color || '',
       audience: event.audience || 'all',
+      standards: Array.isArray(event.standards) ? event.standards : [],
     })) });
   } catch (error) {
     console.error('Unable to load standalone parent calendar:', error?.name || 'calendar_error');

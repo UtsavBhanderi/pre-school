@@ -34,3 +34,19 @@
  .calendar-container .fc .fc-daygrid-day-number { font-size:.67rem; }
  .calendar-container .fc .fc-event { font-size:.62rem; }
 }
+
+
+
+.calendar-standard-targeting { padding:.8rem; border:1px solid #e5eaf2; border-radius:10px; background:#fbfcff; }
+.calendar-standard-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:.7rem; }
+.calendar-standard-heading .form-label { color:#425570; font-weight:800; }
+.calendar-standard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem .8rem; margin:.7rem 0; }
+.calendar-standard-grid .form-check { display:flex; align-items:center; gap:.35rem; min-width:0; margin:0; padding:.45rem .55rem .45rem 1.9rem; border:1px solid #e7ecf4; border-radius:8px; background:#fff; }
+.calendar-standard-grid .form-check-label { color:#536780; font-size:.76rem; font-weight:700; overflow-wrap:anywhere; }
+.calendar-standard-grid .form-check-input { margin-left:-1.35rem; }
+.calendar-standard-empty { margin:.6rem 0; padding:.65rem; border-radius:8px; color:#8995a7; background:#f3f5f9; font-size:.72rem; }
+@media(max-width:575.98px) {
+  .calendar-standard-heading { align-items:stretch; flex-direction:column; }
+  .calendar-standard-heading .btn { align-self:flex-start; }
+  .calendar-standard-grid { grid-template-columns:1fr; }
+}

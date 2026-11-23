@@ -3,6 +3,8 @@
 const express = require('express');
 const Calendar = require('../models/Calendar');
 const { parseDateOnly } = require('../utils/dateOnly');
+const { getLegacyTeacherScope } = require('../utils/legacyTeacherClass');
+const { buildCalendarStandardVisibilityFilter } = require('../utils/calendarStandardVisibility');
 
 const router = express.Router();
 
@@ -30,13 +32,16 @@ router.get('/calendar', async (req, res) => {
   const range = getRange(req.query.from, req.query.to);
   if (!range) return res.status(400).json({ message: 'Choose a valid calendar date range of 367 days or less.' });
   try {
+    const teacherScope = await getLegacyTeacherScope(req.user, '');
+    const teacherStandards = teacherScope.allowed && teacherScope.standard ? [teacherScope.standard] : [];
     const events = await Calendar.find({
       start: { $lt: range.endExclusive },
       $and: [
         { $or: [{ end: null }, { end: { $gte: range.from } }] },
         { $or: [{ audience: { $in: ['all', 'teachers'] } }, { audience: { $exists: false } }] },
+        buildCalendarStandardVisibilityFilter(teacherStandards),
       ],
-    }).select('title description start end color audience allDay location').sort({ start: 1 }).limit(250).lean();
+    }).select('title description start end color audience standards allDay location').sort({ start: 1 }).limit(250).lean();
 
     return res.json({
       events: events.map((event) => ({
@@ -46,6 +51,7 @@ router.get('/calendar', async (req, res) => {
         endsAt: event.end || event.start || null,
         color: event.color || '',
         audience: event.audience || 'all',
+        standards: Array.isArray(event.standards) ? event.standards : [],
         description: event.description || '',
         location: event.location || '',
         allDay: Boolean(event.allDay),

@@ -49,3 +49,38 @@
  .student-profile-attendance-summary article { padding:.65rem; }
  .student-profile-attendance-summary strong { font-size:1.05rem; }
 }
+
+
+
+/* Keep the student identity card fully inside the profile's left column. */
+.student-profile-body { min-width:0; overflow-x:clip; padding:clamp(.75rem,2vw,1.5rem); }
+.student-profile-layout { width:100%; max-width:100%; min-width:0; padding-inline:clamp(.15rem,1vw,.75rem); overflow-x:clip; }
+.student-profile-grid { margin-inline:0 !important; align-items:start; }
+.student-profile-main-column { min-width:0; padding-inline:.4rem; }
+.student-profile-identity-card {
+  display:flex; flex-direction:column; align-items:stretch !important;
+  width:100%; max-width:100%; min-width:0; box-sizing:border-box; margin:0;
+  overflow:hidden; text-align:left; border-radius:15px !important;
+  background:#fff; box-shadow:0 8px 24px rgba(31,49,83,.07) !important;
+}
+.student-profile-identity-card .student-profile-avatar {
+  display:block; flex:0 0 auto; align-self:center; width:clamp(112px,14vw,150px) !important;
+  height:clamp(112px,14vw,150px) !important; max-width:100%; object-fit:cover;
+  border:4px solid #f1f4fb; box-shadow:0 5px 16px rgba(32,53,91,.1);
+}
+.student-profile-identity-card h4 { width:100%; margin:.15rem 0 .25rem; color:#273c5a; font-size:1.08rem; font-weight:850; text-align:center; overflow-wrap:anywhere; }
+.student-profile-identity-card > p { width:100%; margin:.1rem 0 .35rem; color:#74839a; font-size:.78rem; text-align:center; overflow-wrap:anywhere; }
+.student-profile-identity-card .row.w-100 { width:100% !important; margin-inline:0 !important; --bs-gutter-x:.65rem; }
+.student-profile-identity-card .row.w-100 > div { min-width:0; padding-inline:.35rem; text-align:center; }
+.student-profile-identity-card .row.w-100 h6 { color:#334965; font-weight:850; overflow-wrap:anywhere; }
+.student-profile-identity-card hr { margin:.7rem 0; opacity:.12; }
+.student-profile-identity-card > p:last-child { margin-bottom:0; text-align:left; }
+.student-profile-layout .card { min-width:0; max-width:100%; }
+.student-profile-layout .table-responsive { max-width:100%; }
+@media(max-width:767.98px) {
+  .student-profile-body { padding:.65rem; }
+  .student-profile-layout { padding-inline:0; }
+  .student-profile-grid { --bs-gutter-x:.65rem; --bs-gutter-y:.8rem; }
+  .student-profile-main-column { padding-inline:.2rem; }
+  .student-profile-identity-card { padding:1rem !important; }
+}

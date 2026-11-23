@@ -21,3 +21,23 @@ test('rejects oversized titles and untrusted colours', () => {
   assert.equal(validateCalendarEvent({ title: 'x'.repeat(121), start: '2026-11-24T09:00', end: '2026-11-24T10:00' }).valid, false);
   assert.equal(validateCalendarEvent({ title: 'Meeting', start: '2026-11-24T09:00', end: '2026-11-24T10:00', color: 'url(javascript:alert(1))' }).valid, false);
 });
+
+
+test('normalizes selected standards and removes duplicates', () => {
+  const result = validateCalendarEvent({
+    title: 'Class event',
+    start: '2026-11-24T09:00',
+    end: '2026-11-24T10:00',
+    standards: [' Nursery ', 'Nursery', 'ENG JR.'],
+  });
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.value.standards, ['Nursery', 'ENG JR.']);
+});
+
+test('rejects invalid or excessive selected standards', () => {
+  const base = { title: 'Class event', start: '2026-11-24T09:00', end: '2026-11-24T10:00' };
+  assert.equal(validateCalendarEvent({ ...base, standards: 'Nursery' }).valid, false);
+  assert.equal(validateCalendarEvent({ ...base, standards: [''] }).valid, false);
+  assert.equal(validateCalendarEvent({ ...base, standards: ['x'.repeat(81)] }).valid, false);
+  assert.equal(validateCalendarEvent({ ...base, standards: Array.from({ length: 31 }, (_, index) => 'Class ' + index) }).valid, false);
+});

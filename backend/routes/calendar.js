@@ -11,7 +11,7 @@ router.get('/', async (_req, res) => {
   try {
     const events = await Event.find().sort({ start: 1, _id: 1 }).lean();
     // Normalize older events that predate audience controls to Everyone.
-    return res.json(events.map((event) => ({ ...event, audience: event.audience || 'all' })));
+    return res.json(events.map((event) => ({ ...event, audience: event.audience || 'all', standards: Array.isArray(event.standards) ? event.standards : [] })));
   } catch (error) {
     console.error('Unable to load calendar events:', error?.name || 'database_error');
     return res.status(500).json({ message: 'The school calendar could not be loaded. Please try again.' });
@@ -36,7 +36,7 @@ router.put('/:id', async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Calendar event not found.' });
     const updates = {};
-    for (const field of ['title', 'start', 'end', 'color', 'audience']) {
+    for (const field of ['title', 'start', 'end', 'color', 'audience', 'standards']) {
       if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) updates[field] = req.body[field];
     }
     if (!Object.keys(updates).length) return res.status(400).json({ message: 'Make at least one calendar event change before saving.' });
@@ -46,6 +46,7 @@ router.put('/:id', async (req, res) => {
       end: updates.end ?? event.end,
       color: updates.color ?? event.color,
       audience: updates.audience ?? event.audience ?? 'all',
+      standards: updates.standards ?? event.standards ?? [],
     });
     if (!validation.valid) return res.status(400).json({ message: validation.message });
     Object.assign(event, validation.value);

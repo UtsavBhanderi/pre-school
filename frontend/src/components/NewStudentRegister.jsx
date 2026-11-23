@@ -2306,7 +2306,7 @@ const NewStudentRegister = () => {
                 PROFILE BODY
             ================================================== */}
 
-                        <div className="modal-body bg-light">
+                        <div className="modal-body bg-light student-profile-body">
                             {loadingProfile ? (
                                 <div className="d-flex justify-content-center align-items-center py-5">
                                     <div className="text-center">
@@ -2329,21 +2329,21 @@ const NewStudentRegister = () => {
                                     No student profile data found.
                                 </div>
                             ) : (
-                                <div className="container-fluid">
-                                    <div className="row g-4">
+                                <div className="container-fluid student-profile-layout">
+                                    <div className="row g-4 student-profile-grid">
                                         {/* ==================================================
                         LEFT COLUMN
                     ================================================== */}
 
-                                        <div className="col-lg-4">
+                                        <div className="col-lg-4 student-profile-main-column">
                                             {/* STUDENT CARD */}
 
-                                            <div className="card shadow-sm border-0 p-4 text-center align-items-center">
+                                            <div className="card shadow-sm border-0 p-4 student-profile-identity-card">
                                                 <img
                                                     src={getImageUrl(
                                                         profile.student.studentPhoto
                                                     )}
-                                                    className="profile-img mb-3"
+                                                    className="profile-img mb-3 student-profile-avatar"
                                                     alt="Student"
                                                     style={{
                                                         width: "150px",

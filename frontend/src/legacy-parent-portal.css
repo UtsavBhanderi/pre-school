@@ -191,3 +191,45 @@
   .legacy-parent-top-actions > button { flex:1 1 0; }
   .legacy-parent-mobile-nav button { font-size:.55rem; }
 }
+
+
+
+/* Small-screen content containment and readable family records. */
+.legacy-parent-portal,.legacy-parent-main,.legacy-parent-panel,.legacy-parent-card-list { min-width:0; max-width:100%; }
+.legacy-parent-portal { overflow-x:clip; }
+.legacy-parent-child-card > div { min-width:0; overflow-wrap:anywhere; }
+.legacy-parent-panel-heading > div { min-width:0; }
+.legacy-parent-panel-heading h2,.legacy-parent-panel-heading p,.legacy-parent-card h3,.legacy-parent-card p { overflow-wrap:anywhere; }
+.legacy-parent-table-wrap { width:100%; max-width:100%; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
+.legacy-parent-card,.legacy-parent-child-card,.legacy-parent-stat { min-width:0; box-sizing:border-box; }
+@media(max-width:700px) {
+  .legacy-parent-portal { width:100%; min-width:0; overflow-x:clip; padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+  .legacy-parent-main { width:100%; min-width:0; max-width:100%; padding-inline:clamp(.6rem,3vw,.85rem); }
+  .legacy-parent-topbar { align-items:flex-start; flex-wrap:wrap; }
+  .legacy-parent-topbar > div:first-child { flex:1 1 180px; min-width:0; }
+  .legacy-parent-top-actions { width:100%; flex-direction:row; }
+  .legacy-parent-top-actions button { flex:1 1 0; min-width:0; }
+  .legacy-parent-panel-heading { flex-wrap:wrap; }
+  .legacy-parent-card { padding:.8rem; }
+  .legacy-parent-child-card { align-items:flex-start; padding:.8rem; }
+  .legacy-parent-child-card p,.legacy-parent-child-card small { overflow-wrap:anywhere; }
+  .legacy-parent-mobile-nav { grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .legacy-parent-mobile-nav button { min-width:0; padding-inline:0; font-size:clamp(.5rem,2.1vw,.59rem); }
+  .legacy-parent-mobile-nav button span { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+  .legacy-parent-mobile-more { right:.4rem; left:.4rem; }
+  .legacy-parent-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .legacy-parent-filters label,.legacy-parent-filters input { min-width:0; width:100%; }
+  .legacy-parent-table { min-width:560px; }
+  .legacy-parent-card .legacy-parent-panel-heading { align-items:flex-start; }
+}
+@media(max-width:420px) {
+  .legacy-parent-topbar { flex-direction:column; }
+  .legacy-parent-top-actions { flex-direction:row; }
+  .legacy-parent-welcome { padding:.9rem; }
+  .legacy-parent-welcome-date { align-self:flex-start; }
+  .legacy-parent-stat { padding:.62rem; }
+  .legacy-parent-stat span,.legacy-parent-stat small { line-height:1.35; }
+  .legacy-parent-filters { grid-template-columns:1fr; }
+  .legacy-parent-mobile-nav { gap:0; padding-inline:.12rem; }
+  .legacy-parent-mobile-nav button { font-size:.49rem; }
+}
