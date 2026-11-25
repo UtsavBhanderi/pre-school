@@ -714,6 +714,7 @@ const Fees = () => {
               <option value="GUJ SR.">GUJ SR.</option>
             </select>
             </div>
+            </div>
           </details>
         </section>
         <div className="overview-stat-grid mb-3" aria-label="Filtered fee totals">
