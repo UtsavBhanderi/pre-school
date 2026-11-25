@@ -51,8 +51,8 @@ const StudentsReport = () => {
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
 
-  const [printStudent, setPrintStudent] = useState(null);
-  const [printReport, setPrintReport] = useState(null);
+  const [printBatch, setPrintBatch] = useState([]);
+  const [selectedPrintStudentIds, setSelectedPrintStudentIds] = useState([]);
 
   /* ===============================
      FETCH DATA
@@ -90,6 +90,25 @@ const StudentsReport = () => {
     return () => { active = false; };
   }, []);
 
+  // Keep modal interactions predictable on desktop and mobile, including Escape
+  // handling and preventing the page behind an open dialog from scrolling.
+  useEffect(() => {
+    const modalOpen = Boolean(selectedStudent || printBatch.length);
+    if (!modalOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape" || saving) return;
+      if (selectedStudent) setSelectedStudent(null);
+      if (printBatch.length) setPrintBatch([]);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedStudent, printBatch.length, saving]);
+
   const getSavedReport = useCallback((student) => (
     student?.marks?.find((item) => String(item.reportId?._id || item.reportId || "") === String(reportId)) || null
   ), [reportId]);
@@ -125,6 +144,17 @@ const StudentsReport = () => {
       return matchesQuery && matchesStatus;
     });
   }, [students, studentSearch, resultFilter, getSavedReport]);
+
+  const visibleCompletedStudentIds = useMemo(
+    () => filteredStudents.filter((student) => getSavedReport(student)).map((student) => String(student._id)),
+    [filteredStudents, getSavedReport],
+  );
+  const allVisibleCompletedSelected = visibleCompletedStudentIds.length > 0
+    && visibleCompletedStudentIds.every((id) => selectedPrintStudentIds.includes(id));
+  const selectedPrintCount = useMemo(
+    () => students.filter((student) => selectedPrintStudentIds.includes(String(student._id)) && getSavedReport(student)).length,
+    [students, selectedPrintStudentIds, getSavedReport],
+  );
 
   const commonAssessmentDate = subjects.length && subjects.every((subject) => dates[subject] && dates[subject] === dates[subjects[0]])
     ? dates[subjects[0]]
@@ -250,20 +280,46 @@ const StudentsReport = () => {
   /* ===============================
      PRINT PREVIEW
   ================================ */
-  const handlePrintPreview = (student) => {
-    const report = student.marks?.find(
-      (m) => String(m.reportId?._id || m.reportId || "") === String(reportId)
-    );
+  const togglePrintStudent = (studentId, checked) => {
+    const id = String(studentId);
+    setSelectedPrintStudentIds((previous) => (
+      checked
+        ? Array.from(new Set([...previous, id]))
+        : previous.filter((value) => value !== id)
+    ));
+  };
 
+  const toggleVisiblePrintSelection = (checked) => {
+    setSelectedPrintStudentIds((previous) => {
+      if (checked) return Array.from(new Set([...previous, ...visibleCompletedStudentIds]));
+      const visibleIds = new Set(visibleCompletedStudentIds);
+      return previous.filter((id) => !visibleIds.has(id));
+    });
+  };
+
+  const handlePrintSelected = () => {
+    const batch = students
+      .filter((student) => selectedPrintStudentIds.includes(String(student._id)))
+      .map((student) => ({ student, report: getSavedReport(student) }))
+      .filter((item) => item.report);
+    if (!batch.length) {
+      setPageError("Select at least one completed report card to print.");
+      return;
+    }
+    setPageError("");
+    setPageSuccess("");
+    setPrintBatch(batch);
+  };
+
+  const handlePrintPreview = (student) => {
+    const report = getSavedReport(student);
     if (!report) {
       setPageError("No saved marks are available to print for this student yet.");
       return;
     }
     setPageError("");
     setPageSuccess("");
-
-    setPrintStudent(student);
-    setPrintReport(report);
+    setPrintBatch([{ student, report }]);
   };
 
   /* ===============================
@@ -303,10 +359,33 @@ const StudentsReport = () => {
           <select className="form-select" aria-label="Filter report completion" value={resultFilter} onChange={(event) => setResultFilter(event.target.value)}><option value="all">All students</option><option value="pending">Pending reports</option><option value="completed">Completed reports</option></select>
         </div>
       </div>
+      <div className="report-bulk-toolbar">
+        <label className="report-bulk-select">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            aria-label="Select all completed reports shown"
+            checked={allVisibleCompletedSelected}
+            onChange={(event) => toggleVisiblePrintSelection(event.target.checked)}
+            disabled={!visibleCompletedStudentIds.length}
+          />
+          <span>Select all completed shown</span>
+        </label>
+        <div className="report-bulk-actions">
+          <span>{selectedPrintCount} selected</span>
+          <button type="button" className="btn btn-primary" onClick={handlePrintSelected} disabled={!selectedPrintCount}>
+            Print selected{selectedPrintCount ? " (" + selectedPrintCount + ")" : ""}
+          </button>
+          <button type="button" className="btn btn-outline-secondary" onClick={() => setSelectedPrintStudentIds([])} disabled={!selectedPrintStudentIds.length}>
+            Clear selection
+          </button>
+        </div>
+      </div>
       <div className="table-responsive report-student-table-wrap"><table className="table table-hover align-middle">
         <thead>
           <tr>
-            <th>#</th>
+            <th scope="col">Print</th>
+            <th scope="col">#</th>
             <th>Name</th>
             <th>Roll</th>
             <th>Total</th>
@@ -317,17 +396,26 @@ const StudentsReport = () => {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={7} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading students and subjects…</td></tr>
+            <tr><td colSpan={8} className="text-center py-5"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Loading students and subjects…</td></tr>
           ) : filteredStudents.length === 0 ? (
-            <tr><td colSpan={7}><div className="empty-state"><strong>{students.length ? "No students match these filters" : "No students found for this class"}</strong>{students.length ? "Try another name, GR number or report status." : "Check the selected class or register a student before preparing report cards."}</div></td></tr>
+            <tr><td colSpan={8}><div className="empty-state"><strong>{students.length ? "No students match these filters" : "No students found for this class"}</strong>{students.length ? "Try another name, GR number or report status." : "Check the selected class or register a student before preparing report cards."}</div></td></tr>
           ) : filteredStudents.map((s, i) => {
-            const report = s.marks?.find(
-              (m) => String(m.reportId || "") === reportId
-            );
+            const report = getSavedReport(s);
+            const isPrintSelected = selectedPrintStudentIds.includes(String(s._id));
             const isInSelectedClass = s.standard === standard;
 
             return (
               <tr key={s._id}>
+                <td className="report-select-cell">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    aria-label={"Select report for " + [s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ")}
+                    checked={isPrintSelected}
+                    disabled={!report}
+                    onChange={(event) => togglePrintStudent(s._id, event.target.checked)}
+                  />
+                </td>
                 <td>{i + 1}</td>
                 <td className="fw-semibold">
                   {[s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ") || "—"}
@@ -364,7 +452,8 @@ const StudentsReport = () => {
       </table></div>
       <div className="report-student-mobile-list">
         {loading ? <div className="report-mobile-empty">Loading students…</div> : filteredStudents.map((student) => {
-          const saved = student.marks?.find((item) => String(item.reportId || "") === reportId);
+          const saved = getSavedReport(student);
+          const isPrintSelected = selectedPrintStudentIds.includes(String(student._id));
           const isInSelectedClass = student.standard === standard;
           const name = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "Student";
           const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
@@ -374,6 +463,17 @@ const StudentsReport = () => {
                 <span className="report-student-avatar">{initials}</span>
                 <div><strong>{name}</strong><small>GR No. {student.stuNo || "—"}{!isInSelectedClass ? " · Now in " + student.standard : ""}</small></div>
               </div>
+              <label className="report-mobile-select">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  aria-label={"Select report for " + name}
+                  checked={isPrintSelected}
+                  disabled={!saved}
+                  onChange={(event) => togglePrintStudent(student._id, event.target.checked)}
+                />
+                <span>Select for class printing</span>
+              </label>
               <div className="report-student-mobile-result">
                 <div><span>Total</span><strong>{saved?.total ?? "—"}</strong></div>
                 <div><span>Percentage</span><strong>{saved ? saved.percentage + "%" : "—"}</strong></div>
@@ -447,12 +547,49 @@ const StudentsReport = () => {
                     ))}
                   </tbody>
                 </table></div>
+                <div className="report-entry-mobile-list">
+                  {subjects.map((subject, index) => (
+                    <article className="report-entry-subject-card" key={subject}>
+                      <div className="report-entry-subject-heading">
+                        <strong>{subject}</strong>
+                        <span>Maximum {outOfMarks}</span>
+                      </div>
+                      <div className="report-entry-mobile-fields">
+                        <div>
+                          <label htmlFor={"report-mobile-date-" + index}>Assessment date</label>
+                          <input
+                            id={"report-mobile-date-" + index}
+                            type="date"
+                            className="form-control"
+                            value={dates[subject] || ""}
+                            onChange={(event) => setDates((previous) => ({ ...previous, [subject]: event.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={"report-mobile-mark-" + index}>Marks obtained</label>
+                          <input
+                            id={"report-mobile-mark-" + index}
+                            type="number"
+                            inputMode="decimal"
+                            className="form-control"
+                            min="0"
+                            max={outOfMarks || undefined}
+                            step="0.01"
+                            placeholder={"0–" + outOfMarks}
+                            value={marks[subject] ?? ""}
+                            onChange={(event) => setMarks((previous) => ({ ...previous, [subject]: event.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
 
-                <div className="d-flex flex-wrap gap-3 mt-3">
-                  <span className="badge text-bg-light border px-3 py-2">Out of: {outOfMarks * subjects.length}</span>
-                  <span className="badge text-bg-light border px-3 py-2">Total: {total}</span>
-                  <span className="badge text-bg-light border px-3 py-2">Percentage: {percentage}%</span>
-                  <span className="badge text-bg-light border px-3 py-2">Grade: {grade || "—"}</span>
+                <div className="report-calculation-summary" aria-live="polite">
+                  <div><span>Maximum total</span><strong>{outOfMarks * subjects.length}</strong></div>
+                  <div><span>Marks obtained</span><strong>{total}</strong></div>
+                  <div><span>Percentage</span><strong>{percentage}%</strong></div>
+                  <div><span>Grade</span><strong>{grade || "—"}</strong></div>
                 </div>
               </div>
 
@@ -468,56 +605,91 @@ const StudentsReport = () => {
 
       {/* ===============================
          PRINT PREVIEW MODAL
-      ================================ */}
-      {printStudent && printReport && (
-        <div className="modal show d-block report-modal-backdrop report-print-backdrop" role="dialog" aria-modal="true" aria-labelledby="print-report-title">
+      =============================== */}
+      {printBatch.length > 0 && (
+        <div className="modal show d-block report-modal-backdrop report-print-backdrop" role="dialog" aria-modal="true" aria-labelledby="print-preview-dialog-title">
           <div className="modal-dialog modal-xl modal-dialog-centered report-print-dialog">
             <div className="modal-content report-print-modal-content">
               <div className="modal-header report-print-toolbar">
-                <div><h5 className="modal-title">Report card preview</h5><p>Review the student details before printing or saving as PDF.</p></div>
-                <button type="button" className="btn-close" aria-label="Close preview" onClick={() => { setPrintStudent(null); setPrintReport(null); }} />
+                <div>
+                  <h5 className="modal-title" id="print-preview-dialog-title">
+                    Report card preview · {printBatch.length} {printBatch.length === 1 ? "student" : "students"}
+                  </h5>
+                  <p>Each student’s report is arranged as a separate A4 page. Choose Print or Save as PDF.</p>
+                </div>
+                <button type="button" className="btn-close" aria-label="Close preview" onClick={() => setPrintBatch([])} />
               </div>
               <div className="modal-body report-print-modal-body">
                 <div id="print-area" className="report-print-area">
-                  <article className="report-card">
-                    <div className="report-card-accent" />
-                    <header className="report-card-header">
-                      <div className="report-card-brand"><span className="report-card-brand-mark">P</span><span><strong>{schoolName || "PRE-SCHOOL"}</strong><small>LEARNING · GROWTH · EXCELLENCE</small></span></div>
-                      <div className="report-card-heading"><span>OFFICIAL ACADEMIC RECORD</span><h1 id="print-report-title">{reportName || "Student Progress Report"}</h1><p>STUDENT REPORT CARD</p></div>
-                    </header>
-                    <section className="report-student-overview">
-                      <div className="report-student-name"><span>STUDENT NAME</span><strong>{[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ")}</strong></div>
-                      <div className="report-student-details">
-                        <div><span>GR / ROLL NUMBER</span><strong>{printStudent.stuNo || "—"}</strong></div>
-                        <div><span>CLASS / STANDARD</span><strong>{printStudent.standard || standard}</strong></div>
-                        <div><span>ACADEMIC YEAR</span><strong>{printStudent.batchYear || "—"}</strong></div>
+                  {printBatch.map(({ student: printStudent, report: printReport }, index) => (
+                    <article className="report-card report-card-print-page" key={String(printStudent._id)}>
+                      <div className="report-card-accent" />
+                      <header className="report-card-header">
+                        <div className="report-card-brand">
+                          <span className="report-card-brand-mark">{(schoolName || "P").slice(0, 1).toUpperCase()}</span>
+                          <span><strong>{schoolName || "PRE-SCHOOL"}</strong><small>LEARNING · GROWTH · EXCELLENCE</small></span>
+                        </div>
+                        <div className="report-card-heading">
+                          <span>OFFICIAL ACADEMIC RECORD</span>
+                          <h1>{reportName || "Student Progress Report"}</h1>
+                          <p>STUDENT REPORT CARD</p>
+                        </div>
+                      </header>
+                      <section className="report-student-overview">
+                        <div className="report-student-name">
+                          <span>STUDENT NAME</span>
+                          <strong>{[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ") || "—"}</strong>
+                        </div>
+                        <div className="report-student-details">
+                          <div><span>GR / ROLL NUMBER</span><strong>{printStudent.stuNo || "—"}</strong></div>
+                          <div><span>CLASS / STANDARD</span><strong>{printStudent.standard || standard}</strong></div>
+                          <div><span>ACADEMIC YEAR</span><strong>{printStudent.batchYear || "—"}</strong></div>
+                        </div>
+                      </section>
+                      <div className="report-section-heading">
+                        <span>01</span><div><strong>Assessment results</strong><small>Subject-wise marks and assessment dates</small></div>
                       </div>
-                    </section>
-                    <div className="report-section-heading"><span>01</span><div><strong>Assessment results</strong><small>Subject-wise marks and assessment dates</small></div></div>
-                    <table className="report-marks-table">
-                      <thead><tr><th>#</th><th>Subject / Learning Area</th><th>Assessment Date</th><th>Marks Obtained</th><th>Maximum</th></tr></thead>
-                      <tbody>
-                        {(printReport.subjectData || []).map((item, index) => (
-                          <tr key={item.subject || index}><td>{String(index + 1).padStart(2, "0")}</td><td>{item.subject || "—"}</td><td>{formatAssessmentDate(item.date)}</td><td className="report-earned-mark">{item.mark ?? "—"}</td><td>{outOfMarks}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div className="report-result-summary">
-                      <div><span>TOTAL SCORE</span><strong>{printReport.total ?? "—"} <small>/ {outOfMarks * (printReport.subjectData?.length || 0)}</small></strong></div>
-                      <div><span>OVERALL PERCENTAGE</span><strong>{Number(printReport.percentage || 0).toFixed(2)}%</strong></div>
-                      <div className="report-grade-result"><span>GRADE</span><strong>{printReport.grade || "—"}</strong></div>
-                    </div>
-                    <section className="report-teacher-remarks">
-                      <div className="report-section-heading"><span>02</span><div><strong>Teacher’s remarks</strong><small>Learning progress, strengths and next steps</small></div></div>
-                      <div className="report-remarks-lines"><span></span><span></span></div>
-                    </section>
-                    <footer className="report-card-signatures"><div><span></span><strong>CLASS TEACHER</strong></div><div><span></span><strong>HEAD TEACHER</strong></div><div><span></span><strong>PARENT / GUARDIAN</strong></div></footer>
-                    <div className="report-card-footer"><span>Every small step is a big achievement.</span><span>Student copy · {reportName || "Progress report"}</span></div>
-                  </article>
+                      <table className="report-marks-table">
+                        <thead><tr><th>#</th><th>Subject / Learning Area</th><th>Assessment Date</th><th>Marks Obtained</th><th>Maximum</th></tr></thead>
+                        <tbody>
+                          {(printReport.subjectData || []).map((item, itemIndex) => (
+                            <tr key={item.subject || itemIndex}>
+                              <td>{String(itemIndex + 1).padStart(2, "0")}</td>
+                              <td>{item.subject || "—"}</td>
+                              <td>{formatAssessmentDate(item.date)}</td>
+                              <td className="report-earned-mark">{item.mark ?? "—"}</td>
+                              <td>{outOfMarks}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="report-result-summary">
+                        <div><span>TOTAL SCORE</span><strong>{printReport.total ?? "—"} <small>/ {outOfMarks * (printReport.subjectData?.length || 0)}</small></strong></div>
+                        <div><span>OVERALL PERCENTAGE</span><strong>{Number(printReport.percentage || 0).toFixed(2)}%</strong></div>
+                        <div className="report-grade-result"><span>GRADE</span><strong>{printReport.grade || "—"}</strong></div>
+                      </div>
+                      <section className="report-teacher-remarks">
+                        <div className="report-section-heading">
+                          <span>02</span><div><strong>Teacher’s remarks</strong><small>Learning progress, strengths and next steps</small></div>
+                        </div>
+                        <div className="report-remarks-lines"><span></span><span></span></div>
+                      </section>
+                      <footer className="report-card-signatures">
+                        <div><span></span><strong>CLASS TEACHER</strong></div>
+                        <div><span></span><strong>HEAD TEACHER</strong></div>
+                        <div><span></span><strong>PARENT / GUARDIAN</strong></div>
+                      </footer>
+                      <div className="report-card-footer">
+                        <span>Every small step is a big achievement.</span>
+                        <span>Student copy · {reportName || "Progress report"}</span>
+                        <span>Copy {index + 1} of {printBatch.length}</span>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               </div>
               <div className="modal-footer report-print-toolbar">
-                <button type="button" className="btn btn-outline-secondary" onClick={() => { setPrintStudent(null); setPrintReport(null); }}>Close</button>
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setPrintBatch([])}>Close</button>
                 <button type="button" className="btn btn-primary" onClick={() => window.print()}>Print / Save PDF</button>
               </div>
             </div>
