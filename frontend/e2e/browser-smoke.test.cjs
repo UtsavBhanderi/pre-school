@@ -1951,39 +1951,40 @@ test('parent attendance, fees, notices, calendar and reports are easy to review 
 
   const mobileNav = page.locator('.legacy-parent-mobile-nav');
   await mobileNav.getByRole('button', { name: 'Attendance' }).click();
-  await page.getByRole('heading', { name: 'Attendance history' }).waitFor();
+  await page.locator('.legacy-parent-topbar h1').getByText('Attendance history').waitFor();
   const attendanceCards = page.locator('.legacy-parent-attendance-card .legacy-parent-mobile-record');
   await attendanceCards.first().waitFor();
   assert.equal(await attendanceCards.count(), 2);
   await page.getByLabel('From').fill('2026-11-01');
   await page.getByLabel('To').fill('2026-11-25');
   await page.getByRole('button', { name: 'Apply dates' }).click();
-  await page.getByText('Fever', { exact: true }).waitFor();
+  await attendanceCards.getByText('Fever', { exact: true }).waitFor();
   assert.deepEqual(requestedAttendanceRanges.at(-1), { from: '2026-11-01', to: '2026-11-25' });
   assert.equal(await page.locator('.legacy-parent-attendance-table').isVisible(), false);
 
   await mobileNav.getByRole('button', { name: 'Fees' }).click();
-  await page.getByRole('heading', { name: 'Fee details' }).waitFor();
-  await page.getByText('₹12,000').waitFor();
-  await page.getByText('₹2,000').waitFor();
-  assert.equal(await page.locator('.legacy-parent-fee-breakdown-mobile').isVisible(), true);
+  await page.locator('.legacy-parent-topbar h1').getByText('Fee details').waitFor();
+  const feeBreakdown = page.locator('.legacy-parent-fee-breakdown-mobile');
+  await feeBreakdown.getByText('₹12,000').waitFor();
+  await feeBreakdown.getByText('₹2,000').waitFor();
+  assert.equal(await feeBreakdown.isVisible(), true);
   assert.equal(await page.locator('.legacy-parent-fee-table').isVisible(), false);
   const paymentCards = page.locator('.legacy-parent-payment-mobile .legacy-parent-mobile-record');
   assert.equal(await paymentCards.count(), 2);
-  await page.getByText('₹5,000', { exact: true }).waitFor();
+  await paymentCards.first().getByText(/₹5,000/).waitFor();
 
   await mobileNav.getByRole('button', { name: 'More' }).click();
   const moreSheet = page.getByRole('dialog', { name: 'More from your school' });
   await moreSheet.waitFor();
   await moreSheet.getByRole('button', { name: 'Notices' }).click();
-  await page.getByRole('heading', { name: 'School notices' }).waitFor();
+  await page.locator('.legacy-parent-topbar h1').getByText('School notices').waitFor();
   await page.getByRole('heading', { name: 'Annual day reminder' }).waitFor();
   await page.getByRole('heading', { name: 'Urgent closure update' }).waitFor();
   assert.equal(await moreSheet.count(), 0);
 
   await mobileNav.getByRole('button', { name: 'More' }).click();
   await page.getByRole('dialog', { name: 'More from your school' }).getByRole('button', { name: 'Calendar' }).click();
-  await page.getByRole('heading', { name: 'School calendar' }).waitFor();
+  await page.locator('.legacy-parent-topbar h1').getByText('School calendar').waitFor();
   await page.getByRole('heading', { name: 'Annual day celebration' }).waitFor();
   assert.equal(await page.locator('.legacy-parent-calendar-date').count(), 1);
   await page.getByLabel('From').fill('2026-12-01');
@@ -1992,7 +1993,7 @@ test('parent attendance, fees, notices, calendar and reports are easy to review 
 
   await mobileNav.getByRole('button', { name: 'More' }).click();
   await page.getByRole('dialog', { name: 'More from your school' }).getByRole('button', { name: 'Reports' }).click();
-  await page.getByRole('heading', { name: 'Learning reports' }).waitFor();
+  await page.locator('.legacy-parent-topbar h1').getByText('Learning reports').waitFor();
   await page.getByRole('heading', { name: 'Term 1 progress' }).waitFor();
   const reportSubjects = page.locator('.legacy-parent-report-subjects .legacy-parent-mobile-record');
   assert.equal(await reportSubjects.count(), 3);
