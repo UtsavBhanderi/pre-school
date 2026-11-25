@@ -52,7 +52,16 @@ async function getLegacyTeacherScope(user, requestedStandard) {
     };
   }
 
-  const profile = await Teacher.findOne(filter).select('standard').lean();
+  const linkedProfile = user?._id
+    ? await Teacher.findOne({ userId: user._id }).select('standard').lean()
+    : null;
+  // Older records are matched by exact email only while they remain unlinked.
+  // Never grant access through a profile explicitly assigned to another login.
+  const legacyProfile = linkedProfile ? null : await Teacher.findOne({
+    ...filter,
+    $or: [{ userId: null }, { userId: { $exists: false } }],
+  }).select('standard').lean();
+  const profile = linkedProfile || legacyProfile;
   return resolveTeacherClassAccess('teacher', profile?.standard, requestedStandard);
 }
 

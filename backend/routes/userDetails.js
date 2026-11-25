@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const UserAccessAuditEvent = require('../models/UserAccessAuditEvent');
 const ParentAccount = require('../models/ParentAccount');
+const Teacher = require('../models/Teacher');
 const { normalizeAccessStatus, evaluateUserAccessChange } = require('../utils/userAccessPolicy');
 
 const router = express.Router();
@@ -28,19 +29,29 @@ function safeUser(user) {
 // This router is mounted behind auth, legacySingleTenantOnly, and adminOnly.
 router.get('/', async (req, res) => {
   try {
-    const users = await User.find({})
-      .select('username email role status createdAt updatedAt')
-      .sort({ createdAt: -1, username: 1 })
-      .limit(1000)
-      .lean();
+    const [users, teacherProfiles] = await Promise.all([
+      User.find({}).select('username email role status createdAt updatedAt')
+        .sort({ createdAt: -1, username: 1 }).limit(1000).lean(),
+      Teacher.find({}).select('_id userId firstName middleName lastName Email standard').lean(),
+    ]);
+    const profileByUserId = new Map();
+    const legacyProfileByEmail = new Map();
+    teacherProfiles.forEach((profile) => {
+      const summary = {
+        id: String(profile._id),
+        name: [profile.firstName, profile.middleName, profile.lastName].filter(Boolean).join(' ').trim(),
+        email: String(profile.Email || '').trim(),
+        standard: String(profile.standard || '').trim(),
+      };
+      if (profile.userId) profileByUserId.set(String(profile.userId), summary);
+      else if (summary.email) legacyProfileByEmail.set(summary.email.toLowerCase(), summary);
+    });
     return res.json(users.map((user) => ({
-      _id: String(user._id),
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      status: normalizeAccessStatus(user.status),
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      _id: String(user._id), username: user.username, email: user.email, role: user.role,
+      status: normalizeAccessStatus(user.status), createdAt: user.createdAt, updatedAt: user.updatedAt,
+      ...(user.role === 'teacher' ? {
+        teacherProfile: profileByUserId.get(String(user._id)) || legacyProfileByEmail.get(String(user.email || '').toLowerCase()) || null,
+      } : {}),
     })));
   } catch (error) {
     console.error('Unable to list user accounts:', error?.name || 'query_error');
@@ -75,6 +86,55 @@ router.get('/audit', async (req, res) => {
   } catch (error) {
     console.error('Unable to load user access history:', error?.name || 'query_error');
     return res.status(503).json({ message: 'User access history could not be loaded.' });
+  }
+});
+
+router.patch('/:id/teacher-assignment', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid staff account.' });
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const teacherProfileId = clean(body.teacherProfileId, 64);
+  const standard = clean(body.standard, 60);
+  if (!mongoose.Types.ObjectId.isValid(teacherProfileId) || !standard) {
+    return res.status(400).json({ message: 'Choose a teacher record and an assigned class.' });
+  }
+
+  try {
+    const target = await User.findById(req.params.id).select('_id username email role');
+    if (!target) return res.status(404).json({ message: 'Staff account not found.' });
+    if (target.role !== 'teacher') return res.status(409).json({ message: 'Only teacher accounts can receive a classroom assignment.' });
+
+    const profile = await Teacher.findById(teacherProfileId).select('_id userId Email');
+    if (!profile) return res.status(404).json({ message: 'The selected teacher record no longer exists. Refresh the page and try again.' });
+    if (profile.userId && String(profile.userId) !== String(target._id)) {
+      return res.status(409).json({ message: 'This teacher record is already linked to another staff login.' });
+    }
+    const profileEmail = String(profile.Email || '').trim().toLowerCase();
+    const loginEmail = String(target.email || '').trim().toLowerCase();
+    if (profileEmail && profileEmail !== loginEmail && String(profile.userId || '') !== String(target._id)) {
+      return res.status(409).json({ message: 'The teacher record email does not match this login. Update the teacher record email before linking it.' });
+    }
+    const anotherProfile = await Teacher.findOne({ userId: target._id, _id: { $ne: profile._id } }).select('_id').lean();
+    if (anotherProfile) return res.status(409).json({ message: 'This staff login is already linked to another teacher record. Edit that assignment instead.' });
+
+    const emailCondition = profile.Email
+      ? { Email: profile.Email }
+      : { $or: [{ Email: { $exists: false } }, { Email: null }, { Email: '' }] };
+    const linkedProfile = await Teacher.findOneAndUpdate(
+      { _id: profile._id, $and: [
+        { $or: [{ userId: target._id }, { userId: null }, { userId: { $exists: false } }] },
+        emailCondition,
+      ] },
+      { $set: { userId: target._id, Email: target.email, standard } },
+      { new: true, runValidators: true },
+    ).select('_id standard');
+    if (!linkedProfile) return res.status(409).json({ message: 'The teacher record changed while the class was being assigned. Refresh and try again.' });
+    return res.json({
+      message: 'Teacher login is now linked to ' + standard + '.',
+      teacherProfile: { id: String(linkedProfile._id), standard: linkedProfile.standard },
+    });
+  } catch (error) {
+    console.error('Unable to assign teacher login:', error?.name || 'assignment_error');
+    return res.status(503).json({ message: 'The teacher class assignment could not be saved safely.' });
   }
 });
 

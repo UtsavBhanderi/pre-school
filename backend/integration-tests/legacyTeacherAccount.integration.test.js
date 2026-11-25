@@ -60,7 +60,7 @@ test('school administrators manually create teacher logins that can sign in with
   );
   const teacherEmail = 'teacher-' + tag + '@example.test';
   const teacherPassword = 'TeacherInitialPassword123';
-  await Teacher.create({ Email: teacherEmail, standard: 'Nursery' });
+  const teacherProfile = await Teacher.create({ firstName: 'Classroom Teacher ' + tag, Email: teacherEmail, standard: 'Nursery' });
 
   async function api(pathname, { token, method = 'GET', body } = {}) {
     const response = await fetch(new URL(pathname, 'http://127.0.0.1:' + server.address().port), {
@@ -153,7 +153,10 @@ test('school administrators manually create teacher logins that can sign in with
     const response = await api('/api/auth/register', {
       token: adminToken,
       method: 'POST',
-      body: { username: 'Teacher ' + tag, email: teacherEmail.toUpperCase(), password: teacherPassword, role: 'teacher' },
+      body: {
+        username: 'Teacher ' + tag, email: teacherEmail.toUpperCase(), password: teacherPassword, role: 'teacher',
+        teacherProfileId: String(teacherProfile._id), standard: 'Nursery',
+      },
     });
     assert.equal(response.status, 201);
     assert.equal(response.data.user.role, 'teacher');
@@ -161,6 +164,23 @@ test('school administrators manually create teacher logins that can sign in with
     assert.equal(response.data.token, undefined);
     assert.match(response.data.message, /immediately/);
     assert.equal(await User.countDocuments({ email: teacherEmail }), 1);
+    const linkedProfile = await Teacher.findById(teacherProfile._id).lean();
+    assert.equal(String(linkedProfile.userId), String(response.data.user.id));
+    assert.equal(linkedProfile.standard, 'Nursery');
+  });
+
+  await t.test('admin user list and staff options show the linked teacher profile and assigned class', async () => {
+    const users = await api('/api/userDetailsself', { token: adminToken });
+    assert.equal(users.status, 200);
+    const teacherAccount = users.data.find((account) => account.email === teacherEmail);
+    assert.equal(teacherAccount.teacherProfile.standard, 'Nursery');
+    assert.equal(teacherAccount.teacherProfile.id, String(teacherProfile._id));
+
+    const options = await api('/api/teachers/account-options', { token: adminToken });
+    assert.equal(options.status, 200);
+    const option = options.data.profiles.find((profile) => profile.id === String(teacherProfile._id));
+    assert.equal(option.linkedUserId, teacherAccount._id);
+    assert.ok(options.data.standards.includes('Nursery'));
   });
 
   let teacherToken;

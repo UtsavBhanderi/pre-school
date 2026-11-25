@@ -7,7 +7,7 @@ import {
   MdRefresh, MdHistory, MdShield, MdCheckCircle, MdBlock, MdFamilyRestroom, MdContentCopy,
 } from "react-icons/md";
 
-const EMPTY_FORM = { username: "", email: "", password: "", role: "teacher" };
+const EMPTY_FORM = { username: "", email: "", password: "", role: "teacher", teacherProfileId: "", standard: "" };
 const EMPTY_EDIT = { role: "teacher", status: "active", reason: "" };
 
 const roleLabel = (role) => ({
@@ -44,6 +44,12 @@ export default function AdminUsers() {
   const [auditEvents, setAuditEvents] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingAudit, setLoadingAudit] = useState(true);
+  const [teacherOptions, setTeacherOptions] = useState({ profiles: [], standards: [] });
+  const [loadingTeacherOptions, setLoadingTeacherOptions] = useState(true);
+  const [teacherOptionsError, setTeacherOptionsError] = useState("");
+  const [editingAssignmentId, setEditingAssignmentId] = useState("");
+  const [assignmentDraft, setAssignmentDraft] = useState({ teacherProfileId: "", standard: "" });
+  const [savingAssignment, setSavingAssignment] = useState(false);
   const [savingUser, setSavingUser] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
   const [editingUserId, setEditingUserId] = useState("");
@@ -86,9 +92,21 @@ export default function AdminUsers() {
     }
   }, []);
 
+  const fetchTeacherOptions = useCallback(async () => {
+    setLoadingTeacherOptions(true);
+    try {
+      const response = await axios.get(API_BASE_URL + "/api/teachers/account-options");
+      setTeacherOptions({ profiles: Array.isArray(response.data?.profiles) ? response.data.profiles : [], standards: Array.isArray(response.data?.standards) ? response.data.standards : [] });
+      setTeacherOptionsError("");
+    } catch (error) {
+      setTeacherOptions({ profiles: [], standards: [] });
+      setTeacherOptionsError(error.response?.data?.message || "Teacher records and class options could not be loaded.");
+    } finally { setLoadingTeacherOptions(false); }
+  }, []);
+
   const refreshData = useCallback(async () => {
-    await Promise.all([fetchUsers(), fetchAudit()]);
-  }, [fetchUsers, fetchAudit]);
+    await Promise.all([fetchUsers(), fetchAudit(), fetchTeacherOptions()]);
+  }, [fetchUsers, fetchAudit, fetchTeacherOptions]);
 
   useEffect(() => {
     refreshData();
@@ -120,7 +138,14 @@ export default function AdminUsers() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setFormData((previous) => ({ ...previous, [name]: value }));
+    if (name === "teacherProfileId") {
+      const profile = teacherOptions.profiles.find((item) => item.id === value);
+      setFormData((previous) => ({ ...previous, teacherProfileId: value,
+        username: profile?.name && profile.name !== "Teacher record" ? profile.name : previous.username,
+        email: profile?.email || previous.email, standard: profile?.standard || "" }));
+    } else if (name === "role") {
+      setFormData((previous) => ({ ...previous, role: value, teacherProfileId: "", standard: "" }));
+    } else setFormData((previous) => ({ ...previous, [name]: value }));
     setErrorMessage("");
     setSuccessMessage("");
   };
@@ -138,6 +163,7 @@ export default function AdminUsers() {
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         role: formData.role,
+        ...(formData.role === "teacher" ? { teacherProfileId: formData.teacherProfileId, standard: formData.standard } : {}),
       });
       setFormData(EMPTY_FORM);
       setSuccessMessage(response.data?.auditWarning
@@ -152,6 +178,7 @@ export default function AdminUsers() {
   };
 
   const beginEdit = (account) => {
+    setEditingAssignmentId("");
     setEditingUserId(account._id);
     setConfirmAccessId("");
     setEditDraft({
@@ -168,6 +195,33 @@ export default function AdminUsers() {
     setConfirmAccessId("");
     setEditDraft(EMPTY_EDIT);
     setSavingAccess(false);
+  };
+
+  const beginAssignment = (account) => {
+    setEditingUserId("");
+    setEditingAssignmentId(account._id);
+    setAssignmentDraft({ teacherProfileId: account.teacherProfile?.id || "", standard: account.teacherProfile?.standard || "" });
+    setErrorMessage(""); setSuccessMessage("");
+  };
+
+  const cancelAssignment = () => {
+    setEditingAssignmentId("");
+    setAssignmentDraft({ teacherProfileId: "", standard: "" });
+    setSavingAssignment(false);
+  };
+
+  const saveAssignment = async (event, account) => {
+    event.preventDefault();
+    if (savingAssignment) return;
+    setSavingAssignment(true); setErrorMessage(""); setSuccessMessage("");
+    try {
+      const response = await axios.patch(API_BASE_URL + "/api/userDetailsself/" + encodeURIComponent(account._id) + "/teacher-assignment", assignmentDraft);
+      setSuccessMessage(response.data?.message || "Teacher class assignment saved successfully.");
+      cancelAssignment();
+      await refreshData();
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || "Unable to save this teacher's class assignment.");
+    } finally { setSavingAssignment(false); }
   };
 
   const saveAccess = async (event, account) => {
@@ -217,6 +271,8 @@ export default function AdminUsers() {
 
   const activeCount = users.filter((account) => account.status !== "suspended").length;
   const suspendedCount = users.length - activeCount;
+  const selectedTeacherProfile = teacherOptions.profiles.find((profile) => profile.id === formData.teacherProfileId);
+  const availableTeacherProfiles = teacherOptions.profiles.filter((profile) => !profile.linkedUserId);
 
   return (
     <div className="user-access-page">
@@ -282,7 +338,7 @@ export default function AdminUsers() {
           </div>
         </div>
 
-        <div className="alert alert-info py-2 small mb-3" role="note">For a teacher, choose <strong>Teacher</strong>, enter their school email ID and set an initial password of at least 12 characters. Share both privately. They can sign in immediately—no invitation, OTP or email verification is required.</div>
+        <div className="alert alert-info py-2 small mb-3" role="note">Create the login from the teacher's existing record and confirm the class assignment. Staff can sign in immediately with email and password—no invitation, OTP or email verification is required.</div>
         <form onSubmit={handleSubmit}>
           <div className="row g-3">
             <div className="col-12 col-md-6 col-xl-3">
@@ -293,7 +349,7 @@ export default function AdminUsers() {
             <div className="col-12 col-md-6 col-xl-3">
               <label className="form-label" htmlFor="user-email">Email address</label>
               <input id="user-email" type="email" name="email" value={formData.email} onChange={handleChange}
-                className="form-control" placeholder="name@school.com" autoComplete="email" maxLength={254} required />
+                className="form-control" placeholder="name@school.com" autoComplete="email" maxLength={254} required readOnly={formData.role === "teacher" && Boolean(selectedTeacherProfile?.email)} />
             </div>
             <div className="col-12 col-md-6 col-xl-3">
               <label className="form-label" htmlFor="user-password">Initial password</label>
@@ -308,13 +364,39 @@ export default function AdminUsers() {
                 <option value="admin">Administrator — full school access</option>
               </select>
             </div>
+            {formData.role === "teacher" && <>
+              <div className="col-12 col-md-6 col-xl-4">
+                <label className="form-label" htmlFor="user-teacher-profile">Teacher record</label>
+                <select id="user-teacher-profile" name="teacherProfileId" value={formData.teacherProfileId} onChange={handleChange}
+                  className="form-select" required disabled={loadingTeacherOptions || availableTeacherProfiles.length === 0}>
+                  <option value="">{loadingTeacherOptions ? "Loading teacher records…" : "Choose a teacher record"}</option>
+                  {availableTeacherProfiles.map((profile) => <option key={profile.id} value={profile.id}>
+                    {profile.name}{profile.standard ? " · " + profile.standard : " · Class not assigned"}{profile.email ? " · " + profile.email : " · Add email"}
+                  </option>)}
+                </select>
+                {availableTeacherProfiles.length === 0 && !loadingTeacherOptions && <small className="d-block text-danger mt-1">
+                  No unlinked teacher records are available. <a href="/dashboard/teacherRegister">Open Teacher records</a> to add a staff profile first.
+                </small>}
+                {teacherOptionsError && <small className="d-block text-danger mt-1">{teacherOptionsError}</small>}
+              </div>
+              <div className="col-12 col-md-6 col-xl-3">
+                <label className="form-label" htmlFor="user-standard">Assigned class</label>
+                <select id="user-standard" name="standard" value={formData.standard} onChange={handleChange}
+                  className="form-select" required disabled={!formData.teacherProfileId || loadingTeacherOptions}>
+                  <option value="">Choose class / standard</option>
+                  {teacherOptions.standards.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
+                </select>
+              </div>
+            </>}
           </div>
           <div className="small muted mt-3 d-flex align-items-start gap-2">
             <MdShield size={18} className="flex-shrink-0 mt-1" aria-hidden="true" />
-            <span>Use the same email ID as the teacher profile saved under Teacher records. Only give Administrator access to people who need to manage school records and accounts.</span>
+            <span>{formData.role === "teacher"
+              ? (selectedTeacherProfile?.email ? "The login email matches the selected teacher record. Confirm the assigned class before creating access." : "Use the school email saved on the teacher record. If it is blank, enter the staff member's email here. A class assignment is required for teacher portal access.")
+              : "Only give Administrator access to people who need to manage school records and accounts."}</span>
           </div>
           <div className="d-flex justify-content-end mt-3">
-            <button type="submit" className="btn btn-primary" disabled={savingUser}>
+            <button type="submit" className="btn btn-primary" disabled={savingUser || (formData.role === "teacher" && (loadingTeacherOptions || !formData.teacherProfileId || !formData.standard || availableTeacherProfiles.length === 0))}>
               {savingUser ? <><span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />Creating account…</> : "Create account"}
             </button>
           </div>
@@ -356,22 +438,76 @@ export default function AdminUsers() {
               ) : filteredUsers.map((account, index) => {
                 const isCurrentUser = String(account._id) === String(currentUser?.id || "");
                 const isEditing = editingUserId === account._id;
+                const isEditingAssignment = editingAssignmentId === account._id;
+                const assignmentProfiles = teacherOptions.profiles.filter((profile) => !profile.linkedUserId || profile.linkedUserId === account._id);
                 return (
                   <React.Fragment key={account._id}>
                     <tr>
                       <td>{index + 1}</td>
-                      <td><div className="fw-semibold">{account.username || "—"}</div><div className="small muted">{account.email || "—"}</div></td>
+                      <td>
+                        <div className="fw-semibold">{account.username || "—"}</div>
+                        <div className="small muted">{account.email || "—"}</div>
+                        {account.role === "teacher" && <div className="small mt-1">
+                          <span className={account.teacherProfile?.standard ? "text-success" : "text-danger"}>
+                            {account.teacherProfile?.standard ? "Class: " + account.teacherProfile.standard : (account.teacherProfile ? "Class not assigned" : "Teacher record not linked")}
+                          </span>
+                        </div>}
+                      </td>
                       <td><span className={"badge rounded-pill " + (account.role === "admin" ? "text-bg-primary" : "text-bg-light border text-dark")}>{roleLabel(account.role)}</span></td>
                       <td><span className={"badge rounded-pill " + (account.status === "suspended" ? "text-bg-danger" : "text-bg-success")}>{statusLabel(account.status)}</span></td>
                       <td>{formatDate(account.createdAt)}</td>
                       <td className="text-end">
                         {isCurrentUser ? <span className="small muted">Current account</span>
                           : account.role === "student" ? <span className="small muted">Legacy role</span>
-                            : <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => isEditing ? cancelEdit() : beginEdit(account)} aria-expanded={isEditing}>
-                              {isEditing ? <><MdClose className="me-1" aria-hidden="true" />Cancel</> : <><MdEdit className="me-1" aria-hidden="true" />{account.role === "parent" ? "Manage access" : "Edit access"}</>}
-                            </button>}
+                            : <div className="d-flex justify-content-end gap-2 flex-wrap">
+                              {account.role === "teacher" && <button type="button" className="btn btn-sm btn-outline-success"
+                                onClick={() => isEditingAssignment ? cancelAssignment() : beginAssignment(account)} aria-expanded={isEditingAssignment}>
+                                {account.teacherProfile?.standard ? "Change class" : "Assign class"}
+                              </button>}
+                              <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => isEditing ? cancelEdit() : beginEdit(account)} aria-expanded={isEditing}>
+                                {isEditing ? <><MdClose className="me-1" aria-hidden="true" />Cancel</> : <><MdEdit className="me-1" aria-hidden="true" />{account.role === "parent" ? "Manage access" : "Edit access"}</>}
+                              </button>
+                            </div>}
                       </td>
                     </tr>
+                    {isEditingAssignment && account.role === "teacher" && (
+                      <tr className="table-success">
+                        <td colSpan={6}>
+                          <form className="p-2 p-md-3" onSubmit={(event) => saveAssignment(event, account)}>
+                            <div className="row g-3 align-items-end">
+                              <div className="col-12 col-md-6">
+                                <label className="form-label" htmlFor={"assign-profile-" + account._id}>Teacher record</label>
+                                <select id={"assign-profile-" + account._id} className="form-select" value={assignmentDraft.teacherProfileId}
+                                  onChange={(event) => {
+                                    const profile = teacherOptions.profiles.find((item) => item.id === event.target.value);
+                                    setAssignmentDraft((draft) => ({ ...draft, teacherProfileId: event.target.value, standard: profile?.standard || draft.standard }));
+                                  }} required>
+                                  <option value="">Choose a teacher record</option>
+                                  {assignmentProfiles.map((profile) => <option key={profile.id} value={profile.id}>
+                                    {profile.name}{profile.standard ? " · " + profile.standard : " · Class not assigned"}
+                                  </option>)}
+                                </select>
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <label className="form-label" htmlFor={"assign-standard-" + account._id}>Assigned class</label>
+                                <select id={"assign-standard-" + account._id} className="form-select" value={assignmentDraft.standard}
+                                  onChange={(event) => setAssignmentDraft((draft) => ({ ...draft, standard: event.target.value }))} required>
+                                  <option value="">Choose class / standard</option>
+                                  {teacherOptions.standards.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
+                                </select>
+                              </div>
+                              <div className="col-12 col-md-2 d-flex gap-2">
+                                <button type="button" className="btn btn-outline-secondary flex-fill" onClick={cancelAssignment} disabled={savingAssignment}>Cancel</button>
+                                <button type="submit" className="btn btn-success flex-fill" disabled={savingAssignment || !assignmentDraft.teacherProfileId || !assignmentDraft.standard}>
+                                  {savingAssignment ? "Saving…" : "Save class"}
+                                </button>
+                              </div>
+                              <div className="col-12 small muted">This links the selected teacher record to this login and sets the class used by the teacher dashboard.</div>
+                            </div>
+                          </form>
+                        </td>
+                      </tr>
+                    )}
                     {isEditing && (
                       <tr className="table-primary">
                         <td colSpan={6}>

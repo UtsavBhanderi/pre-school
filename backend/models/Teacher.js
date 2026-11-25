@@ -4,6 +4,7 @@ const teacherSchema = new mongoose.Schema({
   selfPhoto: { type: String, required: false },
   motherPhoto: { type: String, required: false },
   fatherPhoto: { type: String, required: false },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: undefined },
   firstName: { type: String, required: false },
   middleName: { type: String, required: false },
   lastName: { type: String, required: false },
@@ -29,6 +30,11 @@ const teacherSchema = new mongoose.Schema({
   drivingLicence: { type: String, trim: true },
   vehical: { type: String, required: false },
   married: { type: Boolean }
+});
+
+teacherSchema.index({ userId: 1 }, {
+  unique: true,
+  partialFilterExpression: { userId: { $type: 'objectId' } },
 });
 
 module.exports = mongoose.model('Teacher', teacherSchema);

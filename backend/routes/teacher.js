@@ -4,7 +4,41 @@ const multer = require('multer');
 const path = require('path');
 const Teacher = require('../models/Teacher');
 const User = require('../models/User');
+const Student = require('../models/Student');
+const Subject = require('../models/Subject');
 const router = express.Router();
+
+// Limited data for the Admin > Users staff-login and class-assignment controls.
+router.get('/account-options', async (req, res) => {
+    try {
+        const [profiles, accounts, studentStandards, subjectStandards] = await Promise.all([
+            Teacher.find({}).select('_id userId firstName middleName lastName Email standard').sort({ firstName: 1, lastName: 1 }).lean(),
+            User.find({ role: 'teacher' }).select('_id email').lean(),
+            Student.distinct('standard', { status: { $ne: 'withdrawn' } }),
+            Subject.distinct('standard'),
+        ]);
+        const accountByEmail = new Map(accounts.map((account) => [String(account.email || '').trim().toLowerCase(), String(account._id)]));
+        const resultProfiles = profiles.map((profile) => {
+            const email = String(profile.Email || '').trim().toLowerCase();
+            const linkedUserId = profile.userId ? String(profile.userId) : (accountByEmail.get(email) || null);
+            return {
+                id: String(profile._id),
+                name: [profile.firstName, profile.middleName, profile.lastName].filter(Boolean).join(' ').trim() || 'Teacher record',
+                email: String(profile.Email || '').trim(),
+                standard: String(profile.standard || '').trim(),
+                linkedUserId,
+            };
+        });
+        const standards = [...new Set([
+            ...studentStandards, ...subjectStandards, ...profiles.map((profile) => profile.standard),
+        ].map((value) => String(value || '').trim()).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'en-IN', { sensitivity: 'base' }));
+        return res.json({ profiles: resultProfiles, standards });
+    } catch (error) {
+        console.error('Unable to load teacher login assignment options:', error?.name || 'query_error');
+        return res.status(503).json({ message: 'Teacher records and class options could not be loaded.' });
+    }
+});
 const { verifyUploadContent } = require('../middleware/verifyUploadContent');
 const { TEACHER_PROFILE_FIELDS, pickProfileFields } = require('../utils/legacyProfileFields');
 const { escapeRegExp } = require('../utils/legacyTeacherClass');
@@ -149,13 +183,18 @@ router.delete('/:id', async (req, res) => {
         // Removing a teacher profile also offboards the linked login.
         let loginAccessRevoked = false;
         const teacherEmail = String(teacher.Email || '').trim().toLowerCase();
-        if (teacherEmail) {
-            const result = await User.updateOne(
+        const linkedUser = teacher.userId
+            ? await User.findOneAndUpdate(
+                { _id: teacher.userId, role: 'teacher' },
+                { $set: { status: 'suspended' }, $inc: { authVersion: 1 } },
+                { new: true },
+            ).select('_id')
+            : (teacherEmail ? await User.findOneAndUpdate(
                 { email: teacherEmail, role: 'teacher' },
                 { $set: { status: 'suspended' }, $inc: { authVersion: 1 } },
-            );
-            loginAccessRevoked = result.matchedCount > 0;
-        }
+                { new: true },
+            ).select('_id') : null);
+        loginAccessRevoked = Boolean(linkedUser);
 
         await teacher.deleteOne();
         return res.json({
