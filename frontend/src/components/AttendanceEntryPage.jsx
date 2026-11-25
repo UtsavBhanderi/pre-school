@@ -444,6 +444,38 @@ const AttendanceEntryPage = () => {
             ))}
           </tbody>
         </table></div>
+        <div className="attendance-mobile-roster" aria-label="Attendance by child">
+          {students.map((student, index) => {
+            const current = attendanceData.find((item) => item.studentId === student._id);
+            const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ") || "Child";
+            return (
+              <article className="attendance-mobile-card" key={student._id}>
+                <div className="attendance-mobile-card-heading">
+                  <span className="attendance-mobile-number">{index + 1}</span>
+                  <div><strong>{fullName}</strong><small>GR No. {student.stuNo || "—"} · {student.standard || standard}</small></div>
+                  <span className={"attendance-mobile-current " + (current?.status || "unmarked")}>{current?.status === "present" ? "Present" : current?.status === "absent" ? "Absent" : "Not marked"}</span>
+                </div>
+                <div className="attendance-mobile-choices">
+                  <label className="attendance-choice present">
+                    <input type="radio" name={"attendance-mobile-" + student._id} checked={current?.status === "present"} onChange={() => handleStatusChange(student._id, "present")} disabled={loadingStudents || submittingAttendance} />
+                    <span>Present</span>
+                  </label>
+                  <label className="attendance-choice absent">
+                    <input type="radio" name={"attendance-mobile-" + student._id} checked={current?.status === "absent"} onChange={() => handleStatusChange(student._id, "absent")} disabled={loadingStudents || submittingAttendance} />
+                    <span>Absent</span>
+                  </label>
+                </div>
+                {current?.status === "absent" && (
+                  <div className="attendance-mobile-reason">
+                    <label htmlFor={"attendance-reason-" + student._id}>Reason for absence</label>
+                    <input id={"attendance-reason-" + student._id} type="text" className="form-control" value={current.reason || ""} maxLength={200} placeholder="Enter a reason (required)" onChange={(event) => handleReasonChange(student._id, event.target.value)} />
+                    {errors[student._id] && <small className="text-danger">{errors[student._id]}</small>}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
       )}
 
       {/* Submit Button */}

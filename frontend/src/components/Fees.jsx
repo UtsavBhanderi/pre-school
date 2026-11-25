@@ -339,6 +339,7 @@ const Fees = () => {
     }));
   };
 
+  const [feeQuickSearch, setFeeQuickSearch] = useState("");
   const [filter, setFilter] = useState({
     stuNo: "",
     studentName: "",
@@ -362,7 +363,13 @@ const Fees = () => {
     const balance = getRemainingBalance(pdf);
     const paid = Number(pdf.totalFeesPaid) || 0;
     const status = balance <= 0 ? "paid" : paid > 0 ? "partial" : "pending";
-    return String(pdf.stuNo ?? "").toLowerCase().includes(filter.stuNo.toLowerCase())
+    const query = feeQuickSearch.trim().toLowerCase();
+    const matchesQuickSearch = !query || [
+      pdf.studentName, pdf.stuNo, pdf.studentPhoneNumber, pdf.parentEmail,
+      pdf.ParentsMobileNumber, pdf.ParentsPhoneNumber,
+    ].some((value) => String(value ?? "").toLowerCase().includes(query));
+    return matchesQuickSearch
+      && String(pdf.stuNo ?? "").toLowerCase().includes(filter.stuNo.toLowerCase())
       && String(pdf.studentName ?? "").toLowerCase().includes(filter.studentName.toLowerCase())
       && String(pdf.standard ?? "").includes(filter.standard)
       && String(pdf.batchYear ?? "").includes(filter.batchYear)
@@ -641,7 +648,17 @@ const Fees = () => {
         <div className=""></div>
 
         <hr />
-        <div className="filter-panel mb-3 mt-2" aria-label="Filter fee records">
+        <section className="fee-record-search" aria-label="Find fee records">
+          <div className="fee-quick-search">
+            <label className="visually-hidden" htmlFor="fee-quick-search">Search by student, GR number or parent mobile</label>
+            <span aria-hidden="true">⌕</span>
+            <input id="fee-quick-search" className="form-control" type="search" placeholder="Search student, GR number or parent mobile…" value={feeQuickSearch} onChange={(event) => setFeeQuickSearch(event.target.value)} />
+            <strong>{filteredfeesData.length} records</strong>
+            {(feeQuickSearch || Object.values(filter).some(Boolean)) && <button type="button" className="btn btn-link btn-sm" onClick={() => { setFeeQuickSearch(""); setFilter({ stuNo: "", studentName: "", standard: "", batchYear: "", paymentStatus: "" }); }}>Clear</button>}
+          </div>
+          <details className="fee-record-advanced-filters" open={Object.values(filter).some(Boolean) || undefined}>
+            <summary><span>More filters</span><small>Class, academic year and payment status</small></summary>
+            <div className="filter-panel mb-3 mt-2" aria-label="Advanced fee filters">
           <div className="col">
             <input
               type="text"
@@ -696,15 +713,16 @@ const Fees = () => {
               <option value="GUJ JR.">GUJ JR.</option>
               <option value="GUJ SR.">GUJ SR.</option>
             </select>
-          </div>
-        </div>
+            </div>
+          </details>
+        </section>
         <div className="overview-stat-grid mb-3" aria-label="Filtered fee totals">
           <section className="overview-stat-card"><div className="overview-stat-label">Students in view</div><div className="overview-stat-value">{filteredfeesData.length}</div></section>
           <section className="overview-stat-card"><div className="overview-stat-label">Total collected</div><div className="overview-stat-value">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(filteredfeesData.reduce((sum, fee) => sum + (Number(fee.totalFeesPaid) || 0), 0))}</div></section>
           <section className="overview-stat-card"><div className="overview-stat-label">Outstanding balance</div><div className="overview-stat-value">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(filteredfeesData.reduce((sum, fee) => sum + getRemainingBalance(fee), 0))}</div></section>
         </div>
         <div className="section-heading"><h3>Fee records</h3><span className="muted small">{filteredfeesData.length} records</span></div>
-        <div className="table-responsive">
+        <div className="table-responsive fee-record-table-desktop">
           <table className="table table-bordered table-striped">
             <thead>
               <tr>
@@ -834,6 +852,42 @@ const Fees = () => {
             </tbody>
           </table>
         </div>
+        <section className="fee-record-mobile-list" aria-label="Fee records">
+          {loadingFees ? (
+            <div className="fee-mobile-state" role="status">Loading fee records…</div>
+          ) : filteredfeesData.length === 0 ? (
+            <div className="fee-mobile-state"><strong>No fee records found</strong><span>Try another search or adjust your filters.</span></div>
+          ) : filteredfeesData.map((fee) => {
+            const balance = getRemainingBalance(fee);
+            const paid = Number(fee.totalFeesPaid) || 0;
+            const status = balance <= 0 ? "Paid" : paid > 0 ? "Part-paid" : "Unpaid";
+            return (
+              <article className="fee-mobile-card" key={fee._id}>
+                <div className="fee-mobile-card-heading">
+                  <label className="fee-mobile-select">
+                    <input type="checkbox" checked={selectedStudents.includes(fee._id)} onChange={() => handleCheckboxChange(fee)} aria-label={"Select fee record for " + fee.studentName} />
+                  </label>
+                  <div><strong>{fee.studentName || "Student"}</strong><span>GR No. {fee.stuNo || "—"} · {fee.standard || "Class not assigned"}</span></div>
+                  <span className={"fee-mobile-status " + (balance <= 0 ? "paid" : paid > 0 ? "partial" : "due")}>{status}</span>
+                </div>
+                <div className="fee-mobile-metrics">
+                  <div><span>Total fee</span><strong>{formatReceiptAmount(fee.totalStandardFees)}</strong></div>
+                  <div><span>Paid</span><strong className="text-success">{formatReceiptAmount(fee.totalFeesPaid)}</strong></div>
+                  <div><span>Balance due</span><strong className={balance > 0 ? "text-danger" : "text-success"}>{formatReceiptAmount(balance)}</strong></div>
+                </div>
+                <div className="fee-mobile-meta">
+                  <span>Academic year: {fee.batchYear || "—"}</span>
+                  <span>Parent mobile: {fee.studentPhoneNumber || fee.ParentsMobileNumber || "—"}</span>
+                </div>
+                <div className="fee-mobile-actions">
+                  {Array.isArray(fee.paymentDetails) && fee.paymentDetails.length > 0 && <button type="button" className="btn btn-outline-primary" onClick={() => openReceipt(fee, fee.paymentDetails.length - 1)}>Receipt</button>}
+                  <button type="button" className="btn btn-outline-primary" onClick={() => handleEdit(fee)} aria-label={"Edit fee record for " + fee.studentName}>Edit</button>
+                  <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(fee._id)}>Delete</button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
         {receiptRecord && (
           <div
             className="modal show fee-receipt-modal"
