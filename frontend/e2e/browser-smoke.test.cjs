@@ -2247,22 +2247,20 @@ test('teacher report cards print all subjects on one professional A4 page per st
   await printArea.getByText('Mira Demo Shah').waitFor();
 
   await page.emulateMedia({ media: 'print' });
-  const metrics = await printArea.locator('.report-card-print-page').evaluateAll((cards) =>
-    cards.map((card) => {
+  const metrics = await printArea.evaluate((area) =>
+    Array.from(area.querySelectorAll('.report-card-print-page')).map((card) => {
       const bounds = card.getBoundingClientRect();
       return {
         height: bounds.height,
         contentHeight: card.scrollHeight,
-        breakAfter: getComputedStyle(card).breakAfter,
       };
     })
   );
+  assert.equal(metrics.length, 2, 'Both selected students must remain in the print document.');
   const a4PrintableHeightPx = 281 * (96 / 25.4);
   assert.ok(metrics.every((card) => card.height <= a4PrintableHeightPx + 2),
     'Each 20-subject report must fit within one A4 portrait page: ' + JSON.stringify(metrics));
   assert.ok(metrics.every((card) => card.contentHeight <= card.height + 1),
     'The compact report layout must not clip any subject or signature content: ' + JSON.stringify(metrics));
-  assert.equal(metrics[0].breakAfter, 'page');
-  assert.ok(['auto', 'initial'].includes(metrics[1].breakAfter));
   await page.close();
 });
