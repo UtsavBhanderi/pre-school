@@ -1534,3 +1534,272 @@ test('teacher daily work reports are easy to submit and review on phone screens'
   }
   await page.close();
 });
+
+
+test('parent family engagement is touch-friendly and completes family tasks on mobile', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  let homework = [{
+    id: 'homework-1',
+    title: 'Practice letter A',
+    standard: 'Nursery',
+    dueDate: '2026-11-30T18:30:00.000Z',
+    instructions: 'Practise the letter A sound and find three objects that begin with A.',
+    children: [{
+      id: 'child-1',
+      name: 'Aarav Patel',
+      admissionNumber: 'GR-1001',
+      submitted: false,
+    }],
+  }];
+  let complaints = [];
+  let polls = [{
+    id: 'poll-1',
+    question: 'Which activity should we plan next?',
+    description: 'Choose one activity for the next class celebration.',
+    standard: 'Nursery',
+    endsAt: '2026-11-29T18:30:00.000Z',
+    status: 'Open',
+    isActive: true,
+    hasVoted: false,
+    options: ['Story time', 'Art and craft'],
+    results: [0, 0],
+    totalVotes: 0,
+  }];
+  let schoolMessages = [{
+    id: 'school-message-1',
+    title: 'Bring a water bottle',
+    priority: 'normal',
+    createdAt: '2026-11-24T06:00:00.000Z',
+    message: 'Please send a labelled water bottle with your child every day.',
+    hasRead: false,
+  }];
+  const submittedHomework = [];
+  const sentComplaints = [];
+  const submittedVotes = [];
+  const readMessages = [];
+
+  await page.addInitScript(() => localStorage.setItem('token', 'parent-browser-smoke-token'));
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const method = request.method();
+    let status = 200;
+    let body = {};
+
+    if (path === '/api/auth/me' && method === 'GET') {
+      body = {
+        user: {
+          id: 'parent-user-1',
+          username: 'Riya Patel',
+          email: 'riya@example.com',
+          role: 'parent',
+          memberships: [],
+          parentAccount: { mode: 'legacy_single_school', status: 'active', studentCount: 1 },
+        },
+      };
+    } else if (path === '/api/parent-portal/summary' && method === 'GET') {
+      body = {
+        schoolName: 'Blooming Buds Preschool',
+        date: '2026-11-25',
+        children: 1,
+        attendanceToday: { present: 1, absent: 0 },
+        fees: { outstanding: 1200, currency: 'INR' },
+      };
+    } else if (path === '/api/parent-portal/children' && method === 'GET') {
+      body = {
+        total: 1,
+        children: [{
+          id: 'child-1',
+          name: 'Aarav Patel',
+          admissionNumber: 'GR-1001',
+          className: 'Nursery',
+          academicYear: '2026-2027',
+          dateOfBirth: '2023-05-10',
+        }],
+      };
+    } else if (path === '/api/school-engagement/parent/homework' && method === 'GET') {
+      body = { homework };
+    } else if (/^\/api\/school-engagement\/parent\/homework\/[^/]+\/submissions$/.test(path) && method === 'POST') {
+      const payload = request.postDataJSON();
+      submittedHomework.push(payload);
+      homework = homework.map((item) => ({
+        ...item,
+        children: item.children.map((child) => child.id === payload.studentId
+          ? { ...child, submitted: true, submittedAt: '2026-11-25T08:00:00.000Z' }
+          : child),
+      }));
+      body = { message: 'Homework marked as completed.' };
+      status = 201;
+    } else if (path === '/api/school-engagement/parent/complaints' && method === 'GET') {
+      body = { complaints };
+    } else if (path === '/api/school-engagement/parent/complaints' && method === 'POST') {
+      const payload = request.postDataJSON();
+      sentComplaints.push(payload);
+      complaints = [{
+        id: 'complaint-1',
+        ...payload,
+        child: { id: 'child-1', name: 'Aarav Patel' },
+        status: 'open',
+        createdAt: '2026-11-25T08:05:00.000Z',
+      }, ...complaints];
+      body = { message: 'Your message has been sent privately to the school.' };
+      status = 201;
+    } else if (path === '/api/school-engagement/parent/polls' && method === 'GET') {
+      body = { polls };
+    } else if (/^\/api\/school-engagement\/parent\/polls\/[^/]+\/votes$/.test(path) && method === 'POST') {
+      const payload = request.postDataJSON();
+      submittedVotes.push(payload);
+      polls = polls.map((poll) => ({
+        ...poll,
+        hasVoted: true,
+        results: poll.results.map((count, index) => count + (index === payload.optionIndex ? 1 : 0)),
+        totalVotes: poll.totalVotes + 1,
+      }));
+      body = { message: 'Your vote has been recorded.' };
+      status = 201;
+    } else if (path === '/api/school-engagement/parent/messages' && method === 'GET') {
+      body = { messages: schoolMessages };
+    } else if (/^\/api\/school-engagement\/parent\/messages\/[^/]+\/read$/.test(path) && method === 'POST') {
+      const messageId = path.split('/')[5];
+      readMessages.push(messageId);
+      schoolMessages = schoolMessages.map((item) => item.id === messageId ? { ...item, hasRead: true } : item);
+      body = { message: 'Message marked as read.' };
+    } else if (path === '/api/announcements' && method === 'GET') {
+      body = [{
+        _id: 'notice-1',
+        title: 'Sports day reminder',
+        priority: 'important',
+        createdAt: '2026-11-24T06:00:00.000Z',
+        message: 'Please send your child in comfortable sports clothes.',
+      }];
+    }
+
+    await route.fulfill({
+      status,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto(BASE_URL + '/parent-portal');
+  await page.getByRole('heading', { name: 'Family overview' }).waitFor();
+  const homeShortcuts = page.locator('.legacy-parent-shortcuts .legacy-parent-shortcut');
+  assert.equal(await homeShortcuts.count(), 3, 'The family home should offer three clear shortcuts.');
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const homeDimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      shortcuts: Array.from(document.querySelectorAll('.legacy-parent-shortcut')).map((card) => ({
+        width: card.getBoundingClientRect().width,
+        right: card.getBoundingClientRect().right,
+      })),
+    }));
+    assert.ok(homeDimensions.document <= homeDimensions.viewport + 1,
+      'Parent home must not overflow at ' + width + 'px: ' + JSON.stringify(homeDimensions));
+    assert.ok(homeDimensions.shortcuts.every((card) => card.width > 0 && card.right <= width + 1),
+      'Every family quick action must remain inside the viewport at ' + width + 'px.');
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  // The home shortcut should open the requested private-message tab directly.
+  await page.getByRole('button', { name: /Message the school/ }).click();
+  await page.getByRole('heading', { name: 'Family engagement' }).waitFor();
+  const tabs = page.getByRole('tablist', { name: 'Family engagement' });
+  const complaintTab = tabs.getByRole('tab', { name: 'Messages to school' });
+  await complaintTab.waitFor();
+  assert.equal(await complaintTab.getAttribute('aria-selected'), 'true');
+
+  // Send a private message for the linked child.
+  await page.getByLabel('Child', { exact: true }).selectOption('child-1');
+  await page.getByLabel('Category', { exact: true }).selectOption('classroom');
+  await page.getByLabel('Subject', { exact: true }).fill('Question about reading practice');
+  await page.getByLabel('Message', { exact: true }).fill('Could you please share a little more guidance for home practice?');
+  await page.getByRole('button', { name: 'Send to school' }).click();
+  await page.getByRole('status').filter({ hasText: 'sent privately to the school' }).waitFor();
+  assert.equal(sentComplaints.length, 1);
+  assert.equal(sentComplaints[0].studentId, 'child-1');
+  assert.equal(sentComplaints[0].category, 'classroom');
+  await page.getByText('Question about reading practice', { exact: true }).waitFor();
+
+  // Verify large, readable form controls before switching sections.
+  const formControls = await page.locator('.parent-engagement-form input, .parent-engagement-form select, .parent-engagement-form textarea').evaluateAll((items) =>
+    items.map((item) => ({ height: item.getBoundingClientRect().height, fontSize: getComputedStyle(item).fontSize }))
+  );
+  assert.ok(formControls.length >= 4);
+  assert.ok(formControls.every((item) => item.height >= 48 && Number.parseFloat(item.fontSize) >= 16),
+    'The private-message form should use comfortable touch sizes and avoid mobile browser zoom: ' + JSON.stringify(formControls));
+
+  // Homework completion keeps its optional note attached to the selected child.
+  await tabs.getByRole('tab', { name: 'Homework' }).click();
+  await page.getByLabel('Note for Aarav Patel').fill('We practised this together today.');
+  await page.getByRole('button', { name: 'Mark completed' }).click();
+  await page.getByText(/Completed · 25 Nov 2026/).waitFor();
+  assert.equal(submittedHomework.length, 1);
+  assert.deepEqual(submittedHomework[0], {
+    studentId: 'child-1',
+    responseText: 'We practised this together today.',
+  });
+
+  // Parent poll voting should save and update the visible result.
+  await tabs.getByRole('tab', { name: 'Polls' }).click();
+  await page.getByLabel('Art and craft').check();
+  await page.getByRole('button', { name: 'Submit my vote' }).click();
+  await page.getByText(/Your vote has been recorded/).waitFor();
+  assert.deepEqual(submittedVotes[0], { optionIndex: 1 });
+  await page.getByText('Your vote has been recorded. Thank you for sharing your view.').waitFor();
+
+  // A direct school message can be marked read.
+  await tabs.getByRole('tab', { name: 'Messages' }).click();
+  await page.getByRole('button', { name: 'Mark as read' }).click();
+  assert.deepEqual(readMessages, ['school-message-1']);
+  await page.getByText('Read', { exact: true }).waitFor();
+
+  // School notices remain accessible inside the same engagement area.
+  await tabs.getByRole('tab', { name: 'School notices' }).click();
+  await page.getByRole('heading', { name: 'Sports day reminder' }).waitFor();
+
+  // Return to the message form while measuring the full phone-width range.
+  await complaintTab.click();
+  const tabMetrics = await page.locator('.parent-engagement-tabs').evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    overflowX: getComputedStyle(element).overflowX,
+    buttons: Array.from(element.querySelectorAll('button')).map((button) => ({
+      width: button.getBoundingClientRect().width,
+      height: button.getBoundingClientRect().height,
+    })),
+  }));
+  assert.ok(tabMetrics.scrollWidth > tabMetrics.clientWidth,
+    'Parent engagement tabs should scroll horizontally instead of wrapping into multiple rows.');
+  assert.equal(tabMetrics.overflowX, 'auto');
+  assert.ok(tabMetrics.buttons.every((button) => button.height >= 44),
+    'Every engagement tab should have a comfortable touch height.');
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      tabStrip: document.querySelector('.parent-engagement-tabs')?.getBoundingClientRect().width || 0,
+      formInputs: Array.from(document.querySelectorAll('.parent-engagement-form input, .parent-engagement-form select, .parent-engagement-form textarea')).map((input) => ({
+        height: input.getBoundingClientRect().height,
+        fontSize: getComputedStyle(input).fontSize,
+      })),
+    }));
+    assert.ok(dimensions.document <= dimensions.viewport + 1,
+      'Parent family engagement must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
+    assert.ok(dimensions.tabStrip <= width + 1,
+      'Parent engagement tabs must stay within the viewport at ' + width + 'px.');
+    assert.ok(dimensions.formInputs.every((input) => input.height >= 48 && Number.parseFloat(input.fontSize) >= 16),
+      'Parent message form controls must remain touch-sized at ' + width + 'px: ' + JSON.stringify(dimensions));
+  }
+  await page.close();
+});
