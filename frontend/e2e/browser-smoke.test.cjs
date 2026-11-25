@@ -1180,6 +1180,37 @@ test('report cards reuse class assessment dates and move to the next child after
   assert.ok(['auto', 'initial'].includes(pageBreaks[1]), 'The final report card should not add a blank trailing page.');
   await page.emulateMedia({ media: 'screen' });
   await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+  // Verify that the assessment form becomes a touch-friendly card layout on a phone.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const chitraCard = page.locator('.report-student-mobile-card').filter({ hasText: 'Chitra Desai' });
+  await chitraCard.getByRole('button', { name: 'Enter marks' }).click();
+  const mobileSubjectCards = page.locator('.report-entry-mobile-list .report-entry-subject-card');
+  await mobileSubjectCards.first().waitFor();
+  assert.equal(await mobileSubjectCards.count(), 2,
+    'A phone-sized mark-entry form should show one compact card per subject.');
+  assert.equal(await page.locator('.report-entry-table-wrap').isVisible(), false,
+    'The wide subject table should be replaced by the mobile card layout.');
+  const mobileReportDimensions = await page.evaluate(() => {
+    const modal = document.querySelector('.report-modal-backdrop .modal-content');
+    return {
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      modal: modal?.getBoundingClientRect().width || 0,
+      modalScroll: modal?.scrollWidth || 0,
+      modalClient: modal?.clientWidth || 0,
+    };
+  });
+  assert.ok(mobileReportDimensions.document <= mobileReportDimensions.viewport + 1,
+    'Mobile report entry must not overflow the page: ' + JSON.stringify(mobileReportDimensions));
+  assert.ok(mobileReportDimensions.modal <= 390 && mobileReportDimensions.modalScroll <= mobileReportDimensions.modalClient + 1,
+    'The mobile mark-entry dialog and its controls must fit the phone width: ' + JSON.stringify(mobileReportDimensions));
+  const reusedMobileDates = await page.locator('.report-entry-mobile-list input[type="date"]').evaluateAll((inputs) =>
+    inputs.map((input) => input.value)
+  );
+  assert.deepEqual(reusedMobileDates, ['2026-11-20', '2026-11-20'],
+    'Shared assessment dates should also be reused in the mobile entry layout.');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.close();
 });
 
