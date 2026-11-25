@@ -281,3 +281,43 @@
   .legacy-parent-mobile-nav { padding-inline:.1rem; }
   .legacy-parent-mobile-nav button { font-size:.57rem; }
 }
+
+
+/* Family dashboard shortcuts: concise, touch-sized routes to common parent tasks. */
+.legacy-parent-shortcuts {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.65rem;
+  margin:0 0 1rem;
+}
+.legacy-parent-shortcut {
+  display:flex; align-items:center; gap:.65rem; min-width:0; min-height:76px; padding:.75rem;
+  border:1px solid var(--lp-border); border-radius:12px; color:#344967; background:#fff;
+  text-align:left; box-shadow:0 4px 15px rgba(28,48,84,.025);
+  transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease;
+}
+.legacy-parent-shortcut:hover { border-color:#cbd6f6; box-shadow:0 8px 20px rgba(34,55,105,.07); transform:translateY(-1px); }
+.legacy-parent-shortcut-icon {
+  display:grid; flex:0 0 38px; width:38px; height:38px; place-items:center; border-radius:11px;
+  color:#3659b8; background:#edf2ff; font-size:1.25rem;
+}
+.legacy-parent-shortcut.messages .legacy-parent-shortcut-icon { color:#28785c; background:#eaf7f0; }
+.legacy-parent-shortcut.polls .legacy-parent-shortcut-icon { color:#7555b5; background:#f2edff; }
+.legacy-parent-shortcut > span:nth-child(2) { display:grid; flex:1; min-width:0; gap:.16rem; }
+.legacy-parent-shortcut strong { color:#2d4261; font-size:.76rem; font-weight:850; line-height:1.35; }
+.legacy-parent-shortcut small { color:#8995a7; font-size:.64rem; line-height:1.4; }
+.legacy-parent-shortcut > svg { flex:0 0 auto; color:#9aa6b8; }
+.legacy-parent-shortcut:focus-visible { outline:3px solid rgba(70,101,208,.5); outline-offset:2px; }
+@media(max-width:700px) {
+  .legacy-parent-shortcuts { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
+  .legacy-parent-shortcut { min-height:76px; padding:.65rem; gap:.5rem; }
+  .legacy-parent-shortcut > span:nth-child(2) { gap:.12rem; }
+  .legacy-parent-shortcut strong { font-size:.7rem; }
+  .legacy-parent-shortcut small { font-size:.61rem; }
+  .legacy-parent-shortcut > svg { display:none; }
+  .legacy-parent-shortcut.polls { grid-column:1/-1; }
+}
+@media(max-width:360px) {
+  .legacy-parent-shortcut { padding:.58rem; gap:.42rem; }
+  .legacy-parent-shortcut-icon { flex-basis:34px; width:34px; height:34px; }
+}

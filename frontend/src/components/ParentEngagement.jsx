@@ -31,8 +31,8 @@ function Empty({ title, detail }) {
   return <div className="legacy-parent-empty"><strong>{title}</strong><p className="mb-0 mt-1">{detail}</p></div>;
 }
 
-export default function ParentEngagement() {
-  const [tab, setTab] = useState("homework");
+export default function ParentEngagement({ initialTab = "homework" }) {
+  const [tab, setTab] = useState(initialTab);
   const [children, setChildren] = useState([]);
   const [homework, setHomework] = useState([]);
   const [complaints, setComplaints] = useState([]);
@@ -197,7 +197,10 @@ export default function ParentEngagement() {
                             <span className="legacy-parent-status paid">Completed · {formatDate(child.submittedAt)}</span>
                           ) : (
                             <div className="parent-engagement-homework-action">
-                              <textarea rows="2" maxLength={1200} value={notes[key] || ""} onChange={(event) => setNotes((old) => ({ ...old, [key]: event.target.value }))} placeholder="Optional note for the teacher" aria-label={"Note for " + child.name} />
+                              <label className="parent-engagement-note-field">
+                                <span>Optional note to the teacher</span>
+                                <textarea rows="2" maxLength={1200} value={notes[key] || ""} onChange={(event) => setNotes((old) => ({ ...old, [key]: event.target.value }))} placeholder="Add a short note (optional)" aria-label={"Note for " + child.name} />
+                              </label>
                               <button type="button" className="legacy-parent-primary-btn" disabled={busy === key} onClick={() => completeHomework(item.id, child.id)}>{busy === key ? "Saving…" : "Mark completed"}</button>
                             </div>
                           )}

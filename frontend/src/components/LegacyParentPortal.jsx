@@ -5,7 +5,7 @@ import {
   MdCampaign, MdCalendarMonth, MdAssessment, MdRefresh, MdLogout,
   MdShield, MdCheckCircle, MdErrorOutline, MdHistory,
   MdReceiptLong, MdArrowForward, MdEventAvailable, MdMenuBook,
-  MdOutlineAccountCircle, MdForum, MdMenu,
+  MdOutlineAccountCircle, MdForum, MdMenu, MdPoll,
 } from "react-icons/md";
 import { AuthContext } from "../context/AuthContext.jsx";
 import { API_BASE_URL } from "../api.js";
@@ -82,6 +82,7 @@ export default function LegacyParentPortal() {
   const { user, logout } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState("overview");
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [engagementStartTab, setEngagementStartTab] = useState("homework");
   const [summary, setSummary] = useState(null);
   const [children, setChildren] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -152,6 +153,12 @@ export default function LegacyParentPortal() {
 
   const chooseMobileTab = (tabId) => {
     setActiveTab(tabId);
+    setMobileMoreOpen(false);
+  };
+
+  const openEngagement = (tabId = "homework") => {
+    setEngagementStartTab(tabId);
+    setActiveTab("engagement");
     setMobileMoreOpen(false);
   };
 
@@ -268,6 +275,23 @@ export default function LegacyParentPortal() {
                   <ParentStat label="Absent today" value={absentCount} hint="Please contact the school if needed" tone="absent" />
                   <ParentStat label="Fee balance" value={money(summary?.fees?.outstanding)} hint="Total outstanding for your family" />
                 </section>
+                <section className="legacy-parent-shortcuts" aria-label="Family quick actions">
+                  <button type="button" className="legacy-parent-shortcut homework" onClick={() => openEngagement("homework")}>
+                    <span className="legacy-parent-shortcut-icon"><MdMenuBook aria-hidden="true" /></span>
+                    <span><strong>Homework & activities</strong><small>Review tasks and mark them complete</small></span>
+                    <MdArrowForward aria-hidden="true" />
+                  </button>
+                  <button type="button" className="legacy-parent-shortcut messages" onClick={() => openEngagement("complaints")}>
+                    <span className="legacy-parent-shortcut-icon"><MdForum aria-hidden="true" /></span>
+                    <span><strong>Message the school</strong><small>Send a private family message</small></span>
+                    <MdArrowForward aria-hidden="true" />
+                  </button>
+                  <button type="button" className="legacy-parent-shortcut polls" onClick={() => openEngagement("polls")}>
+                    <span className="legacy-parent-shortcut-icon"><MdPoll aria-hidden="true" /></span>
+                    <span><strong>School polls</strong><small>Share your opinion on school activities</small></span>
+                    <MdArrowForward aria-hidden="true" />
+                  </button>
+                </section>
                 <section className="legacy-parent-panel">
                   <div className="legacy-parent-panel-heading">
                     <div><h2>Your children</h2><p>Only children matched to your registered family contact are shown.</p></div>
@@ -363,7 +387,7 @@ export default function LegacyParentPortal() {
               </section>
             )}
 
-            {activeTab === "engagement" && <ParentEngagement />}
+            {activeTab === "engagement" && <ParentEngagement initialTab={engagementStartTab} />}
 
             {activeTab === "reports" && (
               <section className="legacy-parent-panel">
