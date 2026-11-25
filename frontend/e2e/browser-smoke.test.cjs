@@ -2194,7 +2194,9 @@ test('teachers can use Save & Next, carry assessment dates forward, edit results
 });
 
 test('teacher report cards print all subjects on one professional A4 page per student', async () => {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
+  });
   const subjectData = Array.from({ length: 20 }, (_, index) => ({
     subject: 'Learning Area ' + String(index + 1).padStart(2, '0'),
     mark: 70 + (index % 10),
