@@ -287,7 +287,7 @@ test('teachers can prepare only their assigned class report cards and saved resu
   });
 
   await t.test('teacher result entry validates every configured subject and assessment date', async () => {
-    const invalid = await api('/api/teacher-report-cards/' + classReport._id + '/students/' + child._id, {
+    const invalid = await api('/api/teacher-report-cards/' + classReport._id + '/students/' + classmate._id, {
       method: 'POST',
       body: {
         subjectData: [
