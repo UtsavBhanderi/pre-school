@@ -2140,7 +2140,7 @@ test('teachers can use Save & Next, carry assessment dates forward, edit results
   await nextDialog.locator('.report-entry-mobile-list input[type="number"]').nth(1).fill('19');
   await nextDialog.getByRole('button', { name: 'Save marks' }).click();
   await nextDialog.waitFor({ state: 'detached' });
-  await page.getByRole('status').filter({ hasText: 'All students in this class have a report entry' }).waitFor();
+  await page.getByRole('status').filter({ hasText: 'Marks saved successfully' }).waitFor();
 
   const updatedFirstCard = page.locator('.report-student-mobile-card').filter({ hasText: 'Aarav Demo Patel' });
   await updatedFirstCard.getByRole('button', { name: 'Edit marks' }).click();
