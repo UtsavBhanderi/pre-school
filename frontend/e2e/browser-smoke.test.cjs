@@ -1427,3 +1427,109 @@ test('administrator navigation remains usable with touch input from 320px to 430
   }
   await page.close();
 });
+
+
+test('teacher daily work reports are easy to submit and review on phone screens', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  let reports = [{
+    _id: 'teacher-report-1',
+    date: '2026-11-24',
+    TimeIn: '09:00',
+    TimeOut: '13:00',
+    subject: 'Storytelling and phonics',
+    standard: 'ENG JR.',
+    dailyWorkReport: 'Read a picture story, practised letter sounds and completed a group activity.',
+    totalStudents: 22,
+    todaysWorkingHours: 4,
+  }];
+  const submittedPayloads = [];
+
+  await mockSchoolApi(page, { userRole: 'teacher' });
+  await page.route('**/api/attendance/teacher-class', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ standard: 'ENG JR.' }),
+  }));
+  await page.route('**/api/dailyWorkReport', async (route) => {
+    const request = route.request();
+    if (request.method() === 'POST') {
+      const payload = request.postDataJSON();
+      submittedPayloads.push(payload);
+      reports = [{
+        _id: 'teacher-report-2',
+        date: '2026-11-25',
+        ...payload,
+        todaysWorkingHours: 3.5,
+      }, ...reports];
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Daily work report submitted successfully.', report: reports[0] }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(reports),
+    });
+  });
+
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
+  await page.locator('#login-password').fill('teacher-initial-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL((url) => url.pathname.endsWith('/teacher-dashboard'));
+  await page.locator('.teacher-mobile-nav').getByRole('button', { name: 'Daily report' }).click();
+  await page.getByRole('heading', { name: 'Daily work report' }).waitFor();
+
+  const reportCards = page.locator('.daily-report-mobile-list .daily-report-mobile-card');
+  await reportCards.first().waitFor();
+  assert.equal(await reportCards.count(), 1);
+  assert.equal(await page.locator('.daily-report-table-wrap').isVisible(), false,
+    'The wide report table should be replaced by stacked report cards on phones.');
+
+  await page.getByRole('searchbox', { name: 'Search your reports' }).fill('phonics');
+  assert.equal(await reportCards.count(), 1);
+  await page.getByRole('searchbox', { name: 'Search your reports' }).fill('does not exist');
+  assert.equal(await reportCards.count(), 0);
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  assert.equal(await reportCards.count(), 1);
+
+  await page.getByLabel('Time in').fill('09:00');
+  await page.getByLabel('Time out').fill('12:30');
+  await page.getByLabel('Subject / activity').fill('Art and colours');
+  await page.waitForFunction(() => document.querySelector('#report-standard')?.value === 'ENG JR.');
+  assert.equal(await page.getByLabel('Class / standard').inputValue(), 'ENG JR.');
+  await page.getByLabel('Number of students').fill('20');
+  await page.getByLabel('What did you work on today?').fill('Children explored primary colours through painting and sorting.');
+  await page.getByRole('button', { name: 'Submit work report' }).click();
+  await page.getByRole('status').filter({ hasText: 'submitted successfully' }).waitFor();
+  assert.equal(submittedPayloads.length, 1);
+  assert.equal(submittedPayloads[0].standard, 'ENG JR.');
+  assert.equal(submittedPayloads[0].totalStudents, 20);
+  assert.equal(await reportCards.count(), 2);
+  await reportCards.first().getByText('Art and colours', { exact: true }).waitFor();
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      cards: Array.from(document.querySelectorAll('.daily-report-mobile-card')).map((card) => ({
+        width: card.getBoundingClientRect().width,
+        right: card.getBoundingClientRect().right,
+      })),
+    }));
+    assert.ok(dimensions.document <= dimensions.viewport + 1,
+      'Teacher report page must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
+    assert.ok(dimensions.cards.every((card) => card.width <= width + 1 && card.right <= width + 1),
+      'Each teacher report card must fit inside the phone at ' + width + 'px: ' + JSON.stringify(dimensions));
+  }
+  await page.close();
+});

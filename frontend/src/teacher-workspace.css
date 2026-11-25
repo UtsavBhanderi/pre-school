@@ -532,3 +532,89 @@
   .teacher-mobile-nav button { font-size:.55rem; }
   .teacher-mobile-nav button svg { font-size:1.08rem; }
 }
+
+
+/* Teacher report history: search first, optional filters, readable cards on phones. */
+.teacher-feature-content .daily-report-search-row {
+  display:flex; align-items:center; gap:.6rem; margin:.8rem 0 .55rem;
+}
+.teacher-feature-content .daily-report-search-row .form-control {
+  min-width:0; max-width:560px; min-height:44px; border-color:#dfe6f0; background:#fff;
+}
+.teacher-feature-content .daily-report-search-row .btn-link {
+  flex:0 0 auto; min-height:44px; color:#4960b6; font-size:.75rem; font-weight:750; text-decoration:none;
+}
+.teacher-feature-content .daily-report-filter-details {
+  margin-bottom:.8rem; border:1px solid #e8edf4; border-radius:10px; background:#fafbfe;
+}
+.teacher-feature-content .daily-report-filter-details > summary {
+  display:flex; align-items:center; justify-content:space-between; gap:.7rem;
+  min-height:44px; padding:.55rem .8rem; color:#52637d; cursor:pointer; font-size:.74rem; font-weight:800; list-style:none;
+}
+.teacher-feature-content .daily-report-filter-details > summary::-webkit-details-marker { display:none; }
+.teacher-feature-content .daily-report-filter-details > summary::after {
+  content:"+"; color:#5268b5; font-size:1.15rem; line-height:1;
+}
+.teacher-feature-content .daily-report-filter-details[open] > summary::after { content:"−"; }
+.teacher-feature-content .daily-report-filter-active { margin-left:auto; color:#5268b5; font-size:.65rem; }
+.teacher-feature-content .daily-report-filter-details .daily-report-filters {
+  margin:.15rem .55rem .6rem; border-color:#e8edf4; background:#fff;
+}
+.teacher-feature-content .daily-report-filter-actions { display:flex; align-items:end; }
+.teacher-feature-content .daily-report-mobile-list { display:none; }
+
+@media(max-width:650px) {
+  .teacher-feature-content .daily-report-form-card .section-heading,
+  .teacher-feature-content .daily-report-history-card .section-heading { align-items:stretch; gap:.5rem; }
+  .teacher-feature-content .daily-report-form-card .section-heading .muted { display:none; }
+  .teacher-feature-content .daily-report-form .btn-primary { width:100%; min-height:48px; }
+  .teacher-feature-content .daily-report-search-row { align-items:stretch; }
+  .teacher-feature-content .daily-report-search-row .form-control {
+    flex:1 1 auto; width:100%; min-height:48px; font-size:16px;
+  }
+  .teacher-feature-content .daily-report-search-row .btn-link { padding-inline:.25rem; }
+  .teacher-feature-content .daily-report-filter-details > summary { min-height:48px; }
+  .teacher-feature-content .daily-report-filter-details .daily-report-filters {
+    grid-template-columns:minmax(0,1fr); padding:.7rem;
+  }
+  .teacher-feature-content .daily-report-filter-actions .btn { width:100%; min-height:44px; }
+  .teacher-feature-content .daily-report-mobile-list { display:grid; gap:.65rem; }
+  .teacher-feature-content .daily-report-mobile-card {
+    min-width:0; padding:.85rem; border:1px solid #e4eaf3; border-radius:12px; background:#fff;
+  }
+  .teacher-feature-content .daily-report-mobile-card-head {
+    display:flex; align-items:flex-start; justify-content:space-between; gap:.65rem;
+  }
+  .teacher-feature-content .daily-report-mobile-card-head > div { display:grid; gap:.18rem; min-width:0; }
+  .teacher-feature-content .daily-report-mobile-card-head > div > strong {
+    color:#2c405e; font-size:.86rem; font-weight:850; line-height:1.35; overflow-wrap:anywhere;
+  }
+  .teacher-feature-content .daily-report-mobile-card-head > div > span {
+    color:#7b899e; font-size:.69rem; line-height:1.4;
+  }
+  .teacher-feature-content .daily-report-mobile-hours {
+    flex:0 0 auto; padding:.28rem .48rem; border:1px solid #dce6fb; border-radius:8px;
+    color:#3853ad; background:#f3f6ff; font-size:.72rem; font-weight:850; white-space:nowrap;
+  }
+  .teacher-feature-content .daily-report-mobile-summary {
+    margin:.65rem 0; color:#596b85; font-size:.76rem; line-height:1.55; overflow-wrap:anywhere;
+  }
+  .teacher-feature-content .daily-report-mobile-meta {
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.55fr); gap:.5rem;
+    padding-top:.6rem; border-top:1px solid #edf0f5;
+  }
+  .teacher-feature-content .daily-report-mobile-meta > span { display:grid; gap:.12rem; min-width:0; }
+  .teacher-feature-content .daily-report-mobile-meta small { color:#8a96a8; font-size:.62rem; font-weight:700; }
+  .teacher-feature-content .daily-report-mobile-meta strong {
+    color:#354966; font-size:.74rem; font-weight:800; overflow-wrap:anywhere;
+  }
+  .teacher-feature-content .daily-report-table-wrap { display:none !important; }
+  .teacher-feature-content .daily-report-mobile-state {
+    display:grid; justify-items:center; gap:.4rem; padding:1.35rem .8rem; border:1px dashed #dbe3ef;
+    border-radius:12px; color:#7b899e; background:#fff; font-size:.75rem; text-align:center;
+  }
+  .teacher-feature-content .daily-report-mobile-state strong { color:#455a78; font-size:.82rem; }
+}
+@media(min-width:651px) {
+  .teacher-feature-content .daily-report-mobile-list { display:none !important; }
+}

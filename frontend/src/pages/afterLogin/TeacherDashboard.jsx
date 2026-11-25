@@ -19,12 +19,21 @@ const INITIAL_FORM = {
   totalStudents: "",
 };
 const INITIAL_FILTER = { date: "", subject: "", branch: "", standard: "" };
+const formatReportDate = (value) => {
+  if (!value) return "—";
+  const dateKey = String(value).slice(0, 10);
+  const date = new Date(dateKey + "T12:00:00");
+  return Number.isNaN(date.getTime())
+    ? dateKey
+    : new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+};
 
 const TeacherDashboard = () => {
   const { user } = useContext(AuthContext);
   const [reports, setReports] = useState([]);
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [filter, setFilter] = useState(INITIAL_FILTER);
+  const [search, setSearch] = useState("");
   const [loadingReports, setLoadingReports] = useState(true);
   const [savingReport, setSavingReport] = useState(false);
   const [assignedStandard, setAssignedStandard] = useState("");
@@ -115,11 +124,29 @@ const TeacherDashboard = () => {
     setFilter((previous) => ({ ...previous, [name]: value }));
   };
 
-  const filteredReports = useMemo(() => reports.filter((report) =>
-    Object.entries(filter).every(([key, value]) =>
-      !value || String(report[key] ?? "").toLowerCase().includes(value.toLowerCase())
-    )
-  ), [reports, filter]);
+  const filteredReports = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return reports.filter((report) => {
+      const matchesFilters = Object.entries(filter).every(([key, value]) =>
+        !value || String(report[key] ?? "").toLowerCase().includes(value.toLowerCase())
+      );
+      const searchableText = [
+        report.date, report.TimeIn, report.TimeOut, report.subject, report.standard,
+        report.branch, report.dailyWorkReport, report.totalStudents,
+      ].join(" ").toLowerCase();
+      return matchesFilters && (!term || searchableText.includes(term));
+    }).sort((left, right) => {
+      const leftKey = String(left.date || "") + String(left.TimeOut || "");
+      const rightKey = String(right.date || "") + String(right.TimeOut || "");
+      return rightKey.localeCompare(leftKey);
+    });
+  }, [reports, filter, search]);
+
+  const hasActiveFilters = Boolean(search.trim() || Object.values(filter).some(Boolean));
+  const clearFilters = () => {
+    setSearch("");
+    setFilter(INITIAL_FILTER);
+  };
 
   const totalHours = filteredReports.reduce((sum, report) =>
     sum + (Number(report.todaysWorkingHours) || 0), 0
@@ -190,30 +217,79 @@ const TeacherDashboard = () => {
           </button>
         </div>
 
-        <div className="filter-panel daily-report-filters">
-          <div>
-            <label htmlFor="my-report-date" className="form-label">Date</label>
-            <input id="my-report-date" type="date" name="date" className="form-control" value={filter.date} onChange={handleFilterChange} />
-          </div>
-          <div>
-            <label htmlFor="my-report-subject" className="form-label">Subject / activity</label>
-            <input id="my-report-subject" type="search" name="subject" className="form-control" placeholder="Search reports" value={filter.subject} onChange={handleFilterChange} />
-          </div>
-          <div>
-            <label htmlFor="my-report-standard" className="form-label">Class / standard</label>
-            <select id="my-report-standard" name="standard" className="form-select" value={filter.standard} onChange={handleFilterChange}>
-              <option value="">All classes</option>
-              {STANDARDS.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
-            </select>
-          </div>
-          <div className="d-flex align-items-end">
-            <button type="button" className="btn btn-link text-decoration-none px-0" onClick={() => setFilter(INITIAL_FILTER)}>Clear filters</button>
-          </div>
+        <div className="daily-report-search-row">
+          <label className="visually-hidden" htmlFor="my-report-search">Search your reports</label>
+          <input
+            id="my-report-search"
+            type="search"
+            className="form-control"
+            placeholder="Search by activity, class or work summary"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {hasActiveFilters && <button type="button" className="btn btn-link" onClick={clearFilters}>Clear all</button>}
         </div>
+
+        <details className="daily-report-filter-details">
+          <summary>
+            <span>More filters</span>
+            {hasActiveFilters && <span className="daily-report-filter-active">Filters applied</span>}
+          </summary>
+          <div className="filter-panel daily-report-filters">
+            <div>
+              <label htmlFor="my-report-date" className="form-label">Date</label>
+              <input id="my-report-date" type="date" name="date" className="form-control" value={filter.date} onChange={handleFilterChange} />
+            </div>
+            <div>
+              <label htmlFor="my-report-subject" className="form-label">Subject / activity</label>
+              <input id="my-report-subject" type="search" name="subject" className="form-control" placeholder="Filter by subject" value={filter.subject} onChange={handleFilterChange} />
+            </div>
+            <div>
+              <label htmlFor="my-report-standard" className="form-label">Class / standard</label>
+              <select id="my-report-standard" name="standard" className="form-select" value={filter.standard} onChange={handleFilterChange}>
+                <option value="">All classes</option>
+                {STANDARDS.map((standard) => <option key={standard} value={standard}>{standard}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="my-report-branch" className="form-label">Branch (optional)</label>
+              <input id="my-report-branch" type="search" name="branch" className="form-control" placeholder="Branch name" value={filter.branch} onChange={handleFilterChange} />
+            </div>
+            <div className="daily-report-filter-actions">
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={clearFilters}>Clear filters</button>
+            </div>
+          </div>
+        </details>
 
         <div className="d-flex flex-wrap gap-3 mb-3 daily-report-metrics">
           <div className="badge text-bg-light border px-3 py-2 daily-report-metric">{filteredReports.length} report{filteredReports.length === 1 ? "" : "s"}</div>
           <div className="badge text-bg-light border px-3 py-2 daily-report-metric">Total time: {totalHours.toFixed(2)} hours</div>
+        </div>
+
+        <div className="daily-report-mobile-list" aria-label="Submitted work reports">
+          {loadingReports ? (
+            <div className="daily-report-mobile-state"><span className="spinner-border spinner-border-sm text-primary" role="status" /> Loading your reports…</div>
+          ) : filteredReports.length === 0 ? (
+            <div className="daily-report-mobile-state">
+              <strong>No matching reports</strong>
+              <span>{hasActiveFilters ? "Try a different search or clear the filters." : "Your submitted daily work reports will appear here."}</span>
+            </div>
+          ) : filteredReports.map((report, index) => (
+            <article className="daily-report-mobile-card" key={report._id || index}>
+              <div className="daily-report-mobile-card-head">
+                <div>
+                  <strong>{report.subject || "Classroom activity"}</strong>
+                  <span>{report.standard || "Class not recorded"} · {formatReportDate(report.date)}</span>
+                </div>
+                <span className="daily-report-mobile-hours">{(Number(report.todaysWorkingHours) || 0).toFixed(2)}h</span>
+              </div>
+              <p className="daily-report-mobile-summary">{report.dailyWorkReport || "No work summary provided."}</p>
+              <div className="daily-report-mobile-meta">
+                <span><small>Teaching time</small><strong>{report.TimeIn || "—"} – {report.TimeOut || "—"}</strong></span>
+                <span><small>Children</small><strong>{Number(report.totalStudents) || 0}</strong></span>
+              </div>
+            </article>
+          ))}
         </div>
 
         <div className="table-responsive daily-report-table-wrap">
