@@ -218,23 +218,19 @@ export default function ParentEngagement({ initialTab = "homework" }) {
               <form className="legacy-parent-form parent-engagement-form" onSubmit={sendComplaint}>
                 <h3>Send a private message</h3>
                 <p>Messages are visible only to your family and authorised school staff.</p>
-                <label>Child
-                  <select value={form.studentId} onChange={(event) => setForm((old) => ({ ...old, studentId: event.target.value }))} required>
+                <label htmlFor="parent-engagement-child">Child</label>
+                <select id="parent-engagement-child" value={form.studentId} onChange={(event) => setForm((old) => ({ ...old, studentId: event.target.value }))} required>
                     <option value="">Select child</option>
                     {children.map((child) => <option value={child.id} key={child.id}>{child.name} · {child.className || "Class not assigned"}</option>)}
                   </select>
-                </label>
-                <label>Category
-                  <select value={form.category} onChange={(event) => setForm((old) => ({ ...old, category: event.target.value }))}>
-                    {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
-                </label>
-                <label>Subject
-                  <input value={form.subject} onChange={(event) => setForm((old) => ({ ...old, subject: event.target.value }))} minLength={3} maxLength={120} required placeholder="What would you like to discuss?" />
-                </label>
-                <label>Message
-                  <textarea value={form.message} onChange={(event) => setForm((old) => ({ ...old, message: event.target.value }))} rows="4" minLength={5} maxLength={3000} required placeholder="Share the details so the preschool team can help." />
-                </label>
+                <label htmlFor="parent-engagement-category">Category</label>
+                <select id="parent-engagement-category" value={form.category} onChange={(event) => setForm((old) => ({ ...old, category: event.target.value }))}>
+                  {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <label htmlFor="parent-engagement-subject">Subject</label>
+                <input id="parent-engagement-subject" value={form.subject} onChange={(event) => setForm((old) => ({ ...old, subject: event.target.value }))} minLength={3} maxLength={120} required placeholder="What would you like to discuss?" />
+                <label htmlFor="parent-engagement-message">Message</label>
+                <textarea id="parent-engagement-message" value={form.message} onChange={(event) => setForm((old) => ({ ...old, message: event.target.value }))} rows="4" minLength={5} maxLength={3000} required placeholder="Share the details so the preschool team can help." />
                 <button className="legacy-parent-primary-btn" type="submit" disabled={busy === "complaint" || !children.length}>{busy === "complaint" ? "Sending…" : "Send to school"}</button>
               </form>
               <div className="legacy-parent-panel-heading mt-3"><div><h3>Your messages</h3><p>Track the follow-up status and replies from the preschool.</p></div><span>{complaints.length} messages</span></div>
