@@ -2230,7 +2230,7 @@ test('teacher report cards print all subjects on one professional A4 page per st
   await page.getByRole('heading', { name: 'Report cards' }).last().waitFor();
 
   await page.getByRole('button', { name: 'Enter marks' }).click();
-  await page.getByRole('heading', { name: 'Student report cards' }).waitFor();
+  await page.getByRole('heading', { name: 'Student report cards', level: 2 }).waitFor();
   await page.getByRole('checkbox', { name: 'Select all completed reports shown' }).check();
   await page.getByRole('button', { name: /Print selected \(2\)/ }).click();
 
