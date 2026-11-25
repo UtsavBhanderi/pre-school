@@ -287,35 +287,43 @@ router.get('/reports', requireParentAccount, async (req, res) => {
       _id: { $in: children.map((child) => child._id) },
     }).select('_id marks').lean() : [];
     const progressByChild = new Map(progressRows.map((student) => [String(student._id), student.marks || []]));
-    return res.json({
-      reports: reports.map((report) => ({
+    const publishedReports = reports.map((report) => {
+      // A report becomes visible to a family only after that child's marks
+      // have been saved. Opening a class roster must not expose an empty
+      // assessment card in the parent portal.
+      const publishedChildren = (report.students || [])
+        .filter((student) => allowedIds.has(String(student._id)))
+        .map((student) => {
+          const result = (progressByChild.get(String(student._id)) || [])
+            .find((entry) => String(entry.reportId?._id || entry.reportId) === String(report._id));
+          if (!result) return null;
+          return {
+            id: String(student._id),
+            name: childName(student),
+            admissionNumber: student.stuNo || '',
+            result: {
+              total: Number(result.total || 0),
+              percentage: Number(result.percentage || 0),
+              grade: result.grade || '',
+              subjects: (result.subjectData || []).map((subject) => ({
+                subject: subject.subject || 'Subject',
+                mark: Number(subject.mark || 0),
+                date: subject.date || '',
+              })),
+            },
+          };
+        })
+        .filter(Boolean);
+      return {
         id: String(report._id),
         title: report.reportName || 'Student report',
         className: report.standard || '',
         description: report.description || '',
         createdAt: report.createdAt,
-        children: (report.students || []).filter((student) => allowedIds.has(String(student._id)))
-          .map((student) => {
-            const result = (progressByChild.get(String(student._id)) || [])
-              .find((entry) => String(entry.reportId) === String(report._id));
-            return {
-              id: String(student._id),
-              name: childName(student),
-              admissionNumber: student.stuNo || '',
-              result: result ? {
-                total: Number(result.total || 0),
-                percentage: Number(result.percentage || 0),
-                grade: result.grade || '',
-                subjects: (result.subjectData || []).map((subject) => ({
-                  subject: subject.subject || 'Subject',
-                  mark: Number(subject.mark || 0),
-                  date: subject.date || '',
-                })),
-              } : null,
-            };
-          }),
-      })),
-    });
+        children: publishedChildren,
+      };
+    }).filter((report) => report.children.length > 0);
+    return res.json({ reports: publishedReports });
   } catch (error) {
     console.error('Unable to load standalone parent reports:', error?.name || 'reports_error');
     return res.status(503).json({ message: 'Learning reports could not be loaded.' });

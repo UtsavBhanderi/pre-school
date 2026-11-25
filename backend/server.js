@@ -48,6 +48,7 @@ const teacherPortalCalendarRoutes = require('./routes/teacherPortalCalendar');
 const announcementsRoutes = require('./routes/announcements');
 const parentAccessRoutes = require('./routes/parentAccess');
 const legacyParentPortalRoutes = require('./routes/legacyParentPortal');
+const teacherReportCardRoutes = require('./routes/teacherReportCards');
 const schoolEngagementRoutes = require('./routes/schoolEngagement');
 const privateMediaRoutes = require('./routes/privateMedia');
 const privateMediaResponse = require('./middleware/privateMediaResponse');
@@ -138,6 +139,7 @@ app.use('/api/parent-access', parentAccessRoutes);
 app.use('/api/media', privateMediaRoutes);
 app.use('/api/parent-portal', auth, legacySingleTenantOnly, legacyParentPortalRoutes);
 app.use('/api/teacher-portal', auth, legacySingleTenantOnly, teacherPortalCalendarRoutes);
+app.use('/api/teacher-report-cards', auth, legacySingleTenantOnly, staffOnly, teacherReportCardRoutes);
 app.use('/api/school-engagement', auth, legacySingleTenantOnly, schoolEngagementRoutes);
 
 // Multi-school APIs intentionally return a clear unavailable response in this
