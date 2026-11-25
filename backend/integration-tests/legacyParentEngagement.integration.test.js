@@ -165,6 +165,23 @@ test('single-school parent engagement supports homework, private messages and po
     const after = await api('/api/school-engagement/parent/homework', { token: parentToken });
     assert.equal(after.data.homework[0].children[0].submitted, true);
     assert.equal(after.data.homework[0].children[0].responseText, 'We practised red, blue and green.');
+
+    // Close the cross-role loop: the assigned class teacher must be able to
+    // review the parent's exact response, while class scoping remains enforced
+    // by the staff endpoint and its populated child allow-list.
+    const teacherReview = await api('/api/school-engagement/staff/homework', { token: teacherToken });
+    assert.equal(teacherReview.status, 200);
+    const reviewedAssignment = teacherReview.data.homework.find((item) => item.id === homeworkId);
+    assert.ok(reviewedAssignment, 'The assigned teacher should receive the published class homework.');
+    assert.equal(reviewedAssignment.submissionCount, 1);
+    assert.deepEqual(reviewedAssignment.submissions[0], {
+      child: 'Aarav Family Child',
+      admissionNumber: student.stuNo,
+      parent: parent.username,
+      responseText: 'We practised red, blue and green.',
+      submittedAt: reviewedAssignment.submissions[0].submittedAt,
+    });
+    assert.ok(reviewedAssignment.submissions[0].submittedAt, 'The teacher review should include the submission time.');
   });
 
   let complaintId;
