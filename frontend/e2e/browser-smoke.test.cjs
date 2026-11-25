@@ -2236,7 +2236,7 @@ test('teacher report cards print all subjects on one professional A4 page per st
 
   const printDialog = page.getByRole('dialog', { name: /Report card preview · 2 students/ });
   await printDialog.waitFor();
-  const printArea = printDialog.locator('#print-area');
+  const printArea = page.locator('#print-area');
   assert.equal(await printArea.locator('.report-card-print-page').count(), 2);
   assert.equal(await printArea.locator('.report-card-density-tight').count(), 2,
     'Large reports should use the compact print layout automatically.');
