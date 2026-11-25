@@ -2159,7 +2159,7 @@ test('teachers can use Save & Next, carry assessment dates forward, edit results
   const printDialog = page.getByRole('dialog', { name: /Report card preview · 2 students/ });
   await printDialog.waitFor();
   assert.equal(await printDialog.locator('.report-card-print-page').count(), 2);
-  await page.getByRole('heading', { name: 'Nursery Term 1' }).waitFor();
+  await printDialog.getByRole('heading', { name: 'Nursery Term 1' }).first().waitFor();
   await page.getByText('18.00%', { exact: true }).waitFor();
   await page.getByText('19.50%', { exact: true }).waitFor();
 
