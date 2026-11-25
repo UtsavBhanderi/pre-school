@@ -13,6 +13,8 @@ const reportCardSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  publishedAt: { type: Date, default: null },
+  publishedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   createdAt: {
     type: Date,
     default: Date.now,

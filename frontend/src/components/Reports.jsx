@@ -34,6 +34,7 @@ const Reports = () => {
   const [editingReport, setEditingReport] = useState(null);
   const [editReportName, setEditReportName] = useState("");
   const [savingReportId, setSavingReportId] = useState("");
+  const [publishingReportId, setPublishingReportId] = useState("");
 
   const filteredReports = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
@@ -95,6 +96,19 @@ const Reports = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const togglePublish = async (report) => {
+    if (!report?._id || publishingReportId) return;
+    setPublishingReportId(report._id); setPageError(""); setPageSuccess("");
+    const action = report.publishedAt ? "unpublish" : "publish";
+    try {
+      const { data } = await api.post(`/api/reportCard/${report._id}/${action}`);
+      setReports((previous) => previous.map((item) => item._id === report._id ? { ...item, publishedAt: data.report.publishedAt } : item));
+      setPageSuccess(action === "publish" ? "Report published. Parents can now view saved results." : "Report hidden from parent portals. Saved marks remain safe.");
+    } catch (error) {
+      setPageError(error.response?.data?.message || "The report publishing status could not be changed.");
+    } finally { setPublishingReportId(""); }
   };
 
   const startRename = (report) => {
@@ -319,7 +333,7 @@ const Reports = () => {
               <tr key={report._id}>
                 <td>{index + 1}</td>
                 <td>{report.reportName}</td>
-                <td>{report.standard}</td>
+                <td>{report.standard}<div className="small text-muted">{report.publishedAt ? "Published to parents" : "Draft · parents cannot see results"}</div></td>
                 <td>{report.description}</td>
                 <td>
                   <button
@@ -364,7 +378,9 @@ const Reports = () => {
                 <strong>{report.reportName}</strong>
                 <small>{report.standard} · Out of {report.description}</small>
               </div>
-              <div className="report-template-mobile-actions">\n                <button type="button" className="btn btn-outline-secondary" onClick={() => startRename(report)}>Edit name</button>
+              <div className="report-template-mobile-actions">\n                <span className={`report-publish-state ${report.publishedAt ? "is-published" : ""}`}>{report.publishedAt ? "Visible to parents" : "Draft · hidden from parents"}</span>
+                <button type="button" className={`btn ${report.publishedAt ? "btn-outline-warning" : "btn-outline-success"}`} onClick={() => togglePublish(report)} disabled={Boolean(publishingReportId)}>{publishingReportId === report._id ? "Updating…" : report.publishedAt ? "Unpublish" : "Publish"}</button>
+                <button type="button" className="btn btn-outline-secondary" onClick={() => startRename(report)}>Edit name</button>
                 <button type="button" className="btn btn-primary" onClick={() => handleNext(report)}>Enter marks</button>
                 <button type="button" className="btn btn-outline-primary" onClick={() => handleExcel(report._id)} disabled={Boolean(exportingReportId)}>
                   {exportingReportId === report._id ? "Preparing…" : "Export"}

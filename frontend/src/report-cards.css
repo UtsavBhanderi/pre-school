@@ -323,3 +323,8 @@
 .report-rename-actions { display:flex; gap:.4rem; }
 .report-rename-actions .btn { min-height:42px; white-space:nowrap; }
 @media(max-width:760px) { .report-rename-panel { grid-template-columns:1fr; align-items:stretch; } .report-rename-actions .btn { flex:1; } }
+
+
+.report-publish-state { display:block; grid-column:1/-1; color:#7a8798; font-size:.72rem; font-weight:700; }
+.report-publish-state.is-published { color:#16734b; }
+.report-template-mobile-actions .report-publish-state { padding:.35rem .1rem; }

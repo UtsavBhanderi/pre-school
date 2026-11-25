@@ -88,6 +88,38 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.post('/:id/publish', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid report template.' });
+  try {
+    const report = await ReportCard.findById(req.params.id);
+    if (!report) return res.status(404).json({ message: 'Report template not found.' });
+    const completedCount = await Student.countDocuments({ 'marks.reportId': report._id });
+    if (!completedCount) return res.status(409).json({ message: 'Save at least one student report before publishing.' });
+    report.publishedAt = new Date();
+    report.publishedBy = req.user?._id || null;
+    await report.save();
+    return res.json({ message: 'Report published to linked parents.', report: { _id: String(report._id), publishedAt: report.publishedAt } });
+  } catch (error) {
+    console.error('Unable to publish report template:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'The report could not be published.' });
+  }
+});
+
+router.post('/:id/unpublish', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Choose a valid report template.' });
+  try {
+    const report = await ReportCard.findById(req.params.id);
+    if (!report) return res.status(404).json({ message: 'Report template not found.' });
+    report.publishedAt = null;
+    report.publishedBy = null;
+    await report.save();
+    return res.json({ message: 'Report hidden from parent portals.', report: { _id: String(report._id), publishedAt: null } });
+  } catch (error) {
+    console.error('Unable to unpublish report template:', error?.name || 'database_error');
+    return res.status(500).json({ message: 'The report could not be hidden.' });
+  }
+});
+
 router.get('/:reportId/roster', async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.reportId)) {
     return res.status(400).json({ message: 'Choose a valid report template.' });

@@ -278,8 +278,9 @@ router.get('/reports', requireParentAccount, async (req, res) => {
   try {
     const children = await getChildren(req);
     const reports = children.length ? await ReportCard.find({
+      publishedAt: { $type: 'date' },
       students: { $in: children.map((child) => child._id) },
-    }).select('reportName standard description createdAt students')
+    }).select('reportName standard description createdAt publishedAt students')
       .populate({ path: 'students', select: 'firstName middleName lastName stuNo' })
       .sort({ createdAt: -1 }).limit(100).lean() : [];
     const allowedIds = new Set(children.map((child) => String(child._id)));
