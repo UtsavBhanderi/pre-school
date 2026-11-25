@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { createAuthenticatedApi } from "../api.js";
 import * as XLSX from "xlsx";
@@ -30,6 +30,21 @@ const Reports = () => {
   const [exportingReportId, setExportingReportId] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState("");
   const [deletingReportId, setDeletingReportId] = useState("");
+  const [templateSearch, setTemplateSearch] = useState("");
+
+  const filteredReports = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+    if (!query) return reports;
+    return reports.filter((report) => (
+      String(report.reportName || "").toLowerCase().includes(query)
+      || String(report.standard || "").toLowerCase().includes(query)
+    ));
+  }, [reports, templateSearch]);
+
+  const coveredStandards = useMemo(
+    () => new Set(reports.map((report) => report.standard).filter(Boolean)).size,
+    [reports],
+  );
 
   /* ===============================
      FETCH REPORTS
@@ -146,7 +161,13 @@ const Reports = () => {
       {pageSuccess && <div className="alert alert-success" role="status">{pageSuccess}</div>}
       {/* CREATE REPORT */}
       <div className="mt-3">
-        <div className="page-header"><div><h2 className="mb-0">Report cards</h2><p className="page-subtitle">Create report templates for a class, then enter marks and export student results.</p></div></div>
+        <div className="page-header"><div><h2 className="mb-0">Report cards</h2><p className="page-subtitle">Prepare class assessments, track completion and print polished student report cards.</p></div></div>
+
+        <div className="report-overview-grid" aria-label="Report card overview">
+          <div><span>REPORT TEMPLATES</span><strong>{reports.length}</strong><small>Assessment sets available</small></div>
+          <div><span>CLASSES COVERED</span><strong>{coveredStandards}</strong><small>Different standards</small></div>
+          <div><span>WORKFLOW</span><strong>Enter · Review · Print</strong><small>Individual or whole-class copies</small></div>
+        </div>
 
         <div className="report-workflow-guide" aria-label="Report card preparation steps">
           <div><span>01</span><strong>Set up subjects</strong><small>Choose the learning areas for this class first.</small></div>
@@ -226,7 +247,17 @@ const Reports = () => {
 
       {/* REPORT LIST */}
       <div className="mt-4">
-        <div className="section-heading"><h3>Report templates</h3><span className="muted small">{reports.length} templates</span></div>
+        <div className="report-template-toolbar">
+          <div className="section-heading"><div><h3>Report templates</h3><span className="muted small">{filteredReports.length} of {reports.length} templates</span></div></div>
+          <input
+            type="search"
+            className="form-control"
+            aria-label="Search report templates"
+            placeholder="Search by report name or class…"
+            value={templateSearch}
+            onChange={(event) => setTemplateSearch(event.target.value)}
+          />
+        </div>
 
         <div className="table-responsive report-template-table-wrap"><table className="table table-hover align-middle">
           <thead>
@@ -242,9 +273,9 @@ const Reports = () => {
           <tbody>
             {loadingReports ? (
               <tr><td colSpan={5} className="text-center py-5">Loading report templates…</td></tr>
-            ) : reports.length === 0 ? (
-              <tr><td colSpan={5}><div className="empty-state"><strong>No report templates yet</strong>Create a template above to start preparing student progress reports.</div></td></tr>
-            ) : reports.map((report, index) => (
+            ) : filteredReports.length === 0 ? (
+              <tr><td colSpan={5}><div className="empty-state"><strong>{reports.length ? "No matching templates" : "No report templates yet"}</strong>{reports.length ? "Try another report name or class." : "Create a template above to start preparing student progress reports."}</div></td></tr>
+            ) : filteredReports.map((report, index) => (
               <tr key={report._id}>
                 <td>{index + 1}</td>
                 <td>{report.reportName}</td>
@@ -286,7 +317,7 @@ const Reports = () => {
           </tbody>
         </table></div>
         <div className="report-template-mobile-list" aria-label="Report templates">
-          {loadingReports ? <div className="report-mobile-empty">Loading report templates…</div> : reports.map((report, index) => (
+          {loadingReports ? <div className="report-mobile-empty">Loading report templates…</div> : filteredReports.map((report, index) => (
             <article className="report-template-mobile-card" key={report._id}>
               <div className="report-template-mobile-heading">
                 <span className="report-template-index">REPORT {index + 1}</span>
@@ -310,7 +341,7 @@ const Reports = () => {
               {confirmDeleteId === report._id && <small className="text-muted d-block mt-2">Templates with saved results cannot be deleted.</small>}
             </article>
           ))}
-          {!loadingReports && reports.length === 0 && <div className="report-mobile-empty">No report templates yet. Create your first report above.</div>}
+          {!loadingReports && filteredReports.length === 0 && <div className="report-mobile-empty">{reports.length ? "No matching templates. Try another search." : "No report templates yet. Create your first report above."}</div>}
         </div>
       </div>
     </div>

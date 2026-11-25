@@ -1158,14 +1158,28 @@ test('report cards reuse class assessment dates and move to the next child after
   assert.equal(await page.getByLabel('Assessment date for Mathematics').inputValue(), '2026-11-20');
 
   await page.getByRole('button', { name: 'Cancel' }).click();
-  const aaravRow = page.locator('.report-student-table-wrap tbody tr').filter({ hasText: 'Aarav Patel' });
-  await aaravRow.getByRole('button', { name: 'Print', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Select all completed reports shown' }).check();
+  await page.getByRole('button', { name: /Print selected \(2\)/ }).click();
   const printArea = page.locator('#print-area');
-  await printArea.getByText('Assessment results').waitFor();
+  await printArea.getByText('Assessment results').first().waitFor();
   await printArea.getByText('Aarav Patel').waitFor();
-  await printArea.getByText('Blooming Buds Preschool').waitFor();
-  assert.equal(await printArea.getByText('20 Nov 2026', { exact: true }).count(), 2, 'Each subject row should print its saved assessment date.');
-  await printArea.getByText('TOTAL SCORE').waitFor();
+  await printArea.getByText('Bina Shah').waitFor();
+  assert.equal(await printArea.locator('.report-card-print-page').count(), 2,
+    'Printing a class selection should create one report page per completed student.');
+  assert.equal(await printArea.getByText('Blooming Buds Preschool', { exact: true }).count(), 2);
+  assert.equal(await printArea.getByText('2026-2027', { exact: true }).count(), 2,
+    'Each printed card should include the student academic year.');
+  assert.equal(await printArea.getByText('20 Nov 2026', { exact: true }).count(), 4,
+    'Each student subject row should retain its saved assessment date.');
+
+  await page.emulateMedia({ media: 'print' });
+  const pageBreaks = await printArea.locator('.report-card-print-page').evaluateAll((cards) =>
+    cards.map((card) => getComputedStyle(card).breakAfter)
+  );
+  assert.equal(pageBreaks[0], 'page', 'Each report card except the last should start a fresh printed page.');
+  assert.ok(['auto', 'initial'].includes(pageBreaks[1]), 'The final report card should not add a blank trailing page.');
+  await page.emulateMedia({ media: 'screen' });
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.close();
 });
 

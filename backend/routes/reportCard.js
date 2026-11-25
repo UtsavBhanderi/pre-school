@@ -101,7 +101,7 @@ router.get('/:reportId/roster', async (req, res) => {
       // Merge current admissions with the original template roster so
       // students who later move classes retain access to historical results.
       Student.find({ status: { $ne: 'withdrawn' }, $or: [{ _id: { $in: report.students || [] } }, { standard: report.standard }] })
-        .select('firstName middleName lastName stuNo standard marks')
+        .select('firstName middleName lastName stuNo standard batchYear marks')
         .sort({ firstName: 1, middleName: 1, lastName: 1, _id: 1 })
         .lean(),
       Subject.findOne({ standard: report.standard }).select('subjects').lean(),

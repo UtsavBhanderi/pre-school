@@ -143,6 +143,7 @@ test('report templates preserve saved student marks and historical grading scale
     assert.equal(rosterResponse.status, 200);
     assert.equal(rosterResponse.data.students.length, 1);
     assert.equal(String(rosterResponse.data.students[0]._id), String(newStudent._id));
+    assert.equal(rosterResponse.data.students[0].batchYear, '2026-2027');
     assert.deepEqual(rosterResponse.data.subjects, ['Language', 'Numbers']);
 
     const marksResponse = await api('/api/students/' + newStudent._id + '/' + template._id, {
