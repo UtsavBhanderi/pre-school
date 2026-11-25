@@ -637,20 +637,36 @@ const StudentsReport = ({
               <div className="modal-body report-print-modal-body">
                 <div id="print-area" className="report-print-area">
                   {printBatch.map(({ student: printStudent, report: printReport }, index) => (
-                    <article className="report-card report-card-print-page" key={String(printStudent._id)}>
-                      <div className="report-card-accent" />
+                    <article
+                      className={
+                        "report-card report-card-print-page "
+                        + ((printReport.subjectData?.length || 0) >= 20
+                          ? "report-card-density-tight"
+                          : (printReport.subjectData?.length || 0) >= 12
+                            ? "report-card-density-compact"
+                            : "")
+                      }
+                      key={String(printStudent._id)}
+                    >
+                      <div className="report-card-topline" aria-hidden="true" />
                       <header className="report-card-header">
                         <div className="report-card-brand">
-                          <span className="report-card-brand-mark">{(schoolName || "P").slice(0, 1).toUpperCase()}</span>
-                          <span><strong>{schoolName || "PRE-SCHOOL"}</strong><small>LEARNING · GROWTH · EXCELLENCE</small></span>
+                          <span className="report-card-brand-mark" aria-hidden="true">
+                            {(schoolName || "P").slice(0, 1).toUpperCase()}
+                          </span>
+                          <span className="report-card-brand-copy">
+                            <strong>{schoolName || "PRE-SCHOOL"}</strong>
+                            <small>EARLY YEARS · LEARNING · GROWTH</small>
+                          </span>
                         </div>
                         <div className="report-card-heading">
-                          <span>OFFICIAL ACADEMIC RECORD</span>
+                          <span>ACADEMIC RECORD</span>
                           <h1>{reportName || "Student Progress Report"}</h1>
-                          <p>STUDENT REPORT CARD</p>
+                          <p>STUDENT PROGRESS CARD</p>
                         </div>
                       </header>
-                      <section className="report-student-overview">
+
+                      <section className="report-student-overview" aria-label="Student information">
                         <div className="report-student-name">
                           <span>STUDENT NAME</span>
                           <strong>{[printStudent.firstName, printStudent.middleName, printStudent.lastName].filter(Boolean).join(" ") || "—"}</strong>
@@ -661,45 +677,62 @@ const StudentsReport = ({
                           <div><span>ACADEMIC YEAR</span><strong>{printStudent.batchYear || "—"}</strong></div>
                         </div>
                       </section>
-                      <div className="report-section-heading">
-                        <span>01</span><div><strong>Assessment results</strong><small>Subject-wise marks and assessment dates</small></div>
-                      </div>
-                      <table className="report-marks-table">
-                        <thead><tr><th>#</th><th>Subject / Learning Area</th><th>Assessment Date</th><th>Marks Obtained</th><th>Maximum</th></tr></thead>
-                        <tbody>
-                          {(printReport.subjectData || []).map((item, itemIndex) => (
-                            <tr key={item.subject || itemIndex}>
-                              <td>{String(itemIndex + 1).padStart(2, "0")}</td>
-                              <td>{item.subject || "—"}</td>
-                              <td>{formatAssessmentDate(item.date)}</td>
-                              <td className="report-earned-mark">{item.mark ?? "—"}</td>
-                              <td>{outOfMarks}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <div className="report-result-summary">
-                        <div><span>TOTAL SCORE</span><strong>{printReport.total ?? "—"} <small>/ {outOfMarks * (printReport.subjectData?.length || 0)}</small></strong></div>
-                        <div><span>OVERALL PERCENTAGE</span><strong>{Number(printReport.percentage || 0).toFixed(2)}%</strong></div>
-                        <div className="report-grade-result"><span>GRADE</span><strong>{printReport.grade || "—"}</strong></div>
-                      </div>
+
+                      <section className="report-assessment-section" aria-label="Assessment results">
+                        <div className="report-section-heading">
+                          <div><strong>Assessment results</strong><small>Subject-wise performance and assessment dates</small></div>
+                          <span className="report-assessment-scale">Maximum {outOfMarks} per subject</span>
+                        </div>
+                        <table className="report-marks-table">
+                          <thead>
+                            <tr><th>#</th><th>Subject / Learning Area</th><th>Assessment Date</th><th>Marks Obtained</th><th>Maximum</th></tr>
+                          </thead>
+                          <tbody>
+                            {(printReport.subjectData || []).map((item, itemIndex) => (
+                              <tr key={item.subject || itemIndex}>
+                                <td>{String(itemIndex + 1).padStart(2, "0")}</td>
+                                <td>{item.subject || "—"}</td>
+                                <td>{formatAssessmentDate(item.date)}</td>
+                                <td className="report-earned-mark">{item.mark ?? "—"}</td>
+                                <td>{outOfMarks}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </section>
+
+                      <section className="report-result-summary" aria-label="Overall result">
+                        <div className="report-result-total">
+                          <span>TOTAL SCORE</span>
+                          <strong>{printReport.total ?? "—"} <small>/ {outOfMarks * (printReport.subjectData?.length || 0)}</small></strong>
+                        </div>
+                        <div>
+                          <span>OVERALL PERCENTAGE</span>
+                          <strong>{Number(printReport.percentage || 0).toFixed(2)}%</strong>
+                        </div>
+                        <div className="report-grade-result">
+                          <span>GRADE</span>
+                          <strong>{printReport.grade || "—"}</strong>
+                        </div>
+                      </section>
+
                       <section className="report-teacher-remarks">
                         <div className="report-section-heading">
-                          <span>02</span><div><strong>Teacher’s remarks</strong><small>Learning progress, strengths and next steps</small></div>
+                          <div><strong>Teacher’s remarks</strong><small>Progress, strengths and areas to encourage</small></div>
                         </div>
-                        <div className="report-remarks-lines"><span></span><span></span></div>
+                        <div className="report-remarks-lines" aria-hidden="true"><span /><span /></div>
                       </section>
+
                       <footer className="report-card-signatures">
-                        <div><span></span><strong>CLASS TEACHER</strong></div>
-                        <div><span></span><strong>HEAD TEACHER</strong></div>
-                        <div><span></span><strong>PARENT / GUARDIAN</strong></div>
+                        <div><span /><strong>CLASS TEACHER</strong></div>
+                        <div><span /><strong>HEAD TEACHER</strong></div>
+                        <div><span /><strong>PARENT / GUARDIAN</strong></div>
                       </footer>
                       <div className="report-card-footer">
-                        <span>Every small step is a big achievement.</span>
-                        <span>Student copy · {reportName || "Progress report"}</span>
-                        <span>Copy {index + 1} of {printBatch.length}</span>
+                        <span>A record of progress, effort and achievement.</span>
+                        <span>{schoolName || "School copy"} · {reportName || "Progress report"}</span>
                       </div>
-                    </article>
+                    </article>          </article>
                   ))}
                 </div>
               </div>

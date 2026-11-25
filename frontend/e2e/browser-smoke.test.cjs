@@ -1218,11 +1218,23 @@ test('report cards reuse class assessment dates and move to the next child after
     'Each student subject row should retain its saved assessment date.');
 
   await page.emulateMedia({ media: 'print' });
-  const pageBreaks = await printArea.locator('.report-card-print-page').evaluateAll((cards) =>
-    cards.map((card) => getComputedStyle(card).breakAfter)
+  const printMetrics = await printArea.locator('.report-card-print-page').evaluateAll((cards) =>
+    cards.map((card) => {
+      const bounds = card.getBoundingClientRect();
+      return {
+        height: bounds.height,
+        contentHeight: card.scrollHeight,
+        breakAfter: getComputedStyle(card).breakAfter,
+      };
+    })
   );
-  assert.equal(pageBreaks[0], 'page', 'Each report card except the last should start a fresh printed page.');
-  assert.ok(['auto', 'initial'].includes(pageBreaks[1]), 'The final report card should not add a blank trailing page.');
+  const a4PrintableHeightPx = 281 * (96 / 25.4);
+  assert.ok(printMetrics.every((card) => card.height <= a4PrintableHeightPx + 2),
+    'Every report card must fit inside one A4 portrait page: ' + JSON.stringify(printMetrics));
+  assert.ok(printMetrics.every((card) => card.contentHeight <= card.height + 1),
+    'Every report card must show all its content without clipping: ' + JSON.stringify(printMetrics));
+  assert.equal(printMetrics[0].breakAfter, 'page', 'Each report card except the last should start a fresh printed page.');
+  assert.ok(['auto', 'initial'].includes(printMetrics[1].breakAfter), 'The final report card should not add a blank trailing page.');
   await page.emulateMedia({ media: 'screen' });
   await page.getByRole('button', { name: 'Close', exact: true }).click();
 
