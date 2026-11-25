@@ -191,7 +191,7 @@ test('manually-created teacher signs in with email and password and gets a mobil
   assert.equal(await menuButton.getAttribute('aria-expanded'), 'false');
 
   // Use the visible, thumb-friendly dashboard actions to navigate on mobile.
-  await page.locator('.teacher-quick-action.blue').click();
+  await page.locator('.teacher-quick-action.blue').first().click();
   await page.getByRole('heading', { name: 'Take attendance' }).first().waitFor();
   await page.locator('.teacher-page-home-link').click();
   await page.locator('.teacher-quick-action.violet').click();
@@ -2071,7 +2071,13 @@ test('teachers can enter class report cards, reuse assessment dates and prepare 
   await page.waitForURL((url) => url.pathname.endsWith('/teacher-dashboard'));
 
   await page.locator('.teacher-menu-button').click();
-  await page.locator('.teacher-sidebar').getByRole('button', { name: 'Report cards' }).click();
+  const teacherDrawer = page.locator('.teacher-sidebar.is-open');
+  await teacherDrawer.waitFor();
+  await page.waitForFunction(() => {
+    const drawer = document.querySelector('.teacher-sidebar.is-open');
+    return drawer && drawer.getBoundingClientRect().left >= -1;
+  });
+  await teacherDrawer.getByRole('button', { name: 'Report cards' }).click();
   await page.getByRole('heading', { name: 'Report cards' }).last().waitFor();
   await page.getByRole('button', { name: 'Enter marks' }).click();
   await page.getByRole('heading', { name: 'Student report cards' }).first().waitFor();
