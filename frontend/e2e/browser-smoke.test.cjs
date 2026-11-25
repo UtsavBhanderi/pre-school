@@ -2086,11 +2086,14 @@ test('teachers can enter class report cards, reuse assessment dates and prepare 
     return {
       receivesTap: Boolean(hit && (hit === button || button.contains(hit))),
       hitElement: hit?.tagName + (hit?.className ? "." + String(hit.className).replace(/\s+/g, ".") : ""),
+      drawerPosition: getComputedStyle(button.closest('.teacher-sidebar')).position,
       drawerZ: getComputedStyle(button.closest('.teacher-sidebar')).zIndex,
       backdropZ: backdrop ? getComputedStyle(backdrop).zIndex : "missing",
       buttonBounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
     };
   });
+  assert.equal(drawerHitTest.drawerPosition, 'fixed',
+    'The mobile teacher drawer must override legacy static positioning: ' + JSON.stringify(drawerHitTest));
   assert.ok(drawerHitTest.receivesTap,
     'The open mobile navigation must receive taps above its backdrop: ' + JSON.stringify(drawerHitTest));
   await reportCardsNavButton.click();
