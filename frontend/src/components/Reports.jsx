@@ -31,6 +31,9 @@ const Reports = () => {
   const [confirmDeleteId, setConfirmDeleteId] = useState("");
   const [deletingReportId, setDeletingReportId] = useState("");
   const [templateSearch, setTemplateSearch] = useState("");
+  const [editingReport, setEditingReport] = useState(null);
+  const [editReportName, setEditReportName] = useState("");
+  const [savingReportId, setSavingReportId] = useState("");
 
   const filteredReports = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
@@ -91,6 +94,34 @@ const Reports = () => {
       setPageError(err.response?.data?.message || "Unable to create the report template.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startRename = (report) => {
+    setEditingReport(report);
+    setEditReportName(report.reportName || "");
+    setPageError("");
+    setPageSuccess("");
+  };
+
+  const saveRename = async (event) => {
+    event.preventDefault();
+    if (!editingReport?._id || savingReportId) return;
+    setSavingReportId(editingReport._id);
+    setPageError("");
+    setPageSuccess("");
+    try {
+      const { data } = await api.put(`/api/reportCard/${editingReport._id}`, { reportName: editReportName });
+      const updated = data?.report;
+      if (!updated?._id) throw new Error("The server did not confirm the updated report template.");
+      setReports((previous) => previous.map((report) => report._id === updated._id ? { ...report, ...updated } : report));
+      setEditingReport(null);
+      setEditReportName("");
+      setPageSuccess("Report name updated. Previously saved student results are unchanged.");
+    } catch (error) {
+      setPageError(error.response?.data?.message || error.message || "The report name could not be updated.");
+    } finally {
+      setSavingReportId("");
     }
   };
 
@@ -247,6 +278,15 @@ const Reports = () => {
 
       {/* REPORT LIST */}
       <div className="mt-4">
+        {editingReport && <form className="report-rename-panel" onSubmit={saveRename} aria-label="Rename report template">
+          <div><strong>Edit report name</strong><small>Class and maximum marks stay unchanged. Saved student results are preserved.</small></div>
+          <label htmlFor="report-rename-input">Assessment / term name</label>
+          <input id="report-rename-input" className="form-control" value={editReportName} onChange={(event) => setEditReportName(event.target.value)} maxLength={120} required />
+          <div className="report-rename-actions">
+            <button type="submit" className="btn btn-primary" disabled={Boolean(savingReportId)}>{savingReportId ? "Saving…" : "Save name"}</button>
+            <button type="button" className="btn btn-outline-secondary" onClick={() => setEditingReport(null)} disabled={Boolean(savingReportId)}>Cancel</button>
+          </div>
+        </form>}
         <div className="report-template-toolbar">
           <div className="section-heading"><div><h3>Report templates</h3><span className="muted small">{filteredReports.length} of {reports.length} templates</span></div></div>
           <input
@@ -324,7 +364,7 @@ const Reports = () => {
                 <strong>{report.reportName}</strong>
                 <small>{report.standard} · Out of {report.description}</small>
               </div>
-              <div className="report-template-mobile-actions">
+              <div className="report-template-mobile-actions">\n                <button type="button" className="btn btn-outline-secondary" onClick={() => startRename(report)}>Edit name</button>
                 <button type="button" className="btn btn-primary" onClick={() => handleNext(report)}>Enter marks</button>
                 <button type="button" className="btn btn-outline-primary" onClick={() => handleExcel(report._id)} disabled={Boolean(exportingReportId)}>
                   {exportingReportId === report._id ? "Preparing…" : "Export"}

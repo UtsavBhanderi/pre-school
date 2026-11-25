@@ -311,3 +311,15 @@
   .report-card-print-page { margin:0 !important; }
   .report-card-print-page:last-child { break-after:auto !important; page-break-after:auto !important; }
 }
+
+
+/* Inline-safe report template rename controls. */
+.report-rename-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,.8fr) auto; align-items:end; gap:.7rem; padding:.9rem 1rem; margin:0 0 .8rem; border:1px solid #dce5f5; border-radius:12px; background:#f7f9ff; }
+.report-rename-panel > div:first-child { display:grid; gap:.2rem; align-self:center; }
+.report-rename-panel > div:first-child strong { color:#2f4567; font-size:.82rem; }
+.report-rename-panel > div:first-child small { color:#78869b; font-size:.68rem; line-height:1.4; }
+.report-rename-panel label { color:#53647d; font-size:.68rem; font-weight:800; }
+.report-rename-panel .form-control { min-height:42px; }
+.report-rename-actions { display:flex; gap:.4rem; }
+.report-rename-actions .btn { min-height:42px; white-space:nowrap; }
+@media(max-width:760px) { .report-rename-panel { grid-template-columns:1fr; align-items:stretch; } .report-rename-actions .btn { flex:1; } }
