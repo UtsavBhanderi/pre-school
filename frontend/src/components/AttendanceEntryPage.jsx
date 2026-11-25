@@ -370,6 +370,7 @@ const AttendanceEntryPage = () => {
       ) : standard && students.length === 0 ? (
         <div className="page-card"><div className="empty-state"><strong>No students found for this class</strong>Choose another class or contact the administrator if this seems incorrect.</div></div>
       ) : students.length > 0 && (
+        <>
         <div className="table-responsive attendance-roster-card"><table className="table mt-0 table-hover align-middle teacher-attendance-table">
           <thead>
             <tr>
@@ -476,6 +477,7 @@ const AttendanceEntryPage = () => {
             );
           })}
         </div>
+        </>
       )}
 
       {/* Submit Button */}
