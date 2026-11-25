@@ -1327,8 +1327,9 @@ test('administrator daily workflows use readable phone layouts at 320px to 430px
   await page.goto(BASE_URL + '/dashboard/studentRegister');
   await page.getByRole('heading', { name: 'Children and families' }).waitFor();
   await page.getByRole('searchbox', { name: 'Search by child name, GR number or mobile' }).fill('GR-1001');
-  await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
-  assert.equal(await page.locator('.student-register-mobile-list .student-mobile-card').count(), 1);
+  const studentMobileCards = page.locator('.student-register-mobile-list .student-mobile-card');
+  await studentMobileCards.getByText('Aarav Patel', { exact: true }).waitFor();
+  assert.equal(await studentMobileCards.count(), 1);
   assert.equal(await page.locator('.student-register-table-desktop').isVisible(), false);
   await assertNoOverflow('Student management');
 
