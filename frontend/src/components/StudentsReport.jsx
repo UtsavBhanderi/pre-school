@@ -732,7 +732,7 @@ const StudentsReport = ({
                         <span>A record of progress, effort and achievement.</span>
                         <span>{schoolName || "School copy"} · {reportName || "Progress report"}</span>
                       </div>
-                    </article>          </article>
+                    </article>
                   ))}
                 </div>
               </div>
