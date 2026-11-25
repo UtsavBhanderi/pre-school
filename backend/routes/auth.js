@@ -123,9 +123,46 @@ router.post('/register', async (req, res) => {
       if (profileEmail && profileEmail !== email) {
         return res.status(409).json({ message: 'The selected teacher record has a different email address. Use that email for the login or update the teacher record first.' });
       }
-      const duplicateProfile = await Teacher.findOne({
+      const duplicateProfiles = await Teacher.find({
         _id: { $ne: teacherProfile._id },
-        Email: { $regex: '^' + escapeRegExp(email) + '
+        Email: { $exists: true, $nin: [null, ''] },
+      }).select('Email').lean();
+      if (duplicateProfiles.some((profile) => String(profile.Email || '').trim().toLowerCase() === email)) {
+        return res.status(409).json({ message: 'Another teacher record already uses this email address. Resolve the duplicate before creating a login.' });
+      }
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: 'An account with this email already exists. Use the existing account and assign its teacher class instead.' });
+    }
+
+    const user = await User.create({ username, email, password, role: requestedRole, status: 'active' });
+    if (requestedRole === 'teacher') {
+      createdTeacherLoginId = user._id;
+      const profileEmailCondition = String(teacherProfile.Email || '').trim()
+        ? { Email: teacherProfile.Email }
+        : { $or: [{ Email: { $exists: false } }, { Email: null }, { Email: '' }] };
+      const linkedProfile = await Teacher.findOneAndUpdate(
+        {
+          _id: teacherProfile._id,
+          $and: [
+            { $or: [{ userId: null }, { userId: { $exists: false } }] },
+            profileEmailCondition,
+          ],
+        },
+        { $set: { userId: user._id, Email: email, standard: assignedStandard } },
+        { new: true, runValidators: true },
+      ).select('_id standard');
+      if (!linkedProfile) {
+        await User.deleteOne({ _id: user._id });
+        createdTeacherLoginId = null;
+        return res.status(409).json({ message: 'The teacher record changed while the login was being created. Refresh the page and try again.' });
+      }
+      teacherProfile = linkedProfile;
+      createdTeacherLoginId = null;
+    }
+
     let auditWarning = false;
     try {
       await UserAccessAuditEvent.create({
