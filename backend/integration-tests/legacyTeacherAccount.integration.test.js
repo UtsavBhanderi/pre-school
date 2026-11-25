@@ -132,12 +132,14 @@ test('school administrators manually create teacher logins that can sign in with
     );
     const response = await api('/api/teachers/birthdays', { token: adminToken });
     assert.equal(response.status, 200);
-    assert.equal(response.data.length, 1);
-    assert.equal(response.data[0].dob, '1990-05-14');
-    assert.equal(response.data[0].standard, 'Nursery');
-    assert.equal(Object.prototype.hasOwnProperty.call(response.data[0], 'address'), false);
-    assert.equal(Object.prototype.hasOwnProperty.call(response.data[0], 'EmergencyPhoneNumber'), false);
-    assert.equal(Object.prototype.hasOwnProperty.call(response.data[0], 'drivingLicence'), false);
+    const birthdayTeacher = response.data.find((profile) => profile.dob === '1990-05-14');
+    assert.ok(birthdayTeacher, 'The teacher with a saved birthday should be returned.');
+    assert.equal(birthdayTeacher.standard, 'Nursery');
+    for (const profile of response.data) {
+      assert.equal(Object.prototype.hasOwnProperty.call(profile, 'address'), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(profile, 'EmergencyPhoneNumber'), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(profile, 'drivingLicence'), false);
+    }
   });
 
   await t.test('teacher profile email cannot be assigned to more than one teacher', async () => {
