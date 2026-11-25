@@ -13,3 +13,48 @@
 .school-communication-result i b { display: block; height: 100%; border-radius: inherit; background: #5474d0; }
 .school-communication.embedded { margin-top: .5rem; }
 @media (max-width: 575px) { .school-communication-tabs { width: 100%; } .school-communication-tabs button { flex: 1; justify-content: center; padding-inline: .45rem; font-size: .75rem; } }
+
+
+/* Communication is a mobile task workspace, not a compressed desktop tab strip. */
+.school-communication { width:100%; min-width:0; max-width:100%; }
+.school-communication > .d-flex { min-width:0; }
+.school-communication-tabs { max-width:100%; min-width:0; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.school-communication .card {
+  min-width:0; overflow:hidden; border:1px solid #e4eaf2 !important; border-radius:15px;
+  box-shadow:0 5px 18px rgba(28,46,78,.04) !important;
+}
+.school-communication .card-body { min-width:0; }
+.school-communication-item { min-width:0; border-color:#e5ebf3; border-radius:13px; }
+.school-communication-item > div:first-child { min-width:0; }
+.school-communication-item h4 { overflow-wrap:anywhere; line-height:1.35; }
+.school-communication-item .text-secondary { overflow-wrap:anywhere; }
+.school-communication .form-control,.school-communication .form-select { min-width:0; }
+@media(max-width:767.98px) {
+  .school-communication { padding-inline:0 !important; }
+  .school-communication > .d-flex:first-child { gap:.55rem !important; margin-bottom:.8rem !important; }
+  .school-communication > .d-flex:first-child h2 { font-size:1.28rem; }
+  .school-communication > .d-flex:first-child p { font-size:.78rem; line-height:1.5; }
+  .school-communication-tabs {
+    display:flex; flex-wrap:nowrap; width:100%; gap:.25rem; overflow-x:auto; padding:.28rem;
+    border-radius:12px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;
+  }
+  .school-communication-tabs button {
+    flex:0 0 auto; min-width:max-content; min-height:46px; padding:.5rem .7rem; border-radius:9px;
+    font-size:.75rem; scroll-snap-align:start;
+  }
+  .school-communication > .d-flex .btn { min-height:44px; }
+  .school-communication .card-body { padding:.9rem !important; }
+  .school-communication .school-communication-item { padding:.85rem; }
+  .school-communication .school-communication-item > .row { gap:.65rem; }
+  .school-communication .school-communication-item .form-control,
+  .school-communication .school-communication-item .form-select { min-height:44px; font-size:16px; }
+  .school-communication .school-communication-item .btn { min-height:44px; }
+  .school-communication .school-communication-preserve { font-size:.8rem; }
+  .school-communication .table-responsive { max-width:100%; overflow-x:auto; }
+  .school-communication .table-responsive > table { min-width:560px; }
+}
+@media(max-width:380px) {
+  .school-communication-tabs button { padding-inline:.58rem; font-size:.7rem; }
+  .school-communication .card-body { padding:.75rem !important; }
+  .school-communication .school-communication-item { padding:.72rem; }
+}

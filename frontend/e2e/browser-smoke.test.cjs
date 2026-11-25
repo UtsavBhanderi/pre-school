@@ -1265,6 +1265,98 @@ test('administrator workspace has a thumb-first mobile dock across phone widths'
   await page.close();
 });
 
+test('administrator daily workflows use readable phone layouts at 320px to 430px', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  const child = {
+    _id: 'mobile-child-1', firstName: 'Aarav', middleName: 'Patel', lastName: '',
+    stuNo: 'GR-1001', standard: 'ENG JR.', dob: '2022-05-10', gender: 'Male',
+    status: 'active', phoneNumber: '9876543210', FatherName: 'Riya Patel',
+    FatherMobileNumber: '9876543210', studentPhoto: '',
+  };
+  await mockSchoolApi(page);
+  await page.route('**/api/students', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([child]) }));
+  await page.route('**/api/fees/all', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{
+      _id: 'mobile-fee-1', studentName: 'Aarav Patel', studentPhoneNumber: '9876543210',
+      stuNo: 'GR-1001', standard: 'ENG JR.', batchYear: '2026-2027',
+      totalStandardFees: 12000, totalFeesPaid: 5000, discount: 0, paymentDetails: [],
+    }]),
+  }));
+  await page.route('**/api/fees/standard-fees', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ 'ENG JR.': 12000 }) }));
+  await page.route('**/api/attendance/students**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{ ...child, attendanceStatus: '', attendanceReason: '' }]),
+  }));
+  await page.route('**/api/school-engagement/staff/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const bodies = {
+      '/api/school-engagement/staff/classes': { classes: ['ENG JR.'] },
+      '/api/school-engagement/staff/homework': { homework: [] },
+      '/api/school-engagement/staff/complaints': { complaints: [] },
+      '/api/school-engagement/staff/polls': { polls: [] },
+      '/api/school-engagement/staff/messages': { messages: [] },
+    };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(bodies[path] || {}) });
+  });
+
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('admin@example.com');
+  await page.locator('#login-password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL(/\/dashboard\/home$/);
+
+  const assertNoOverflow = async (label) => {
+    for (const width of [320, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      const dimensions = await page.evaluate(() => ({
+        viewport: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
+      }));
+      assert.ok(dimensions.document <= dimensions.viewport + 1,
+        label + ' must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+  };
+
+  await page.goto(BASE_URL + '/dashboard/studentRegister');
+  await page.getByRole('heading', { name: 'Children and families' }).waitFor();
+  await page.getByRole('searchbox', { name: 'Search by child name, GR number or mobile' }).fill('GR-1001');
+  await page.getByText('Aarav Patel', { exact: true }).first().waitFor();
+  assert.equal(await page.locator('.student-register-mobile-list .student-mobile-card').count(), 1);
+  assert.equal(await page.locator('.student-register-table-desktop').isVisible(), false);
+  await assertNoOverflow('Student management');
+
+  await page.goto(BASE_URL + '/dashboard/fees');
+  await page.getByRole('heading', { name: 'Fees and payments' }).waitFor();
+  await page.getByRole('searchbox', { name: 'Search by student, GR number or parent mobile' }).fill('Aarav');
+  assert.equal(await page.locator('.fee-record-mobile-list .fee-mobile-card').count(), 1);
+  assert.equal(await page.locator('.fee-record-table-desktop').isVisible(), false);
+  await assertNoOverflow('Fees management');
+
+  await page.goto(BASE_URL + '/dashboard/attendanceEntryPage');
+  await page.getByRole('heading', { name: 'Take attendance' }).waitFor();
+  await page.getByLabel('Select class for attendance').selectOption('ENG JR.');
+  await page.locator('.attendance-mobile-roster .attendance-mobile-card').first().waitFor();
+  assert.equal(await page.locator('.attendance-mobile-roster .attendance-mobile-card').count(), 1);
+  assert.equal(await page.locator('.attendance-roster-card').isVisible(), false);
+  await page.locator('.attendance-mobile-card input[type="radio"]').first().check();
+  await assertNoOverflow('Attendance');
+
+  await page.goto(BASE_URL + '/dashboard/communications');
+  await page.getByRole('heading', { name: 'School communication' }).waitFor();
+  assert.ok(await page.getByRole('tab', { name: /Homework/ }).isVisible());
+  await page.getByRole('tab', { name: /Parent messages/ }).click();
+  await page.getByRole('heading', { name: 'Messages from parents' }).waitFor();
+  await assertNoOverflow('School communication');
+  await page.close();
+});
+
 test('administrator navigation remains usable with touch input from 320px to 430px', async () => {
   const page = await browser.newPage({
     viewport: { width: 320, height: 740 },

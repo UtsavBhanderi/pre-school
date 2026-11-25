@@ -432,3 +432,135 @@ button, a, input, select, textarea, summary { touch-action: manipulation; }
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Admin everyday workflows: children, fees and attendance are task-first on phones. */
+.student-search-panel,.fee-record-search {
+  display:grid; gap:.6rem; min-width:0; margin:0 0 .75rem; padding:.7rem;
+  border:1px solid var(--ui-border); border-radius:14px; background:#fff;
+}
+.student-quick-search,.fee-quick-search { display:flex; align-items:center; gap:.55rem; min-width:0; }
+.student-quick-search > span:first-child,.fee-quick-search > span:first-child { color:#76859a; font-size:1.45rem; line-height:1; }
+.student-quick-search .form-control,.fee-quick-search .form-control {
+  min-width:0; min-height:44px; flex:1 1 auto; border:0; border-radius:9px; background:#f6f8fc; box-shadow:none;
+}
+.student-search-count,.fee-quick-search > strong { flex:0 0 auto; color:#76859a; font-size:.72rem; font-weight:800; white-space:nowrap; }
+.student-quick-search .btn-link,.fee-quick-search .btn-link { min-height:40px; padding:.35rem .4rem; font-size:.76rem; text-decoration:none; }
+.student-advanced-filters,.fee-record-advanced-filters { overflow:hidden; border:1px solid #e8edf4; border-radius:10px; background:#fbfcfe; }
+.student-advanced-filters > summary,.fee-record-advanced-filters > summary {
+  display:flex; align-items:center; justify-content:space-between; gap:.7rem; min-height:44px; padding:.65rem .8rem;
+  color:#445873; cursor:pointer; list-style:none; font-size:.78rem; font-weight:800;
+}
+.student-advanced-filters > summary::-webkit-details-marker,.fee-record-advanced-filters > summary::-webkit-details-marker { display:none; }
+.student-advanced-filters > summary::after,.fee-record-advanced-filters > summary::after { content:"+"; color:#5269be; font-size:1.1rem; }
+.student-advanced-filters[open] > summary::after,.fee-record-advanced-filters[open] > summary::after { content:"−"; }
+.student-advanced-filters > summary small,.fee-record-advanced-filters > summary small { margin-left:auto; color:#8b97a9; font-size:.66rem; font-weight:650; }
+.student-advanced-filters .simple-filter-panel { margin:0; border:0; border-top:1px solid #edf1f6; border-radius:0; }
+.student-register-mobile-list,.fee-record-mobile-list,.attendance-mobile-roster { display:none; }
+.student-mobile-card,.fee-mobile-card,.attendance-mobile-card {
+  min-width:0; padding:.9rem; border:1px solid #e4eaf2; border-radius:15px; background:#fff;
+  box-shadow:0 5px 18px rgba(27,45,78,.045);
+}
+.student-mobile-state,.fee-mobile-state {
+  display:grid; gap:.3rem; padding:1.3rem 1rem; border:1px dashed #d5deeb; border-radius:14px;
+  color:#7c899c; background:#fff; text-align:center; font-size:.82rem;
+}
+.student-mobile-state strong,.fee-mobile-state strong { color:#324761; font-size:.9rem; }
+.student-mobile-card-top,.fee-mobile-card-heading { display:flex; align-items:center; gap:.65rem; min-width:0; }
+.student-mobile-select,.fee-mobile-select { display:grid; flex:0 0 28px; width:28px; min-height:44px; place-items:center; }
+.student-mobile-select input,.fee-mobile-select input { width:20px; height:20px; margin:0; accent-color:var(--ui-brand); }
+.student-mobile-card-top > img {
+  display:block; flex:0 0 48px; width:48px; height:48px; border:1px solid #e6ebf3; border-radius:14px;
+  background:#f3f5fa; object-fit:cover;
+}
+.student-mobile-identity,.fee-mobile-card-heading > div { display:grid; flex:1 1 auto; min-width:0; gap:.16rem; }
+.student-mobile-identity strong,.fee-mobile-card-heading > div strong {
+  color:#263c58; font-size:.88rem; font-weight:850; line-height:1.3; overflow-wrap:anywhere;
+}
+.student-mobile-identity span,.fee-mobile-card-heading > div span { color:#7a879a; font-size:.68rem; line-height:1.4; overflow-wrap:anywhere; }
+.student-mobile-card-top > .badge { flex:0 0 auto; }
+.student-mobile-details {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem .75rem;
+  padding:.8rem 0; margin:.75rem 0; border-top:1px solid #edf1f6; border-bottom:1px solid #edf1f6;
+}
+.student-mobile-details > div { display:grid; gap:.14rem; min-width:0; }
+.student-mobile-details span,.fee-mobile-metrics span { color:#8a96a8; font-size:.63rem; font-weight:750; }
+.student-mobile-details strong { color:#455973; font-size:.72rem; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
+.student-mobile-actions,.fee-mobile-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; }
+.student-mobile-actions .btn,.fee-mobile-actions .btn {
+  display:inline-flex; align-items:center; justify-content:center; min-width:0; min-height:42px;
+  padding:.45rem .5rem; font-size:.74rem; white-space:normal;
+}
+.fee-mobile-status { flex:0 0 auto; padding:.3rem .5rem; border-radius:99px; font-size:.63rem; font-weight:850; white-space:nowrap; }
+.fee-mobile-status.paid { color:#26734a; background:#eaf7ef; }
+.fee-mobile-status.partial { color:#916011; background:#fff5df; }
+.fee-mobile-status.due { color:#a0444e; background:#fff0f1; }
+.fee-mobile-metrics {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; padding:.75rem .55rem;
+  margin:.75rem 0 .55rem; border:1px solid #edf1f6; border-radius:11px; background:#f9fbfe;
+}
+.fee-mobile-metrics > div { display:grid; gap:.18rem; min-width:0; }
+.fee-mobile-metrics strong { color:#2f4563; font-size:.76rem; font-weight:850; line-height:1.25; overflow-wrap:anywhere; }
+.fee-mobile-meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:.3rem .7rem; margin-bottom:.7rem; color:#7b899d; font-size:.66rem; }
+.attendance-mobile-card { display:grid; gap:.65rem; }
+.attendance-mobile-card-heading { display:flex; align-items:center; gap:.65rem; min-width:0; }
+.attendance-mobile-number {
+  display:grid; flex:0 0 34px; width:34px; height:34px; place-items:center; border-radius:11px;
+  color:#4560bc; background:#eef2ff; font-size:.75rem; font-weight:850;
+}
+.attendance-mobile-card-heading > div { display:grid; flex:1 1 auto; min-width:0; gap:.12rem; }
+.attendance-mobile-card-heading > div strong { color:#2f4562; font-size:.83rem; overflow-wrap:anywhere; }
+.attendance-mobile-card-heading > div small { color:#8591a3; font-size:.66rem; }
+.attendance-mobile-current { flex:0 0 auto; padding:.27rem .48rem; border-radius:99px; color:#7c8798; background:#f0f2f6; font-size:.61rem; font-weight:850; }
+.attendance-mobile-current.present { color:#28754b; background:#eaf7ef; }
+.attendance-mobile-current.absent { color:#a44750; background:#fff0f1; }
+.attendance-mobile-choices { display:grid; grid-template-columns:1fr 1fr; gap:.55rem; }
+.attendance-mobile-choices .attendance-choice {
+  display:flex; align-items:center; justify-content:center; min-height:48px; border-radius:11px;
+  font-size:.78rem; font-weight:850;
+}
+.attendance-mobile-choices .attendance-choice input { width:18px; height:18px; }
+.attendance-mobile-reason { display:grid; gap:.3rem; }
+.attendance-mobile-reason label { color:#5e6e84; font-size:.68rem; font-weight:800; }
+.attendance-mobile-reason input { min-height:44px; font-size:16px; }
+@media (max-width:767.98px) {
+  .student-register-page .page-header .page-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .student-register-page .page-header .page-actions .btn:first-child { grid-column:1/-1; }
+  .student-register-table-desktop,.fee-record-table-desktop,.attendance-roster-card { display:none !important; }
+  .student-register-mobile-list,.fee-record-mobile-list,.attendance-mobile-roster {
+    display:grid; gap:.65rem; min-width:0; margin:.65rem 0 1rem;
+  }
+  .student-register-mobile-list { margin-top:.75rem; }
+  .student-search-panel,.fee-record-search { padding:.55rem; }
+  .student-quick-search,.fee-quick-search { gap:.35rem; }
+  .student-quick-search .form-control,.fee-quick-search .form-control { padding-inline:.55rem; }
+  .student-search-count,.fee-quick-search > strong { font-size:.62rem; }
+  .student-advanced-filters > summary,.fee-record-advanced-filters > summary { flex-wrap:wrap; justify-content:flex-start; }
+  .student-advanced-filters > summary small,.fee-record-advanced-filters > summary small { flex:1 1 100%; margin-left:0; }
+  .fee-record-search { margin-top:.4rem; }
+  .fee-record-search > .fee-quick-search { flex-wrap:wrap; }
+  .fee-quick-search .form-control { flex:1 1 190px; }
+  .fee-quick-search > strong { margin-left:auto; }
+  .fee-record-advanced-filters .filter-panel { grid-template-columns:minmax(0,1fr); }
+  .fee-mobile-metrics { gap:.3rem; padding:.65rem .45rem; }
+  .fee-mobile-metrics strong { font-size:.69rem; }
+  .attendance-mobile-roster { gap:.55rem; }
+  .attendance-submit-row { align-items:stretch; flex-direction:column; gap:.6rem; }
+  .attendance-submit-row .attendance-save-button { width:100%; min-height:48px; }
+  .student-register-page .modal-dialog { width:100%; max-width:none; height:100dvh; margin:0; }
+  .student-register-page .modal-content { display:flex; height:100dvh; max-height:100dvh; border:0; border-radius:0; }
+  .student-register-page .modal-header { position:sticky; z-index:2; top:0; padding:.85rem; background:#fff; }
+  .student-register-page .modal-body {
+    min-height:0; overflow-y:auto; padding:.9rem .75rem calc(1rem + env(safe-area-inset-bottom)); overscroll-behavior:contain;
+  }
+  .student-register-page .modal-body .row { --bs-gutter-y:.8rem; }
+}
+@media (max-width:380px) {
+  .student-mobile-card,.fee-mobile-card,.attendance-mobile-card { padding:.72rem; border-radius:13px; }
+  .student-mobile-card-top { gap:.45rem; }
+  .student-mobile-card-top > img { width:42px; height:42px; flex-basis:42px; }
+  .student-mobile-identity strong { font-size:.8rem; }
+  .student-mobile-details { gap:.5rem; }
+  .student-mobile-actions,.fee-mobile-actions { gap:.35rem; }
+  .student-mobile-actions .btn,.fee-mobile-actions .btn { font-size:.68rem; }
+}
