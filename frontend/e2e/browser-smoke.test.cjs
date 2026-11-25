@@ -57,7 +57,7 @@ after(async () => {
 });
 
 async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', requestObserver = null } = {}) {
-  let savedTeacherMarks = null;
+  const savedTeacherMarks = {};
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     requestObserver?.(request);
@@ -110,25 +110,37 @@ async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', re
           stuNo: 'GR-2001',
           standard: 'Nursery',
           batchYear: '2026-2027',
-          marks: savedTeacherMarks ? [{ reportId: 'teacher-report-1', ...savedTeacherMarks }] : [],
+          marks: savedTeacherMarks['teacher-child-1'] ? [{ reportId: 'teacher-report-1', ...savedTeacherMarks['teacher-child-1'] }] : [],
+        }, {
+          _id: 'teacher-child-2',
+          firstName: 'Mira',
+          middleName: 'Demo',
+          lastName: 'Shah',
+          stuNo: 'GR-2002',
+          standard: 'Nursery',
+          batchYear: '2026-2027',
+          marks: savedTeacherMarks['teacher-child-2'] ? [{ reportId: 'teacher-report-1', ...savedTeacherMarks['teacher-child-2'] }] : [],
         }],
         subjects: ['Language', 'Numbers'],
       };
-    } else if (url.pathname === '/api/teacher-report-cards/teacher-report-1/students/teacher-child-1' && request.method() === 'GET') {
-      if (savedTeacherMarks) body = savedTeacherMarks;
+    } else if (url.pathname.startsWith('/api/teacher-report-cards/teacher-report-1/students/') && request.method() === 'GET') {
+      const studentId = url.pathname.split('/').at(-1);
+      if (savedTeacherMarks[studentId]) body = savedTeacherMarks[studentId];
       else {
         status = 404;
         body = { message: 'No marks have been saved for this student yet.' };
       }
-    } else if (url.pathname === '/api/teacher-report-cards/teacher-report-1/students/teacher-child-1' && request.method() === 'POST') {
+    } else if (url.pathname.startsWith('/api/teacher-report-cards/teacher-report-1/students/') && request.method() === 'POST') {
+      const studentId = url.pathname.split('/').at(-1);
       const payload = request.postDataJSON();
-      savedTeacherMarks = {
+      const total = payload.subjectData.reduce((sum, item) => sum + Number(item.mark || 0), 0);
+      savedTeacherMarks[studentId] = {
         subjectData: payload.subjectData,
-        total: payload.subjectData.reduce((sum, item) => sum + Number(item.mark || 0), 0),
-        percentage: Number((payload.subjectData.reduce((sum, item) => sum + Number(item.mark || 0), 0) / (payload.subjectData.length * 100) * 100).toFixed(2)),
-        grade: 'E',
+        total,
+        percentage: Number((total / (payload.subjectData.length * 100) * 100).toFixed(2)),
+        grade: total / payload.subjectData.length >= 90 ? 'A+' : total / payload.subjectData.length >= 80 ? 'A' : total / payload.subjectData.length >= 70 ? 'B' : total / payload.subjectData.length >= 60 ? 'C' : total / payload.subjectData.length >= 50 ? 'D' : 'E',
       };
-      body = { message: 'Student report card saved successfully.', ...savedTeacherMarks };
+      body = { message: 'Student report card saved successfully.', ...savedTeacherMarks[studentId] };
     }
 
     await route.fulfill({
@@ -2056,7 +2068,7 @@ test('parent attendance, fees, notices, calendar and reports are easy to review 
 });
 
 
-test('teachers can enter class report cards, reuse assessment dates and prepare print-ready results on phones', async () => {
+test('teachers can use Save & Next, carry assessment dates forward, edit results and batch-print reports on phones', async () => {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -2101,8 +2113,9 @@ test('teachers can enter class report cards, reuse assessment dates and prepare 
   await page.getByRole('button', { name: 'Enter marks' }).click();
   await page.getByRole('heading', { name: 'Student report cards' }).first().waitFor();
 
-  await page.getByRole('button', { name: /Enter marks/ }).click();
-  const marksDialog = page.getByRole('dialog', { name: /Enter marks/ });
+  const firstStudentCard = page.locator('.report-student-mobile-card').filter({ hasText: 'Aarav Demo Patel' });
+  await firstStudentCard.getByRole('button', { name: 'Enter marks' }).click();
+  const marksDialog = page.getByRole('dialog', { name: /Enter marks · Aarav/ });
   await marksDialog.waitFor();
   await marksDialog.getByLabel('One date for all subjects').fill('2026-11-20');
   const marksInputs = marksDialog.locator('.report-entry-mobile-list input[type="number"]');
@@ -2117,27 +2130,53 @@ test('teachers can enter class report cards, reuse assessment dates and prepare 
   assert.ok(mobileInputs.every((item) => item.height >= 48 && Number.parseFloat(item.fontSize) >= 16),
     'Teacher mark and date inputs should be thumb-sized and readable without browser zoom.');
 
-  await marksDialog.getByRole('button', { name: 'Save marks' }).click();
-  await marksDialog.waitFor({ state: 'detached' });
-  await page.getByRole('status').filter({ hasText: 'Marks saved successfully' }).waitFor();
+  await marksDialog.getByRole('button', { name: 'Save & next student' }).click();
+  await page.getByRole('heading', { name: /Marks saved\. Ready for Mira Demo Shah/ }).waitFor();
+  const nextDialog = page.getByRole('dialog', { name: /Enter marks · Mira/ });
+  await nextDialog.waitFor();
+  assert.equal(await nextDialog.getByLabel('One date for all subjects').inputValue(), '2026-11-20');
+  assert.equal(await nextDialog.getByLabel('Assessment date', { exact: true }).first().inputValue(), '2026-11-20');
+  await nextDialog.locator('.report-entry-mobile-list input[type="number"]').nth(0).fill('20');
+  await nextDialog.locator('.report-entry-mobile-list input[type="number"]').nth(1).fill('19');
+  await nextDialog.getByRole('button', { name: 'Save marks' }).click();
+  await nextDialog.waitFor({ state: 'detached' });
+  await page.getByRole('status').filter({ hasText: 'All students in this class have a report entry' }).waitFor();
 
-  await page.getByRole('button', { name: 'Print', exact: true }).click();
-  await page.getByRole('dialog', { name: /Report card preview/ }).waitFor();
+  const updatedFirstCard = page.locator('.report-student-mobile-card').filter({ hasText: 'Aarav Demo Patel' });
+  await updatedFirstCard.getByRole('button', { name: 'Edit marks' }).click();
+  const editDialog = page.getByRole('dialog', { name: /Enter marks · Aarav/ });
+  await editDialog.waitFor();
+  assert.equal(await editDialog.locator('.report-entry-mobile-list input[type="date"]').first().inputValue(), '2026-11-20');
+  assert.equal(await editDialog.locator('.report-entry-mobile-list input[type="number"]').first().inputValue(), '18');
+  await editDialog.locator('.report-entry-mobile-list input[type="number"]').first().fill('19');
+  await editDialog.getByRole('button', { name: 'Save marks' }).click();
+  await editDialog.waitFor({ state: 'detached' });
+  await updatedFirstCard.getByText('36', { exact: true }).waitFor();
+  await updatedFirstCard.getByText('18%', { exact: true }).waitFor();
+
+  await page.getByLabel('Select all completed reports shown').check();
+  await page.getByRole('button', { name: /Print selected \(2\)/ }).click();
+  const printDialog = page.getByRole('dialog', { name: /Report card preview · 2 students/ });
+  await printDialog.waitFor();
+  assert.equal(await printDialog.locator('.report-card-print-page').count(), 2);
   await page.getByRole('heading', { name: 'Nursery Term 1' }).waitFor();
-  await page.getByText('17.50%', { exact: true }).waitFor();
+  await page.getByText('18.00%', { exact: true }).waitFor();
+  await page.getByText('19.50%', { exact: true }).waitFor();
 
   for (const width of [320, 360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     const dimensions = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       document: document.documentElement.scrollWidth,
-      printCard: document.querySelector('.report-card')?.getBoundingClientRect().width || 0,
-      printRight: document.querySelector('.report-card')?.getBoundingClientRect().right || 0,
+      printCards: Array.from(document.querySelectorAll('.report-card')).map((card) => ({
+        width: card.getBoundingClientRect().width,
+        right: card.getBoundingClientRect().right,
+      })),
     }));
     assert.ok(dimensions.document <= dimensions.viewport + 1,
       'Teacher report preview must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
-    assert.ok(dimensions.printCard <= width + 1 && dimensions.printRight <= width + 1,
-      'The printable report card must fit the viewport at ' + width + 'px: ' + JSON.stringify(dimensions));
+    assert.ok(dimensions.printCards.length === 2 && dimensions.printCards.every((card) => card.width <= width + 1 && card.right <= width + 1),
+      'Every printable report card must fit the viewport at ' + width + 'px: ' + JSON.stringify(dimensions));
   }
   await page.close();
 });

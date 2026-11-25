@@ -79,6 +79,13 @@ test('teachers can prepare only their assigned class report cards and saved resu
     stuNo: 'TR-CHILD-' + tag,
     batchYear: '2026-2027',
   });
+  const classmate = await Student.create({
+    firstName: 'Mira',
+    lastName: 'Classmate',
+    standard: 'Nursery',
+    stuNo: 'TR-CLASSMATE-' + tag,
+    batchYear: '2026-2027',
+  });
   const otherChild = await Student.create({
     firstName: 'Other',
     lastName: 'Class Child',
@@ -93,7 +100,7 @@ test('teachers can prepare only their assigned class report cards and saved resu
   });
   await ParentAccount.create({
     userId: otherParent._id,
-    studentIds: [otherChild._id],
+    studentIds: [otherChild._id, classmate._id],
     registeredPhone: '9123456789',
   });
 
@@ -158,11 +165,15 @@ test('teachers can prepare only their assigned class report cards and saved resu
   await t.test('teacher roster contains only active students in the assigned class', async () => {
     const response = await api('/api/teacher-report-cards/' + classReport._id + '/roster');
     assert.equal(response.status, 200);
-    assert.equal(response.data.students.length, 1);
-    assert.equal(String(response.data.students[0]._id), String(child._id));
+    assert.equal(response.data.students.length, 2);
+    assert.deepEqual(
+      response.data.students.map((student) => String(student._id)).sort(),
+      [String(child._id), String(classmate._id)].sort(),
+    );
     assert.deepEqual(response.data.subjects, ['Language', 'Numbers']);
     const savedTemplate = await ReportCard.findById(classReport._id).lean();
     assert.ok(savedTemplate.students.some((id) => String(id) === String(child._id)));
+    assert.ok(savedTemplate.students.some((id) => String(id) === String(classmate._id)));
     assert.equal(savedTemplate.students.some((id) => String(id) === String(otherChild._id)), false);
   });
 
@@ -218,6 +229,61 @@ test('teachers can prepare only their assigned class report cards and saved resu
     const response = await api('/api/parent-portal/reports', { role: 'parent' });
     assert.equal(response.status, 200);
     assert.ok(response.data.reports.every((report) => report.id !== String(unfinished._id)));
+  });
+
+  await t.test('editing an existing result updates it without creating duplicate report history', async () => {
+    const updated = await api('/api/teacher-report-cards/' + classReport._id + '/students/' + child._id, {
+      method: 'POST',
+      body: {
+        subjectData: [
+          { subject: 'Language', mark: 19, date: '2026-11-21' },
+          { subject: 'Numbers', mark: 17, date: '2026-11-20' },
+        ],
+      },
+    });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.data.total, 36);
+    const savedChild = await Student.findById(child._id).lean();
+    const matchingResults = savedChild.marks.filter((item) => String(item.reportId) === String(classReport._id));
+    assert.equal(matchingResults.length, 1);
+    assert.equal(matchingResults[0].total, 36);
+    assert.deepEqual(matchingResults[0].subjectData.map((item) => item.date), ['2026-11-21', '2026-11-20']);
+  });
+
+  await t.test('each family sees only its own child when classmates share one report template', async () => {
+    const savedClassmate = await api('/api/teacher-report-cards/' + classReport._id + '/students/' + classmate._id, {
+      method: 'POST',
+      body: {
+        subjectData: [
+          { subject: 'Language', mark: 15, date: '2026-11-20' },
+          { subject: 'Numbers', mark: 16, date: '2026-11-20' },
+        ],
+      },
+    });
+    assert.equal(savedClassmate.status, 200);
+    const firstFamily = await api('/api/parent-portal/reports', { role: 'parent' });
+    assert.equal(firstFamily.status, 200);
+    assert.equal(firstFamily.data.reports.length, 1);
+    assert.deepEqual(firstFamily.data.reports[0].children.map((entry) => entry.id), [String(child._id)]);
+    assert.equal(firstFamily.data.reports[0].children.some((entry) => entry.id === String(classmate._id)), false);
+
+    const secondFamily = await api('/api/parent-portal/reports', { role: 'otherParent' });
+    assert.equal(secondFamily.status, 200);
+    assert.equal(secondFamily.data.reports.length, 1);
+    assert.deepEqual(secondFamily.data.reports[0].children.map((entry) => entry.id), [String(classmate._id)]);
+    assert.equal(secondFamily.data.reports[0].children.some((entry) => entry.id === String(child._id)), false);
+  });
+
+  await t.test('a transferred child keeps historical parent results but leaves the previous teacher roster', async () => {
+    await Student.updateOne({ _id: child._id }, { $set: { standard: 'Primary' } });
+    const previousTeacher = await api('/api/teacher-report-cards/' + classReport._id + '/students/' + child._id);
+    assert.equal(previousTeacher.status, 404);
+
+    const familyHistory = await api('/api/parent-portal/reports', { role: 'parent' });
+    assert.equal(familyHistory.status, 200);
+    assert.equal(familyHistory.data.reports.length, 1);
+    assert.deepEqual(familyHistory.data.reports[0].children.map((entry) => entry.id), [String(child._id)]);
+    assert.equal(familyHistory.data.reports[0].children[0].result.total, 36);
   });
 
   await t.test('teacher result entry validates every configured subject and assessment date', async () => {
