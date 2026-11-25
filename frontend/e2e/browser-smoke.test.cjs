@@ -2077,7 +2077,22 @@ test('teachers can enter class report cards, reuse assessment dates and prepare 
     const drawer = document.querySelector('.teacher-sidebar.is-open');
     return drawer && drawer.getBoundingClientRect().left >= -1;
   });
-  await teacherDrawer.getByRole('button', { name: 'Report cards' }).click();
+  const reportCardsNavButton = teacherDrawer.getByRole('button', { name: 'Report cards' });
+  const drawerHitTest = await reportCardsNavButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    const backdrop = document.querySelector('.teacher-sidebar-backdrop');
+    return {
+      receivesTap: Boolean(hit && (hit === button || button.contains(hit))),
+      hitElement: hit?.tagName + (hit?.className ? "." + String(hit.className).replace(/\\s+/g, ".") : ""),
+      drawerZ: getComputedStyle(button.closest('.teacher-sidebar')).zIndex,
+      backdropZ: backdrop ? getComputedStyle(backdrop).zIndex : "missing",
+      buttonBounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+    };
+  });
+  assert.ok(drawerHitTest.receivesTap,
+    'The open mobile navigation must receive taps above its backdrop: ' + JSON.stringify(drawerHitTest));
+  await reportCardsNavButton.click();
   await page.getByRole('heading', { name: 'Report cards' }).last().waitFor();
   await page.getByRole('button', { name: 'Enter marks' }).click();
   await page.getByRole('heading', { name: 'Student report cards' }).first().waitFor();
