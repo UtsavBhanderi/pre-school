@@ -1040,6 +1040,7 @@ const NewStudentRegister = () => {
                         <option value="">All students</option><option value="active">Active</option><option value="withdrawn">Withdrawn</option>
                     </select>
                     </div>
+                    </div>
                 </details>
             </section>
 
