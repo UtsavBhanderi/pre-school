@@ -2131,7 +2131,7 @@ test('teachers can use Save & Next, carry assessment dates forward, edit results
     'Teacher mark and date inputs should be thumb-sized and readable without browser zoom.');
 
   await marksDialog.getByRole('button', { name: 'Save & next student' }).click();
-  await page.getByRole('heading', { name: /Marks saved\. Ready for Mira Demo Shah/ }).waitFor();
+  await page.getByRole('status').filter({ hasText: /Marks saved\. Ready for Mira Demo Shah/ }).waitFor();
   const nextDialog = page.getByRole('dialog', { name: /Enter marks · Mira/ });
   await nextDialog.waitFor();
   assert.equal(await nextDialog.getByLabel('One date for all subjects').inputValue(), '2026-11-20');
