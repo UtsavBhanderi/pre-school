@@ -321,3 +321,82 @@
   .legacy-parent-shortcut { padding:.58rem; gap:.42rem; }
   .legacy-parent-shortcut-icon { flex-basis:34px; width:34px; height:34px; }
 }
+
+
+/* Parent records: compact phone cards replace wide tables without removing desktop detail. */
+.legacy-parent-mobile-record-list { display:none; }
+.legacy-parent-attendance-heading { display:flex; align-items:center; justify-content:space-between; gap:.7rem; min-width:0; }
+.legacy-parent-attendance-heading > div { min-width:0; }
+.legacy-parent-attendance-heading h3 { margin:0 0 .2rem; color:#2b405d; font-size:.88rem; font-weight:850; overflow-wrap:anywhere; }
+.legacy-parent-attendance-heading small,.legacy-parent-invoice-meta { display:block; color:#8995a7; font-size:.66rem; line-height:1.45; }
+.legacy-parent-attendance-count { flex:0 0 auto; padding:.28rem .5rem; border-radius:99px; color:#53688a; background:#f0f3f9; font-size:.66rem; font-weight:800; }
+.legacy-parent-notice-card { border-left:3px solid #8a9ab5; }
+.legacy-parent-notice-card.priority-important { border-left-color:#d69a37; }
+.legacy-parent-notice-card.priority-urgent { border-left-color:#c95a64; }
+.legacy-parent-notice-expiry { display:block; margin-top:.55rem; color:#8995a7; font-size:.66rem; }
+.legacy-parent-calendar-card { display:flex; align-items:center; gap:.8rem; }
+.legacy-parent-calendar-date {
+  display:grid; flex:0 0 54px; width:54px; min-height:58px; align-content:center; justify-items:center;
+  border:1px solid #dce5f7; border-radius:12px; color:#3657b3; background:#f1f5ff;
+}
+.legacy-parent-calendar-date strong { font-size:1.2rem; font-weight:900; line-height:1.1; }
+.legacy-parent-calendar-date span { margin-top:.12rem; font-size:.68rem; font-weight:850; text-transform:uppercase; }
+.legacy-parent-calendar-info { display:grid; flex:1; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.25rem .6rem; min-width:0; }
+.legacy-parent-calendar-info h3 { margin:0 0 .2rem; color:#2b405d; font-size:.85rem; font-weight:850; overflow-wrap:anywhere; }
+.legacy-parent-calendar-info small { color:#8794a7; font-size:.67rem; line-height:1.45; }
+.legacy-parent-calendar-info > svg { color:#7086bd; }
+.legacy-parent-calendar-audience { grid-column:1/-1; }
+.legacy-parent-report-result { min-width:0; padding:.8rem; border:1px solid #edf0f5; border-radius:10px; background:#fbfcff; }
+.legacy-parent-report-result > strong { display:block; color:#344967; font-size:.78rem; overflow-wrap:anywhere; }
+.legacy-parent-report-metrics { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
+.legacy-parent-report-metrics span { display:grid; gap:.1rem; min-width:70px; padding:.45rem .55rem; border:1px solid #e8edf6; border-radius:8px; color:#8290a4; background:#fff; font-size:.62rem; }
+.legacy-parent-report-metrics b { color:#344e7c; font-size:.82rem; font-weight:900; }
+
+@media(max-width:700px) {
+  .legacy-parent-date-filters { grid-template-columns:minmax(0,1fr); }
+  .legacy-parent-date-filters label { display:grid; gap:.35rem; }
+  .legacy-parent-date-filters input { min-height:48px; font-size:16px; }
+  .legacy-parent-date-filters .legacy-parent-primary-btn { width:100%; min-height:48px; }
+  .legacy-parent-mobile-record-list { display:grid; gap:.5rem; margin-top:.7rem; }
+  .legacy-parent-mobile-record {
+    display:grid; gap:.25rem; min-width:0; padding:.65rem .7rem;
+    border:1px solid #edf0f5; border-radius:9px; background:#fbfcff;
+  }
+  .legacy-parent-mobile-record > div { display:flex; align-items:center; justify-content:space-between; gap:.55rem; min-width:0; }
+  .legacy-parent-mobile-record > div > strong { min-width:0; color:#405572; font-size:.74rem; font-weight:850; overflow-wrap:anywhere; }
+  .legacy-parent-mobile-record p { margin:0; color:#74839a; font-size:.7rem; line-height:1.45; overflow-wrap:anywhere; }
+  .legacy-parent-mobile-record small { color:#8c98a9; font-size:.64rem; overflow-wrap:anywhere; }
+  .legacy-parent-attendance-table,.legacy-parent-fee-table,.legacy-parent-payment-table,.legacy-parent-report-table { display:none !important; }
+  .legacy-parent-attendance-heading { align-items:flex-start; }
+  .legacy-parent-fee-card .legacy-parent-panel-heading { align-items:flex-start; gap:.45rem; }
+  .legacy-parent-fee-card .legacy-parent-panel-heading > div { min-width:0; }
+  .legacy-parent-fee-card .legacy-parent-status { flex:0 0 auto; }
+  .legacy-parent-fee-breakdown-mobile { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; }
+  .legacy-parent-fee-breakdown-mobile > div {
+    display:grid; gap:.14rem; min-width:0; padding:.6rem .65rem;
+    border:1px solid #edf0f5; border-radius:9px; background:#fbfcff;
+  }
+  .legacy-parent-fee-breakdown-mobile > div > span { color:#8995a7; font-size:.64rem; font-weight:750; }
+  .legacy-parent-fee-breakdown-mobile > div > strong { color:#344967; font-size:.79rem; font-weight:850; overflow-wrap:anywhere; }
+  .legacy-parent-fee-breakdown-mobile > div.outstanding { border-color:#f0dfd9; background:#fff8f6; }
+  .legacy-parent-fee-breakdown-mobile > div.outstanding > strong { color:#a14c48; }
+  .legacy-parent-payment-history > .small { color:#52647e; font-size:.72rem !important; }
+  .legacy-parent-calendar-card { align-items:flex-start; gap:.65rem; padding:.8rem; }
+  .legacy-parent-calendar-date { flex-basis:48px; width:48px; min-height:54px; }
+  .legacy-parent-calendar-date strong { font-size:1.08rem; }
+  .legacy-parent-calendar-info { grid-template-columns:minmax(0,1fr) auto; }
+  .legacy-parent-calendar-info > svg { width:18px; height:18px; }
+  .legacy-parent-report-result { padding:.7rem; }
+  .legacy-parent-report-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; }
+  .legacy-parent-report-metrics span { min-width:0; padding:.4rem .42rem; }
+  .legacy-parent-report-metrics b { font-size:.76rem; }
+  .legacy-parent-report-subjects .legacy-parent-mobile-record { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+  .legacy-parent-report-subjects .legacy-parent-mobile-record > div { display:grid; justify-content:stretch; gap:.12rem; }
+  .legacy-parent-report-subjects .legacy-parent-mobile-record > div > span { color:#3657b3; font-size:.7rem; font-weight:850; white-space:nowrap; }
+  .legacy-parent-report-subjects .legacy-parent-mobile-record > small { text-align:right; }
+}
+@media(max-width:360px) {
+  .legacy-parent-report-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .legacy-parent-calendar-card { gap:.5rem; }
+  .legacy-parent-calendar-info > svg { display:none; }
+}

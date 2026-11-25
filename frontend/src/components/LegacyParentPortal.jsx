@@ -327,15 +327,32 @@ export default function LegacyParentPortal() {
             {activeTab === "attendance" && (
               <section className="legacy-parent-panel">
                 <div className="legacy-parent-panel-heading"><div><h2>Attendance history</h2><p>Review present and absent days for each linked child.</p></div></div>
-                <div className="legacy-parent-filters">
-                  <label>From<input type="date" value={attendanceFrom} max={attendanceTo} onChange={(event) => setAttendanceFrom(event.target.value)} /></label>
-                  <label>To<input type="date" value={attendanceTo} min={attendanceFrom} onChange={(event) => setAttendanceTo(event.target.value)} /></label>
+                <div className="legacy-parent-filters legacy-parent-date-filters">
+                  <label htmlFor="parent-attendance-from">From<input id="parent-attendance-from" type="date" value={attendanceFrom} max={attendanceTo} onChange={(event) => setAttendanceFrom(event.target.value)} /></label>
+                  <label htmlFor="parent-attendance-to">To<input id="parent-attendance-to" type="date" value={attendanceTo} min={attendanceFrom} onChange={(event) => setAttendanceTo(event.target.value)} /></label>
                   <button type="button" className="legacy-parent-primary-btn" onClick={() => loadPortal({ quiet: false })}>Apply dates</button>
                 </div>
                 {attendance.length ? attendance.map(({ child, records }) => (
-                  <article className="legacy-parent-card" key={child.id}>
-                    <h3>{child.name} <small>· {child.className}</small></h3>
-                    {records.length ? <div className="legacy-parent-table-wrap"><table className="legacy-parent-table"><thead><tr><th>Date</th><th>Status</th><th>Reason</th></tr></thead><tbody>{records.map((record, index) => <tr key={record.date + index}><td>{dateLabel(record.date)}</td><td><span className={"legacy-parent-status " + record.status}>{record.status}</span></td><td>{record.reason || "—"}</td></tr>)}</tbody></table></div> : <small>No attendance saved in this date range.</small>}
+                  <article className="legacy-parent-card legacy-parent-attendance-card" key={child.id}>
+                    <div className="legacy-parent-attendance-heading">
+                      <div><h3>{child.name}</h3><small>{child.className || "Class not assigned"} · GR No. {child.admissionNumber || "—"}</small></div>
+                      <span className="legacy-parent-attendance-count">{records.length} {records.length === 1 ? "day" : "days"}</span>
+                    </div>
+                    {records.length ? (
+                      <>
+                        <div className="legacy-parent-mobile-record-list" aria-label={"Attendance records for " + child.name}>
+                          {records.map((record, index) => (
+                            <article className="legacy-parent-mobile-record" key={record.date + index}>
+                              <div><strong>{dateLabel(record.date)}</strong><span className={"legacy-parent-status " + record.status}>{record.status}</span></div>
+                              {record.status === "absent" && record.reason && <p>{record.reason}</p>}
+                            </article>
+                          ))}
+                        </div>
+                        <div className="legacy-parent-table-wrap legacy-parent-attendance-table">
+                          <table className="legacy-parent-table"><thead><tr><th>Date</th><th>Status</th><th>Reason</th></tr></thead><tbody>{records.map((record, index) => <tr key={record.date + index}><td>{dateLabel(record.date)}</td><td><span className={"legacy-parent-status " + record.status}>{record.status}</span></td><td>{record.reason || "—"}</td></tr>)}</tbody></table>
+                        </div>
+                      </>
+                    ) : <small>No attendance saved in this date range.</small>}
                   </article>
                 )) : !loading && <EmptyState title="No attendance history" detail="Attendance saved by your preschool will appear here." />}
               </section>
@@ -344,18 +361,48 @@ export default function LegacyParentPortal() {
             {activeTab === "fees" && (
               <section className="legacy-parent-panel">
                 <div className="legacy-parent-panel-heading"><div><h2>Fee details</h2><p>See total fees, payments received, discount and balance due.</p></div></div>
-                {fees.length ? <div className="legacy-parent-card-list">{fees.map((fee) => (
-                  <article className="legacy-parent-card" key={fee.id}>
-                    <div className="legacy-parent-panel-heading"><div><h3>{fee.child?.name || childNameList.get(fee.child?.id) || "Student"}</h3><small>GR No. {fee.child?.admissionNumber || "—"}</small></div><span className={"legacy-parent-status " + (fee.outstanding > 0 ? "due" : "paid")}>{fee.outstanding > 0 ? "Balance due" : "Paid"}</span></div>
-                    <div className="legacy-parent-table-wrap mt-3"><table className="legacy-parent-table"><tbody>
-                      <tr><th>Total fees</th><td>{money(fee.total)}</td></tr>
-                      <tr><th>Paid</th><td>{money(fee.paid)}</td></tr>
-                      <tr><th>Discount</th><td>{money(fee.discount)}</td></tr>
-                      <tr><th>Outstanding</th><td><strong>{money(fee.outstanding)}</strong></td></tr>
-                    </tbody></table></div>
-                    {fee.payments?.length > 0 && <div className="mt-3"><strong className="small">Payment history</strong><div className="legacy-parent-table-wrap mt-2"><table className="legacy-parent-table"><thead><tr><th>Date</th><th>Time</th><th>Amount</th></tr></thead><tbody>{fee.payments.map((payment, index) => <tr key={index}><td>{payment.date || "—"}</td><td>{payment.time || "—"}</td><td>{money(payment.amount)}</td></tr>)}</tbody></table></div></div>}
-                  </article>
-                ))}</div> : <EmptyState title="No fee record available" detail="Fee information will appear here once the school office creates the student's fee record." />}
+                {fees.length ? <div className="legacy-parent-card-list">{fees.map((fee) => {
+                  const child = fee.child || {};
+                  const payments = fee.payments || fee.transactions || [];
+                  const childName = child.name || fee.childName || childNameList.get(child.id || fee.childId) || "Student";
+                  const admissionNumber = child.admissionNumber || fee.admissionNumber || "—";
+                  const invoiceLabel = fee.invoiceNumber || fee.academicYear || fee.dueDate ? [fee.invoiceNumber, fee.academicYear, fee.dueDate ? "Due " + dateLabel(fee.dueDate) : ""].filter(Boolean).join(" · ") : "";
+                  return (
+                    <article className="legacy-parent-card legacy-parent-fee-card" key={fee.id}>
+                      <div className="legacy-parent-panel-heading">
+                        <div><h3>{childName}</h3><small>GR No. {admissionNumber}{fee.className || child.className ? " · " + (fee.className || child.className) : ""}</small>{invoiceLabel && <small className="legacy-parent-invoice-meta">{invoiceLabel}</small>}</div>
+                        <span className={"legacy-parent-status " + (Number(fee.outstanding) > 0 ? "due" : "paid")}>{Number(fee.outstanding) > 0 ? "Balance due" : "Paid"}</span>
+                      </div>
+                      <div className="legacy-parent-mobile-record-list legacy-parent-fee-breakdown-mobile" aria-label={"Fee breakdown for " + childName}>
+                        <div><span>Total fees</span><strong>{money(fee.total)}</strong></div>
+                        <div><span>Paid</span><strong>{money(fee.paid)}</strong></div>
+                        <div><span>Discount</span><strong>{money(fee.discount)}</strong></div>
+                        <div className="outstanding"><span>Outstanding</span><strong>{money(fee.outstanding)}</strong></div>
+                      </div>
+                      <div className="legacy-parent-table-wrap legacy-parent-fee-table mt-3"><table className="legacy-parent-table"><tbody>
+                        <tr><th>Total fees</th><td>{money(fee.total)}</td></tr>
+                        <tr><th>Paid</th><td>{money(fee.paid)}</td></tr>
+                        <tr><th>Discount</th><td>{money(fee.discount)}</td></tr>
+                        <tr><th>Outstanding</th><td><strong>{money(fee.outstanding)}</strong></td></tr>
+                      </tbody></table></div>
+                      {payments.length > 0 && (
+                        <div className="legacy-parent-payment-history mt-3">
+                          <strong className="small">Payment history</strong>
+                          <div className="legacy-parent-mobile-record-list legacy-parent-payment-mobile" aria-label={"Payments for " + childName}>
+                            {payments.map((payment, index) => (
+                              <article className="legacy-parent-mobile-record" key={payment.receiptNumber || index}>
+                                <div><strong>{payment.transactionAt ? dateTimeLabel(payment.transactionAt) : [payment.date, payment.time].filter(Boolean).join(" ") || "Date not recorded"}</strong><span className={payment.type === "refund" ? "legacy-parent-status absent" : "legacy-parent-status paid"}>{payment.type === "refund" ? "Refund" : "Payment"}</span></div>
+                                <p>{money(payment.amount)}{payment.method ? " · " + payment.method : ""}{payment.receiptNumber ? " · Receipt " + payment.receiptNumber : ""}</p>
+                                {payment.reason && <small>{payment.reason}</small>}
+                              </article>
+                            ))}
+                          </div>
+                          <div className="legacy-parent-table-wrap legacy-parent-payment-table mt-2"><table className="legacy-parent-table"><thead><tr><th>Date</th><th>Time</th><th>Amount</th></tr></thead><tbody>{payments.map((payment, index) => <tr key={payment.receiptNumber || index}><td>{payment.transactionAt ? dateLabel(payment.transactionAt) : payment.date || "—"}</td><td>{payment.transactionAt ? new Date(payment.transactionAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : payment.time || "—"}</td><td>{money(payment.amount)}</td></tr>)}</tbody></table></div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}</div> : <EmptyState title="No fee record available" detail="Fee information will appear here once the school office creates the student's fee record." />}
               </section>
             )}
 
@@ -363,9 +410,10 @@ export default function LegacyParentPortal() {
               <section className="legacy-parent-panel">
                 <div className="legacy-parent-panel-heading"><div><h2>School notices</h2><p>Important messages shared with parents and families.</p></div><span>{notices.length} updates</span></div>
                 {notices.length ? <div className="legacy-parent-card-list">{notices.map((notice) => (
-                  <article className="legacy-parent-card" key={notice._id}>
-                    <div className="legacy-parent-panel-heading"><h3>{notice.title}</h3><span className={"legacy-parent-status " + (notice.priority === "urgent" ? "absent" : "present")}>{notice.priority || "normal"}</span></div>
-                    <p>{notice.message}</p><small className="d-block mt-2">Posted {dateLabel(notice.createdAt)}{notice.expiresAt ? " · Valid until " + dateLabel(notice.expiresAt) : ""}</small>
+                  <article className={"legacy-parent-card legacy-parent-notice-card priority-" + (notice.priority || "normal")} key={notice._id}>
+                    <div className="legacy-parent-panel-heading"><div><h3>{notice.title}</h3><small>Posted {dateLabel(notice.createdAt)}</small></div><span className={"legacy-parent-status " + (notice.priority === "urgent" ? "absent" : notice.priority === "important" ? "due" : "present")}>{notice.priority || "normal"}</span></div>
+                    <p>{notice.message}</p>
+                    {notice.expiresAt && <small className="legacy-parent-notice-expiry">Available until {dateLabel(notice.expiresAt)}</small>}
                   </article>
                 ))}</div> : <EmptyState title="No current school notices" detail="New notices for parents will appear here." />}
               </section>
@@ -374,14 +422,19 @@ export default function LegacyParentPortal() {
             {activeTab === "calendar" && (
               <section className="legacy-parent-panel">
                 <div className="legacy-parent-panel-heading"><div><h2>School calendar</h2><p>Upcoming events, holidays and school activities.</p></div></div>
-                <div className="legacy-parent-filters">
-                  <label>From<input type="date" value={calendarFrom} max={calendarTo} onChange={(event) => setCalendarFrom(event.target.value)} /></label>
-                  <label>To<input type="date" value={calendarTo} min={calendarFrom} onChange={(event) => setCalendarTo(event.target.value)} /></label>
+                <div className="legacy-parent-filters legacy-parent-date-filters">
+                  <label htmlFor="parent-calendar-from">From<input id="parent-calendar-from" type="date" value={calendarFrom} max={calendarTo} onChange={(event) => setCalendarFrom(event.target.value)} /></label>
+                  <label htmlFor="parent-calendar-to">To<input id="parent-calendar-to" type="date" value={calendarTo} min={calendarFrom} onChange={(event) => setCalendarTo(event.target.value)} /></label>
                   <button type="button" className="legacy-parent-primary-btn" onClick={() => loadPortal({ quiet: false })}>Apply dates</button>
                 </div>
-                {events.length ? <div className="legacy-parent-card-list">{events.map((item) => (
-                  <article className="legacy-parent-card" key={item.id}>
-                    <div className="legacy-parent-panel-heading"><div><h3>{item.title}</h3><small>{dateLabel(item.startsAt)}{item.endsAt && item.endsAt !== item.startsAt ? " – " + dateLabel(item.endsAt) : ""}</small></div><MdEventAvailable size={22} /></div>
+                {events.length ? <div className="legacy-parent-card-list legacy-parent-calendar-list">{events.map((item) => (
+                  <article className="legacy-parent-card legacy-parent-calendar-card" key={item.id}>
+                    <div className="legacy-parent-calendar-date"><strong>{new Intl.DateTimeFormat("en-IN", { day: "2-digit" }).format(new Date(item.startsAt))}</strong><span>{new Intl.DateTimeFormat("en-IN", { month: "short" }).format(new Date(item.startsAt))}</span></div>
+                    <div className="legacy-parent-calendar-info">
+                      <div><h3>{item.title}</h3><small>{dateLabel(item.startsAt)}{item.endsAt && item.endsAt !== item.startsAt ? " – " + dateLabel(item.endsAt) : ""}</small></div>
+                      <MdEventAvailable size={22} aria-hidden="true" />
+                      {(item.standards || []).length > 0 && <small className="legacy-parent-calendar-audience">For {item.standards.join(", ")}</small>}
+                    </div>
                   </article>
                 ))}</div> : <EmptyState title="No events in this date range" detail="School calendar events and holidays will appear here." />}
               </section>
@@ -405,11 +458,23 @@ export default function LegacyParentPortal() {
                               <span>Percentage <b>{child.result.percentage.toFixed(1)}%</b></span>
                               {child.result.grade && <span>Grade <b>{child.result.grade}</b></span>}
                             </div>
-                            {child.result.subjects?.length > 0 && <div className="legacy-parent-table-wrap mt-2">
-                              <table className="legacy-parent-table"><thead><tr><th>Subject</th><th>Marks</th><th>Date</th></tr></thead><tbody>
-                                {child.result.subjects.map((subject, index) => <tr key={subject.subject + index}><td>{subject.subject}</td><td>{subject.mark}</td><td>{subject.date || "—"}</td></tr>)}
-                              </tbody></table>
-                            </div>}
+                            {child.result.subjects?.length > 0 && (
+                              <>
+                                <div className="legacy-parent-mobile-record-list legacy-parent-report-subjects" aria-label={"Subjects for " + child.name}>
+                                  {child.result.subjects.map((subject, index) => (
+                                    <article className="legacy-parent-mobile-record" key={subject.subject + index}>
+                                      <div><strong>{subject.subject}</strong><span>{subject.mark} marks</span></div>
+                                      <small>{subject.date ? dateLabel(subject.date) : "Assessment date not recorded"}</small>
+                                    </article>
+                                  ))}
+                                </div>
+                                <div className="legacy-parent-table-wrap legacy-parent-report-table mt-2">
+                                  <table className="legacy-parent-table"><thead><tr><th>Subject</th><th>Marks</th><th>Date</th></tr></thead><tbody>
+                                    {child.result.subjects.map((subject, index) => <tr key={subject.subject + index}><td>{subject.subject}</td><td>{subject.mark}</td><td>{subject.date || "—"}</td></tr>)}
+                                  </tbody></table>
+                                </div>
+                              </>
+                            )}
                           </>
                         ) : <small className="d-block mt-1">The report summary is available. Detailed marks have not been saved for this child yet.</small>}
                       </div>

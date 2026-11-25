@@ -1804,3 +1804,219 @@ test('parent family engagement is touch-friendly and completes family tasks on m
   }
   await page.close();
 });
+
+
+test('parent attendance, fees, notices, calendar and reports are easy to review on phones', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  const requestedAttendanceRanges = [];
+  await page.addInitScript(() => localStorage.setItem('token', 'parent-browser-smoke-token'));
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    let body = {};
+
+    if (path === '/api/auth/me' && request.method() === 'GET') {
+      body = {
+        user: {
+          id: 'parent-user-sections',
+          username: 'Riya Patel',
+          email: 'riya@example.com',
+          role: 'parent',
+          memberships: [],
+          parentAccount: { mode: 'legacy_single_school', status: 'active', studentCount: 1 },
+        },
+      };
+    } else if (path === '/api/parent-portal/summary') {
+      body = {
+        schoolName: 'Blooming Buds Preschool',
+        date: '2026-11-25',
+        children: 1,
+        attendanceToday: { present: 1, absent: 0 },
+        fees: { outstanding: 850 },
+      };
+    } else if (path === '/api/parent-portal/children') {
+      body = {
+        total: 1,
+        children: [{
+          id: 'child-1',
+          name: 'Aarav Patel',
+          admissionNumber: 'GR-1001',
+          className: 'Nursery',
+          academicYear: '2026-2027',
+          dateOfBirth: '2023-05-10',
+          address: 'Surat',
+        }],
+      };
+    } else if (path === '/api/parent-portal/attendance') {
+      requestedAttendanceRanges.push({
+        from: url.searchParams.get('from'),
+        to: url.searchParams.get('to'),
+      });
+      body = {
+        from: '2026-11-01',
+        to: '2026-11-25',
+        children: [{
+          child: { id: 'child-1', name: 'Aarav Patel', admissionNumber: 'GR-1001', className: 'Nursery' },
+          records: [
+            { date: '2026-11-25', status: 'present', reason: '' },
+            { date: '2026-11-24', status: 'absent', reason: 'Fever' },
+          ],
+        }],
+      };
+    } else if (path === '/api/parent-portal/fees') {
+      body = {
+        fees: [{
+          id: 'fee-1',
+          child: { id: 'child-1', name: 'Aarav Patel', admissionNumber: 'GR-1001' },
+          total: 12000,
+          paid: 9000,
+          discount: 1000,
+          outstanding: 2000,
+          payments: [
+            { date: '20 Nov 2026', time: '10:30 AM', amount: 5000 },
+            { date: '05 Oct 2026', time: '09:15 AM', amount: 4000 },
+          ],
+        }],
+      };
+    } else if (path === '/api/parent-portal/notices') {
+      body = {
+        notices: [{
+          _id: 'notice-1',
+          title: 'Annual day reminder',
+          message: 'Please send your child in the assigned costume on Friday.',
+          priority: 'important',
+          createdAt: '2026-11-24T06:00:00.000Z',
+          expiresAt: '2026-12-01T18:30:00.000Z',
+        }, {
+          _id: 'notice-2',
+          title: 'Urgent closure update',
+          message: 'The school will open one hour late tomorrow.',
+          priority: 'urgent',
+          createdAt: '2026-11-25T06:00:00.000Z',
+        }],
+      };
+    } else if (path === '/api/parent-portal/calendar') {
+      body = {
+        events: [{
+          id: 'event-1',
+          title: 'Annual day celebration',
+          startsAt: '2026-12-10T04:30:00.000Z',
+          endsAt: '2026-12-10T08:30:00.000Z',
+          audience: 'parents',
+          standards: ['Nursery'],
+        }],
+      };
+    } else if (path === '/api/parent-portal/reports') {
+      body = {
+        reports: [{
+          id: 'report-1',
+          title: 'Term 1 progress',
+          description: 'Learning progress for the first term.',
+          className: 'Nursery',
+          createdAt: '2026-11-20T06:00:00.000Z',
+          children: [{
+            id: 'child-1',
+            name: 'Aarav Patel',
+            admissionNumber: 'GR-1001',
+            result: {
+              total: 90,
+              percentage: 90,
+              grade: 'A',
+              subjects: [
+                { subject: 'Language', mark: 30, date: '20 Nov 2026' },
+                { subject: 'Numbers', mark: 28, date: '20 Nov 2026' },
+                { subject: 'Creative work', mark: 32, date: '20 Nov 2026' },
+              ],
+            },
+          }],
+        }],
+      };
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(body),
+    });
+  });
+
+  await page.goto(BASE_URL + '/parent-portal');
+  await page.getByRole('heading', { name: 'Family overview' }).waitFor();
+
+  const mobileNav = page.locator('.legacy-parent-mobile-nav');
+  await mobileNav.getByRole('button', { name: 'Attendance' }).click();
+  await page.getByRole('heading', { name: 'Attendance history' }).waitFor();
+  const attendanceCards = page.locator('.legacy-parent-attendance-card .legacy-parent-mobile-record');
+  await attendanceCards.first().waitFor();
+  assert.equal(await attendanceCards.count(), 2);
+  await page.getByLabel('From').fill('2026-11-01');
+  await page.getByLabel('To').fill('2026-11-25');
+  await page.getByRole('button', { name: 'Apply dates' }).click();
+  await page.getByText('Fever', { exact: true }).waitFor();
+  assert.deepEqual(requestedAttendanceRanges.at(-1), { from: '2026-11-01', to: '2026-11-25' });
+  assert.equal(await page.locator('.legacy-parent-attendance-table').isVisible(), false);
+
+  await mobileNav.getByRole('button', { name: 'Fees' }).click();
+  await page.getByRole('heading', { name: 'Fee details' }).waitFor();
+  await page.getByText('₹12,000').waitFor();
+  await page.getByText('₹2,000').waitFor();
+  assert.equal(await page.locator('.legacy-parent-fee-breakdown-mobile').isVisible(), true);
+  assert.equal(await page.locator('.legacy-parent-fee-table').isVisible(), false);
+  const paymentCards = page.locator('.legacy-parent-payment-mobile .legacy-parent-mobile-record');
+  assert.equal(await paymentCards.count(), 2);
+  await page.getByText('₹5,000', { exact: true }).waitFor();
+
+  await mobileNav.getByRole('button', { name: 'More' }).click();
+  const moreSheet = page.getByRole('dialog', { name: 'More from your school' });
+  await moreSheet.waitFor();
+  await moreSheet.getByRole('button', { name: 'Notices' }).click();
+  await page.getByRole('heading', { name: 'School notices' }).waitFor();
+  await page.getByRole('heading', { name: 'Annual day reminder' }).waitFor();
+  await page.getByRole('heading', { name: 'Urgent closure update' }).waitFor();
+  assert.equal(await moreSheet.count(), 0);
+
+  await mobileNav.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('dialog', { name: 'More from your school' }).getByRole('button', { name: 'Calendar' }).click();
+  await page.getByRole('heading', { name: 'School calendar' }).waitFor();
+  await page.getByRole('heading', { name: 'Annual day celebration' }).waitFor();
+  assert.equal(await page.locator('.legacy-parent-calendar-date').count(), 1);
+  await page.getByLabel('From').fill('2026-12-01');
+  await page.getByLabel('To').fill('2026-12-31');
+  await page.getByRole('button', { name: 'Apply dates' }).click();
+
+  await mobileNav.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('dialog', { name: 'More from your school' }).getByRole('button', { name: 'Reports' }).click();
+  await page.getByRole('heading', { name: 'Learning reports' }).waitFor();
+  await page.getByRole('heading', { name: 'Term 1 progress' }).waitFor();
+  const reportSubjects = page.locator('.legacy-parent-report-subjects .legacy-parent-mobile-record');
+  assert.equal(await reportSubjects.count(), 3);
+  assert.equal(await page.locator('.legacy-parent-report-table').isVisible(), false);
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const dimensions = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll(
+        '.legacy-parent-attendance-card,.legacy-parent-fee-card,.legacy-parent-notice-card,.legacy-parent-calendar-card,.legacy-parent-report-result'
+      ));
+      return {
+        viewport: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
+        cards: cards.map((card) => ({
+          width: card.getBoundingClientRect().width,
+          right: card.getBoundingClientRect().right,
+        })),
+      };
+    });
+    assert.ok(dimensions.document <= dimensions.viewport + 1,
+      'Parent records must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
+    assert.ok(dimensions.cards.every((card) => card.width <= width + 1 && card.right <= width + 1),
+      'Every parent record card must stay within ' + width + 'px: ' + JSON.stringify(dimensions));
+  }
+  await page.close();
+});
