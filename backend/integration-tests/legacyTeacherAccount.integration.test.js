@@ -61,6 +61,16 @@ test('school administrators manually create teacher logins that can sign in with
   const teacherEmail = 'teacher-' + tag + '@example.test';
   const teacherPassword = 'TeacherInitialPassword123';
   const teacherProfile = await Teacher.create({ firstName: 'Classroom Teacher ' + tag, Email: teacherEmail, standard: 'Nursery' });
+  const unassignedAccount = await User.create({
+    username: 'Teacher Without Class ' + tag,
+    email: 'unassigned-' + tag + '@example.test',
+    password: 'UnassignedTeacherPassword123',
+    role: 'teacher',
+  });
+  const unassignedProfile = await Teacher.create({
+    firstName: 'Teacher Without Class ' + tag,
+    Email: unassignedAccount.email,
+  });
 
   async function api(pathname, { token, method = 'GET', body } = {}) {
     const response = await fetch(new URL(pathname, 'http://127.0.0.1:' + server.address().port), {
@@ -181,6 +191,29 @@ test('school administrators manually create teacher logins that can sign in with
     const option = options.data.profiles.find((profile) => profile.id === String(teacherProfile._id));
     assert.equal(option.linkedUserId, teacherAccount._id);
     assert.ok(options.data.standards.includes('Nursery'));
+  });
+
+  await t.test('administrator can repair an existing teacher login with no assigned class', async () => {
+    const repaired = await api('/api/userDetailsself/' + unassignedAccount._id + '/teacher-assignment', {
+      token: adminToken,
+      method: 'PATCH',
+      body: { teacherProfileId: String(unassignedProfile._id), standard: 'ENG JR.' },
+    });
+    assert.equal(repaired.status, 200);
+    assert.equal(repaired.data.teacherProfile.standard, 'ENG JR.');
+
+    const savedProfile = await Teacher.findById(unassignedProfile._id).lean();
+    assert.equal(String(savedProfile.userId), String(unassignedAccount._id));
+    assert.equal(savedProfile.standard, 'ENG JR.');
+
+    const repairedToken = jwt.sign(
+      { user: { id: String(unassignedAccount._id), role: 'teacher', authVersion: 0 } },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' },
+    );
+    const workspace = await api('/api/teacher-report-cards', { token: repairedToken });
+    assert.equal(workspace.status, 200);
+    assert.deepEqual(workspace.data, []);
   });
 
   let teacherToken;
