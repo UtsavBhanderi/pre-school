@@ -1716,6 +1716,7 @@ test('parent family engagement is touch-friendly and completes family tasks on m
   const complaintTab = tabs.getByRole('tab', { name: 'Messages to school' });
   await complaintTab.waitFor();
   assert.equal(await complaintTab.getAttribute('aria-selected'), 'true');
+  await page.getByRole('heading', { name: 'Send a private message' }).waitFor();
 
   // Send a private message for the linked child.
   await page.getByLabel('Child', { exact: true }).selectOption('child-1');
@@ -1752,7 +1753,7 @@ test('parent family engagement is touch-friendly and completes family tasks on m
   await tabs.getByRole('tab', { name: 'Polls' }).click();
   await page.getByLabel('Art and craft').check();
   await page.getByRole('button', { name: 'Submit my vote' }).click();
-  await page.getByText(/Your vote has been recorded/).waitFor();
+  await page.getByRole('status').filter({ hasText: 'Your vote has been recorded' }).waitFor();
   assert.deepEqual(submittedVotes[0], { optionIndex: 1 });
   await page.getByText('Your vote has been recorded. Thank you for sharing your view.').waitFor();
 
