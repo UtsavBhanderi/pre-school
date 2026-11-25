@@ -80,6 +80,7 @@ const NewStudentRegister = () => {
     // ============================================================
 
     const [students, setStudents] = useState([]);
+    const [quickSearch, setQuickSearch] = useState("");
     const [student, setStudent] = useState({ ...EMPTY_STUDENT });
 
     const [profile, setProfile] = useState(null);
@@ -437,21 +438,30 @@ const NewStudentRegister = () => {
         }));
     };
 
-    const clearFilters = () => setFilter({
-        stuNo: "",
-        firstName: "",
-        middleName: "",
-        lastName: "",
-        standard: "",
-        phoneNumber: "",
-        status: "",
-    });
+    const clearFilters = () => {
+        setQuickSearch("");
+        setFilter({
+            stuNo: "",
+            firstName: "",
+            middleName: "",
+            lastName: "",
+            standard: "",
+            phoneNumber: "",
+            status: "",
+        });
+    };
 
-    const hasActiveFilters = Object.values(filter).some((value) => String(value ?? "").trim() !== "");
+    const hasAdvancedFilters = Object.values(filter).some((value) => String(value ?? "").trim() !== "");
+    const hasActiveFilters = Boolean(quickSearch.trim()) || hasAdvancedFilters;
 
     const filteredStudents = useMemo(() => {
+        const query = normalize(quickSearch);
         return students.filter((item) => {
+            const name = [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" ");
+            const quickFields = [name, item.stuNo, item.phoneNumber, item.FatherName, item.FatherMobileNumber, item.FatherPhoneNumber];
+            const matchesQuickSearch = !query || quickFields.some((value) => normalize(value).includes(query));
             return (
+                matchesQuickSearch &&
                 normalize(item.firstName).includes(normalize(filter.firstName)) &&
                 normalize(item.middleName).includes(normalize(filter.middleName)) &&
                 normalize(item.lastName).includes(normalize(filter.lastName)) &&
@@ -461,7 +471,7 @@ const NewStudentRegister = () => {
                 (!filter.status || (item.status || "active") === filter.status)
             );
         });
-    }, [students, filter]);
+    }, [students, filter, quickSearch]);
 
     // ============================================================
     // CHECKBOXES
@@ -930,19 +940,17 @@ const NewStudentRegister = () => {
           FILTERS
       ====================================================== */}
 
-            <div className="simple-filter-heading">
-                <div>
-                    <h3>Find a child</h3>
-                    <p>Use one field or combine a few. Leave fields blank if you do not need them.</p>
+            <section className="student-search-panel" aria-label="Find a child">
+                <div className="student-quick-search">
+                    <label className="visually-hidden" htmlFor="student-quick-search">Search by child name, GR number or mobile</label>
+                    <span aria-hidden="true">⌕</span>
+                    <input id="student-quick-search" type="search" className="form-control" placeholder="Search child name, GR number or parent mobile…" value={quickSearch} onChange={(event) => setQuickSearch(event.target.value)} />
+                    <span className="student-search-count">{filteredStudents.length} found</span>
+                    {hasActiveFilters && <button type="button" className="btn btn-link btn-sm" onClick={clearFilters}>Clear</button>}
                 </div>
-                {hasActiveFilters && (
-                    <button type="button" className="btn btn-outline-secondary" onClick={clearFilters}>
-                        Clear filters
-                    </button>
-                )}
-            </div>
-
-            <div className="filter-panel simple-filter-panel mb-3" aria-label="Find a child by details">
+                <details className="student-advanced-filters" open={hasAdvancedFilters || undefined}>
+                    <summary><span>Advanced filters</span><small>Class, parent, mobile and enrolment status</small></summary>
+                    <div className="filter-panel simple-filter-panel mb-0" aria-label="Advanced child filters">
                 <div className="simple-filter-field">
                     <label className="simple-filter-label" htmlFor="student-filter-gr">GR / admission number</label>
                     <input
@@ -1031,8 +1039,9 @@ const NewStudentRegister = () => {
                     <select id="student-filter-status" name="status" value={filter.status} onChange={handleFilterChange} className="form-select">
                         <option value="">All students</option><option value="active">Active</option><option value="withdrawn">Withdrawn</option>
                     </select>
-                </div>
-            </div>
+                    </div>
+                </details>
+            </section>
 
             {/* ======================================================
           STUDENT COUNT
@@ -1054,7 +1063,7 @@ const NewStudentRegister = () => {
           TABLE
       ====================================================== */}
 
-            <div className="table-responsive">
+            <div className="table-responsive student-register-table-desktop">
                 <table className="table table-bordered table-striped align-middle">
                     <thead>
                         <tr>
@@ -1292,6 +1301,46 @@ const NewStudentRegister = () => {
                     </tbody>
                 </table>
             </div>
+
+            <section className="student-register-mobile-list" aria-label="Student records">
+                {loadingStudents ? (
+                    <div className="student-mobile-state" role="status">Loading student records…</div>
+                ) : filteredStudents.length === 0 ? (
+                    <div className="student-mobile-state"><strong>No children found</strong><span>Try another name, GR number or mobile, or clear your filters.</span></div>
+                ) : filteredStudents.map((item) => {
+                    const fullName = [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" ") || "Student";
+                    const status = (item.status || "active") === "withdrawn" ? "Withdrawn" : "Active";
+                    return (
+                        <article className="student-mobile-card" key={item._id}>
+                            <div className="student-mobile-card-top">
+                                <label className="student-mobile-select">
+                                    <input type="checkbox" checked={selectedStudents.includes(item._id)} onChange={() => handleCheckboxChange(item)} aria-label={"Select " + fullName} />
+                                </label>
+                                <img src={getImageUrl(item.studentPhoto)} alt="" loading="lazy" />
+                                <div className="student-mobile-identity"><strong>{fullName}</strong><span>GR No. {item.stuNo || "—"} · {item.standard || "Class not assigned"}</span></div>
+                                <span className={"badge " + (status === "Withdrawn" ? "text-bg-secondary" : "text-bg-success")}>{status}</span>
+                            </div>
+                            <div className="student-mobile-details">
+                                <div><span>Parent / guardian</span><strong>{item.FatherName || "—"}</strong></div>
+                                <div><span>Parent mobile</span><strong>{item.FatherMobileNumber || item.FatherPhoneNumber || item.phoneNumber || "—"}</strong></div>
+                                <div><span>Date of birth</span><strong>{dateToIndianFormat(item.dob) || "—"}</strong></div>
+                                <div><span>Gender</span><strong>{item.gender || "—"}</strong></div>
+                            </div>
+                            <div className="student-mobile-actions">
+                                <button type="button" className="btn btn-primary" onClick={() => openProfile(item._id)}>View profile</button>
+                                <button type="button" className="btn btn-outline-primary" onClick={() => handleEdit(item)}>Edit</button>
+                                <button type="button" className="btn btn-outline-secondary" onClick={() => generateDocx(item)}>Certificate</button>
+                                {confirmDeleteId === item._id ? (
+                                    <>
+                                        <button type="button" className="btn btn-danger" onClick={() => handleDelete(item._id)} disabled={Boolean(deletingId)}>Confirm delete</button>
+                                        <button type="button" className="btn btn-light" onClick={() => setConfirmDeleteId("")} disabled={deletingId === item._id}>Cancel</button>
+                                    </>
+                                ) : <button type="button" className="btn btn-outline-danger" onClick={() => setConfirmDeleteId(item._id)} disabled={Boolean(deletingId)}>Delete</button>}
+                            </div>
+                        </article>
+                    );
+                })}
+            </section>
 
             {/* ======================================================
           ADD / EDIT STUDENT MODAL
