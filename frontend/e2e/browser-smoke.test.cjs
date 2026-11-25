@@ -1503,9 +1503,9 @@ test('teacher daily work reports are easy to submit and review on phone screens'
 
   await page.getByLabel('Time in').fill('09:00');
   await page.getByLabel('Time out').fill('12:30');
-  await page.getByLabel('Subject / activity').fill('Art and colours');
+  await page.locator('#report-subject').fill('Art and colours');
   await page.waitForFunction(() => document.querySelector('#report-standard')?.value === 'ENG JR.');
-  assert.equal(await page.getByLabel('Class / standard').inputValue(), 'ENG JR.');
+  assert.equal(await page.locator('#report-standard').inputValue(), 'ENG JR.');
   await page.getByLabel('Number of students').fill('20');
   await page.getByLabel('What did you work on today?').fill('Children explored primary colours through painting and sorting.');
   await page.getByRole('button', { name: 'Submit work report' }).click();
