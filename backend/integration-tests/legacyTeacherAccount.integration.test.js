@@ -60,7 +60,7 @@ test('school administrators manually create teacher logins that can sign in with
   );
   const teacherEmail = 'teacher-' + tag + '@example.test';
   const teacherPassword = 'TeacherInitialPassword123';
-  const teacherProfile = await Teacher.create({ firstName: 'Classroom Teacher ' + tag, Email: teacherEmail, standard: 'Nursery' });
+  const teacherProfile = await Teacher.create({ firstName: 'Classroom Teacher ' + tag, Email: teacherEmail, standard: 'Nursery', GR_No: 'STAFF-' + tag });
   const unassignedAccount = await User.create({
     username: 'Teacher Without Class ' + tag,
     email: 'unassigned-' + tag + '@example.test',
@@ -70,6 +70,7 @@ test('school administrators manually create teacher logins that can sign in with
   const unassignedProfile = await Teacher.create({
     firstName: 'Teacher Without Class ' + tag,
     Email: unassignedAccount.email,
+    GR_No: 'STAFF-UNASSIGNED-' + tag,
   });
 
   async function api(pathname, { token, method = 'GET', body } = {}) {
