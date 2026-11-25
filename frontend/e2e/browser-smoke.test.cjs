@@ -1758,7 +1758,7 @@ test('parent family engagement is touch-friendly and completes family tasks on m
   await page.getByText('Your vote has been recorded. Thank you for sharing your view.').waitFor();
 
   // A direct school message can be marked read.
-  await tabs.getByRole('tab', { name: 'Messages' }).click();
+  await tabs.getByRole('tab', { name: 'Messages', exact: true }).click();
   await page.getByRole('button', { name: 'Mark as read' }).click();
   assert.deepEqual(readMessages, ['school-message-1']);
   await page.getByText('Read', { exact: true }).waitFor();
