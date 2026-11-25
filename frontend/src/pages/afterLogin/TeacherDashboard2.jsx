@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   MdSchool, MdDashboard, MdFactCheck, MdAssignment, MdForum, MdCampaign,
   MdHelpOutline, MdMenu, MdClose, MdLogout, MdArrowForward, MdCalendarToday, MdCalendarMonth,
-  MdRefresh, MdCheckCircle, MdAccessTime, MdNotifications, MdPerson, MdChevronLeft, MdChevronRight,
+  MdRefresh, MdCheckCircle, MdAccessTime, MdNotifications, MdPerson, MdAssessment, MdChevronLeft, MdChevronRight,
 } from "react-icons/md";
 import { IoAnalyticsOutline } from "react-icons/io5";
 import { AuthContext } from "../../context/AuthContext";
@@ -15,6 +15,7 @@ import TeacherHelp from "../../components/TeacherHelp.jsx";
 import AnnouncementsPage from "../../components/AnnouncementsPage.jsx";
 import SchoolCommunication from "../../components/SchoolCommunication.jsx";
 import TeacherCalendar from "../../components/TeacherCalendar.jsx";
+import TeacherReportCards from "../../components/TeacherReportCards.jsx";
 import "../../teacher-workspace.css";
 
 const NAV_GROUPS = [
@@ -24,6 +25,7 @@ const NAV_GROUPS = [
       { id: "home", label: "Overview", title: "Your teaching day", description: "Your classroom workspace at a glance.", Icon: MdDashboard },
       { id: "attendance", label: "Take attendance", title: "Take attendance", description: "Mark every child present or absent, then save your register.", Icon: MdFactCheck },
       { id: "reports", label: "Daily work report", title: "Daily work report", description: "Record the lessons, activities and classroom work you completed.", Icon: MdAssignment },
+      { id: "assessments", label: "Report cards", title: "Student report cards", description: "Enter and review marks for the class assigned to you.", Icon: MdAssessment },
     ],
   },
   {
@@ -137,6 +139,7 @@ function TeacherOverview({ user, reports, notices, messages, homework, loading, 
           <QuickAction icon={MdFactCheck} title="Take attendance" detail="Mark today’s class register" onClick={() => onNavigate("attendance")} tone="blue" />
           <QuickAction icon={MdAssignment} title="Submit daily report" detail="Share your classroom work" onClick={() => onNavigate("reports")} tone="green" />
           <QuickAction icon={MdForum} title="Parent communication" detail="Homework, messages and polls" onClick={() => onNavigate("communication")} tone="violet" />
+          <QuickAction icon={MdAssessment} title="Student report cards" detail="Enter marks and prepare class results" onClick={() => onNavigate("assessments")} tone="blue" />
         </div>
       </section>
 
@@ -324,6 +327,7 @@ export default function TeacherDashboard() {
           )}
           {activePage === "attendance" && <div className="teacher-feature-content"><AttendanceEntryPage /></div>}
           {activePage === "reports" && <div className="teacher-feature-content"><WorkReport /></div>}
+          {activePage === "assessments" && <div className="teacher-feature-content"><TeacherReportCards /></div>}
           {activePage === "communication" && <div className="teacher-feature-content"><SchoolCommunication embedded /></div>}
           {activePage === "notices" && <div className="teacher-feature-content"><AnnouncementsPage readOnly /></div>}
           {activePage === "calendar" && <div className="teacher-feature-content"><TeacherCalendar /></div>}

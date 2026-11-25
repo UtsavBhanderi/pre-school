@@ -27,8 +27,19 @@ const getGrade = (percentage) => {
 /* ===============================
    COMPONENT
 ================================ */
-const StudentsReport = () => {
-  const { standard, reportId } = useParams();
+const StudentsReport = ({
+  teacherMode = false,
+  reportId: providedReportId,
+  standard: providedStandard,
+  onBack,
+}) => {
+  const routeParams = useParams();
+  const standard = providedStandard || routeParams.standard;
+  const reportId = providedReportId || routeParams.reportId;
+  const reportApiPrefix = teacherMode ? "/api/teacher-report-cards" : "/api/reportCard";
+  const studentMarksPath = (studentId) => teacherMode
+    ? reportApiPrefix + "/" + reportId + "/students/" + studentId
+    : "/api/students/" + studentId + "/" + reportId;
 
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -61,7 +72,7 @@ const StudentsReport = () => {
     setLoading(true);
     setPageError("");
     try {
-      const { data } = await api.get(`/api/reportCard/${reportId}/roster`);
+      const { data } = await api.get(`${reportApiPrefix}/${reportId}/roster`);
       if (data?.report?.standard !== standard) {
         throw new Error('This report template does not belong to the selected class.');
       }
@@ -74,7 +85,7 @@ const StudentsReport = () => {
       setPageError(error.response?.data?.message || error.message || 'Unable to load the selected report template.');
       setStudents([]); setSubjects([]); setOutOfMarks(0); setReportName('');
     } finally { setLoading(false); }
-  }, [standard, reportId]);
+  }, [standard, reportId, reportApiPrefix]);
 
   useEffect(() => {
     fetchData();
@@ -192,7 +203,7 @@ const StudentsReport = () => {
     setMarks({}); setDates(reusableDates); setTotal(0); setPercentage(0); setGrade('');
     setPageError(''); setPageSuccess('');
     try {
-      const { data } = await api.get(`/api/students/${student._id}/${reportId}`);
+      const { data } = await api.get(studentMarksPath(student._id));
       const nextMarks = {}; const nextDates = {};
       (data.subjectData || []).forEach((item) => {
         nextMarks[item.subject] = item.mark;
@@ -241,7 +252,7 @@ const StudentsReport = () => {
       date: dates[subject] || '',
     }));
     try {
-      const response = await api.post(`/api/students/${selectedStudent._id}/${reportId}`, { subjectData });
+      const response = await api.post(studentMarksPath(selectedStudent._id), { subjectData });
       const savedResult = { reportId, subjectData, total: response.data.total, percentage: response.data.percentage, grade: response.data.grade };
       setTotal(response.data.total); setPercentage(response.data.percentage); setGrade(response.data.grade);
       setStudents((previous) => previous.map((student) => {
@@ -259,7 +270,7 @@ const StudentsReport = () => {
         setSelectedStudent(nextStudent); setMarks({}); setDates(nextDates); setTotal(0); setPercentage(0); setGrade("");
         setLoadingStudentId(nextStudent._id);
         try {
-          const { data: nextData } = await api.get(`/api/students/${nextStudent._id}/${reportId}`);
+          const { data: nextData } = await api.get(studentMarksPath(nextStudent._id));
           const nextMarks = {}; const savedDates = { ...nextDates };
           (nextData.subjectData || []).forEach((item) => { nextMarks[item.subject] = item.mark; savedDates[item.subject] = item.date || savedDates[item.subject] || ""; });
           setMarks(nextMarks); setDates(savedDates); setTotal(nextData.total ?? 0); setPercentage(nextData.percentage ?? 0); setGrade(nextData.grade || "E");
@@ -335,7 +346,11 @@ const StudentsReport = () => {
           <p className="page-subtitle">Class: {standard} · {reportName || "Student report"} · Out of {outOfMarks || "—"} per subject.</p>
         </div>
         <div className="page-actions report-page-actions">
-          <Link to="/dashboard/createReport" className="btn btn-outline-secondary">Back to templates</Link>
+          {onBack ? (
+            <button type="button" className="btn btn-outline-secondary" onClick={onBack}>Back to report cards</button>
+          ) : (
+            <Link to="/dashboard/createReport" className="btn btn-outline-secondary">Back to templates</Link>
+          )}
           <button type="button" className="btn btn-outline-primary" onClick={fetchData} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh class"}
           </button>

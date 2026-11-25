@@ -57,6 +57,7 @@ after(async () => {
 });
 
 async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', requestObserver = null } = {}) {
+  let savedTeacherMarks = null;
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     requestObserver?.(request);
@@ -96,6 +97,38 @@ async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', re
       body = { today: { totalPaid: 0 }, standardWise: [] };
     } else if (url.pathname === '/api/announcements') {
       body = [];
+    } else if (url.pathname === '/api/teacher-report-cards' && request.method() === 'GET') {
+      body = [{ _id: 'teacher-report-1', reportName: 'Nursery Term 1', standard: 'Nursery', description: '100' }];
+    } else if (url.pathname === '/api/teacher-report-cards/teacher-report-1/roster' && request.method() === 'GET') {
+      body = {
+        report: { _id: 'teacher-report-1', reportName: 'Nursery Term 1', standard: 'Nursery', outOfMarks: 100 },
+        students: [{
+          _id: 'teacher-child-1',
+          firstName: 'Aarav',
+          middleName: 'Demo',
+          lastName: 'Patel',
+          stuNo: 'GR-2001',
+          standard: 'Nursery',
+          batchYear: '2026-2027',
+          marks: savedTeacherMarks ? [{ reportId: 'teacher-report-1', ...savedTeacherMarks }] : [],
+        }],
+        subjects: ['Language', 'Numbers'],
+      };
+    } else if (/^\\/api\\/teacher-report-cards\\/teacher-report-1\\/students\\/teacher-child-1$/.test(url.pathname) && request.method() === 'GET') {
+      if (savedTeacherMarks) body = savedTeacherMarks;
+      else {
+        status = 404;
+        body = { message: 'No marks have been saved for this student yet.' };
+      }
+    } else if (url.pathname === '/api/teacher-report-cards/teacher-report-1/students/teacher-child-1' && request.method() === 'POST') {
+      const payload = request.postDataJSON();
+      savedTeacherMarks = {
+        subjectData: payload.subjectData,
+        total: payload.subjectData.reduce((sum, item) => sum + Number(item.mark || 0), 0),
+        percentage: Number((payload.subjectData.reduce((sum, item) => sum + Number(item.mark || 0), 0) / (payload.subjectData.length * 100) * 100).toFixed(2)),
+        grade: 'E',
+      };
+      body = { message: 'Student report card saved successfully.', ...savedTeacherMarks };
     }
 
     await route.fulfill({
@@ -2018,6 +2051,68 @@ test('parent attendance, fees, notices, calendar and reports are easy to review 
       'Parent records must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
     assert.ok(dimensions.cards.every((card) => card.width <= width + 1 && card.right <= width + 1),
       'Every parent record card must stay within ' + width + 'px: ' + JSON.stringify(dimensions));
+  }
+  await page.close();
+});
+
+
+test('teachers can enter class report cards, reuse assessment dates and prepare print-ready results on phones', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  await mockSchoolApi(page, { userRole: 'teacher' });
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
+  await page.locator('#login-password').fill('teacher-initial-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL((url) => url.pathname.endsWith('/teacher-dashboard'));
+
+  await page.locator('.teacher-menu-button').click();
+  await page.locator('.teacher-sidebar').getByRole('button', { name: 'Report cards' }).click();
+  await page.getByRole('heading', { name: 'Report cards' }).last().waitFor();
+  await page.getByRole('button', { name: 'Enter marks' }).click();
+  await page.getByRole('heading', { name: 'Student report cards' }).first().waitFor();
+
+  await page.getByRole('button', { name: /Enter marks/ }).click();
+  const marksDialog = page.getByRole('dialog', { name: /Enter marks/ });
+  await marksDialog.waitFor();
+  await marksDialog.getByLabel('One date for all subjects').fill('2026-11-20');
+  const marksInputs = marksDialog.locator('.report-entry-mobile-list input[type="number"]');
+  assert.equal(await marksInputs.count(), 2);
+  await marksInputs.nth(0).fill('18');
+  await marksInputs.nth(1).fill('17');
+
+  const mobileInputs = await marksDialog.locator('.report-entry-mobile-fields input').evaluateAll((items) =>
+    items.map((item) => ({ height: item.getBoundingClientRect().height, fontSize: getComputedStyle(item).fontSize }))
+  );
+  assert.ok(mobileInputs.length >= 4);
+  assert.ok(mobileInputs.every((item) => item.height >= 48 && Number.parseFloat(item.fontSize) >= 16),
+    'Teacher mark and date inputs should be thumb-sized and readable without browser zoom.');
+
+  await marksDialog.getByRole('button', { name: 'Save marks' }).click();
+  await marksDialog.waitFor({ state: 'detached' });
+  await page.getByRole('status').filter({ hasText: 'Marks saved successfully' }).waitFor();
+
+  await page.getByRole('button', { name: 'Print', exact: true }).click();
+  await page.getByRole('dialog', { name: /Report card preview/ }).waitFor();
+  await page.getByRole('heading', { name: 'Nursery Term 1' }).waitFor();
+  await page.getByText('17.50%', { exact: true }).waitFor();
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      printCard: document.querySelector('.report-card')?.getBoundingClientRect().width || 0,
+      printRight: document.querySelector('.report-card')?.getBoundingClientRect().right || 0,
+    }));
+    assert.ok(dimensions.document <= dimensions.viewport + 1,
+      'Teacher report preview must not overflow at ' + width + 'px: ' + JSON.stringify(dimensions));
+    assert.ok(dimensions.printCard <= width + 1 && dimensions.printRight <= width + 1,
+      'The printable report card must fit the viewport at ' + width + 'px: ' + JSON.stringify(dimensions));
   }
   await page.close();
 });

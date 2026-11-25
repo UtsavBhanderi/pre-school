@@ -299,7 +299,9 @@
   .report-entry-mobile-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.8fr); gap:.55rem; }
   .report-entry-mobile-fields > div { display:grid; gap:.28rem; min-width:0; }
   .report-entry-mobile-fields label { color:#64748b; font-size:.66rem; font-weight:800; }
-  .report-entry-mobile-fields .form-control { min-height:43px; min-width:0; padding:.45rem .5rem; font-size:.78rem; }
+  .report-entry-mobile-fields .form-control { min-height:48px; min-width:0; padding:.45rem .55rem; font-size:16px; }
+  .report-shared-date .form-control { min-height:48px; font-size:16px; }
+  .report-shared-date .btn { min-height:44px; font-size:.82rem; }
   .report-print-modal-body { padding:.45rem !important; }
   .report-print-area { gap:.7rem; }
   .report-card-print-page { padding:22px 15px 17px; }
