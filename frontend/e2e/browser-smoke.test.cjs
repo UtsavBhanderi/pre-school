@@ -114,7 +114,7 @@ async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', re
         }],
         subjects: ['Language', 'Numbers'],
       };
-    } else if (/^\\/api\\/teacher-report-cards\\/teacher-report-1\\/students\\/teacher-child-1$/.test(url.pathname) && request.method() === 'GET') {
+    } else if (url.pathname === '/api/teacher-report-cards/teacher-report-1/students/teacher-child-1' && request.method() === 'GET') {
       if (savedTeacherMarks) body = savedTeacherMarks;
       else {
         status = 404;
