@@ -2078,13 +2078,14 @@ test('teachers can enter class report cards, reuse assessment dates and prepare 
     return drawer && drawer.getBoundingClientRect().left >= -1;
   });
   const reportCardsNavButton = teacherDrawer.getByRole('button', { name: 'Report cards' });
+  await reportCardsNavButton.scrollIntoViewIfNeeded();
   const drawerHitTest = await reportCardsNavButton.evaluate((button) => {
     const rect = button.getBoundingClientRect();
     const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     const backdrop = document.querySelector('.teacher-sidebar-backdrop');
     return {
       receivesTap: Boolean(hit && (hit === button || button.contains(hit))),
-      hitElement: hit?.tagName + (hit?.className ? "." + String(hit.className).replace(/\\s+/g, ".") : ""),
+      hitElement: hit?.tagName + (hit?.className ? "." + String(hit.className).replace(/\s+/g, ".") : ""),
       drawerZ: getComputedStyle(button.closest('.teacher-sidebar')).zIndex,
       backdropZ: backdrop ? getComputedStyle(backdrop).zIndex : "missing",
       buttonBounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
