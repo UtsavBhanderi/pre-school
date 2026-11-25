@@ -1,6 +1,9 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { MdMenu, MdClose, MdCalendarToday, MdSearch, MdHelpOutline, MdArrowForward } from "react-icons/md";
+import {
+  MdMenu, MdClose, MdCalendarToday, MdSearch, MdHelpOutline, MdArrowForward,
+  MdHome, MdFactCheck, MdCurrencyRupee, MdPeople, MdMoreHoriz,
+} from "react-icons/md";
 import { AuthContext } from "./context/AuthContext";
 import SideNav from "./pages/afterLogin/SideNav.jsx";
 import "./operations.css";
@@ -181,6 +184,40 @@ export default function LayoutAdmin() {
           <Outlet />
         </main>
       </div>
+
+      <nav className="admin-mobile-nav" aria-label="Administrator quick navigation">
+        <Link
+          to="/dashboard/home"
+          className={location.pathname === "/dashboard/home" ? "active" : ""}
+          aria-current={location.pathname === "/dashboard/home" ? "page" : undefined}
+        >
+          <MdHome aria-hidden="true" /><span>Home</span>
+        </Link>
+        <Link
+          to="/dashboard/attendanceEntryPage"
+          className={location.pathname === "/dashboard/attendanceEntryPage" ? "active" : ""}
+          aria-current={location.pathname === "/dashboard/attendanceEntryPage" ? "page" : undefined}
+        >
+          <MdFactCheck aria-hidden="true" /><span>Attendance</span>
+        </Link>
+        <Link
+          to="/dashboard/fees"
+          className={location.pathname === "/dashboard/fees" ? "active" : ""}
+          aria-current={location.pathname === "/dashboard/fees" ? "page" : undefined}
+        >
+          <MdCurrencyRupee aria-hidden="true" /><span>Fees</span>
+        </Link>
+        <Link
+          to="/dashboard/studentRegister"
+          className={location.pathname === "/dashboard/studentRegister" ? "active" : ""}
+          aria-current={location.pathname === "/dashboard/studentRegister" ? "page" : undefined}
+        >
+          <MdPeople aria-hidden="true" /><span>Children</span>
+        </Link>
+        <button type="button" onClick={() => setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="admin-sidebar-navigation">
+          <MdMoreHoriz aria-hidden="true" /><span>More</span>
+        </button>
+      </nav>
 
       {commandOpen && (
         <div

@@ -80,7 +80,7 @@ export default function SideNav({ isOpen = false, isCollapsed = false, onToggleC
   const displayName = user?.username || user?.name || "School administrator";
 
   return (
-    <aside className={"admin-sidebar" + (isOpen ? " is-open" : "") + (isCollapsed ? " is-collapsed" : "")} aria-label="Main navigation">
+    <aside id="admin-sidebar-navigation" className={"admin-sidebar" + (isOpen ? " is-open" : "") + (isCollapsed ? " is-collapsed" : "")} aria-label="Main navigation">
       <div className="sidebar-brand">
         <div className="sidebar-brand-mark" aria-hidden="true">S</div>
         <div className="sidebar-brand-copy">

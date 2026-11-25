@@ -1215,6 +1215,56 @@ test('report cards reuse class assessment dates and move to the next child after
 });
 
 
+test('administrator workspace has a thumb-first mobile dock across phone widths', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 320, height: 740 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  await mockSchoolApi(page);
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('admin@example.com');
+  await page.locator('#login-password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL((url) => url.pathname.endsWith('/dashboard/home'));
+
+  const dock = page.locator('.admin-mobile-nav');
+  assert.equal(await dock.isVisible(), true, 'Administrator quick navigation should be visible on phones.');
+  assert.equal(await dock.locator('a,button').count(), 5,
+    'The administrator dock should offer Home, Attendance, Fees, Children and More.');
+
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 740 });
+    const layout = await page.evaluate(() => {
+      const nav = document.querySelector('.admin-mobile-nav');
+      return {
+        viewport: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
+        dockWidth: nav.getBoundingClientRect().width,
+        items: Array.from(nav.querySelectorAll('a,button')).map((item) => {
+          const rect = item.getBoundingClientRect();
+          return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
+        }),
+      };
+    });
+    assert.ok(layout.document <= layout.viewport + 1,
+      'Administrator workspace must not overflow at ' + width + 'px: ' + JSON.stringify(layout));
+    assert.ok(layout.dockWidth <= width + 1 && layout.items.every((item) =>
+      item.width >= 44 && item.height >= 48 && item.left >= -1 && item.right <= width + 1
+    ), 'Every administrator dock item must fit and remain touch-sized at ' + width + 'px: ' + JSON.stringify(layout));
+  }
+
+  await dock.getByRole('button', { name: 'More' }).click();
+  await page.locator('.admin-sidebar.is-open').waitFor();
+  assert.equal(await dock.getByRole('button', { name: 'More' }).getAttribute('aria-expanded'), 'true');
+  await page.locator('.admin-sidebar').getByRole('link', { name: 'Help and guides' }).click();
+  await page.getByRole('heading', { name: /step by step/i }).waitFor();
+  assert.equal(await dock.getByRole('link', { name: 'Home' }).count(), 1,
+    'The quick dock remains available while navigating the full administrator workspace.');
+  await page.close();
+});
+
 test('administrator navigation remains usable with touch input from 320px to 430px', async () => {
   const page = await browser.newPage({
     viewport: { width: 320, height: 740 },

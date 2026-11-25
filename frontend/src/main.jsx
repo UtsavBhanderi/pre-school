@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import axios from "axios";
 import App from "./App.jsx";
 import "./index.css";
+import "./mobile-first.css";
 
 // Attach the current session token to API requests from every feature module.
 axios.interceptors.request.use((config) => {
