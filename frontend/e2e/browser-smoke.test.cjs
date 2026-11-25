@@ -56,8 +56,8 @@ after(async () => {
   }
 });
 
-async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', requestObserver = null } = {}) {
-  const savedTeacherMarks = {};
+async function mockSchoolApi(page, { rejectLogin = false, userRole = 'admin', requestObserver = null, seedTeacherMarks = {} } = {}) {
+  const savedTeacherMarks = { ...seedTeacherMarks };
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     requestObserver?.(request);
@@ -2190,5 +2190,77 @@ test('teachers can use Save & Next, carry assessment dates forward, edit results
     assert.ok(dimensions.printCards.length === 2 && dimensions.printCards.every((card) => card.width <= width + 1 && card.right <= width + 1),
       'Every printable report card must fit the viewport at ' + width + 'px: ' + JSON.stringify(dimensions));
   }
+  await page.close();
+});
+
+test('teacher report cards print all subjects on one professional A4 page per student', async () => {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const subjectData = Array.from({ length: 20 }, (_, index) => ({
+    subject: 'Learning Area ' + String(index + 1).padStart(2, '0'),
+    mark: 70 + (index % 10),
+    date: '2026-11-20',
+  }));
+  const total = subjectData.reduce((sum, entry) => sum + entry.mark, 0);
+  const seededReport = {
+    subjectData,
+    total,
+    percentage: Number((total / (subjectData.length * 100) * 100).toFixed(2)),
+    grade: 'B',
+  };
+  await mockSchoolApi(page, {
+    userRole: 'teacher',
+    seedTeacherMarks: {
+      'teacher-child-1': seededReport,
+      'teacher-child-2': seededReport,
+    },
+  });
+
+  await page.goto(BASE_URL + '/login');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('teacher@example.com');
+  await page.locator('#login-password').fill('teacher-initial-password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await page.waitForURL((url) => url.pathname.endsWith('/teacher-dashboard'));
+
+  await page.locator('.teacher-menu-button').click();
+  const drawer = page.locator('.teacher-sidebar.is-open');
+  await drawer.waitFor();
+  await drawer.getByRole('button', { name: 'Report cards' }).click();
+  await page.getByRole('heading', { name: 'Report cards' }).last().waitFor();
+
+  await page.getByRole('button', { name: 'Enter marks' }).click();
+  await page.getByRole('heading', { name: 'Student report cards' }).waitFor();
+  await page.getByRole('checkbox', { name: 'Select all completed reports shown' }).check();
+  await page.getByRole('button', { name: /Print selected \(2\)/ }).click();
+
+  const printDialog = page.getByRole('dialog', { name: /Report card preview · 2 students/ });
+  await printDialog.waitFor();
+  const printArea = printDialog.locator('#print-area');
+  assert.equal(await printArea.locator('.report-card-print-page').count(), 2);
+  assert.equal(await printArea.locator('.report-card-density-tight').count(), 2,
+    'Large reports should use the compact print layout automatically.');
+  assert.equal(await printArea.locator('.report-marks-table tbody tr').count(), 40,
+    'All subject rows must be retained on both report cards.');
+  await printArea.getByText('Blooming Buds Preschool', { exact: true }).first().waitFor();
+  await printArea.getByText('Aarav Demo Patel').waitFor();
+  await printArea.getByText('Mira Demo Shah').waitFor();
+
+  await page.emulateMedia({ media: 'print' });
+  const metrics = await printArea.locator('.report-card-print-page').evaluateAll((cards) =>
+    cards.map((card) => {
+      const bounds = card.getBoundingClientRect();
+      return {
+        height: bounds.height,
+        contentHeight: card.scrollHeight,
+        breakAfter: getComputedStyle(card).breakAfter,
+      };
+    })
+  );
+  const a4PrintableHeightPx = 281 * (96 / 25.4);
+  assert.ok(metrics.every((card) => card.height <= a4PrintableHeightPx + 2),
+    'Each 20-subject report must fit within one A4 portrait page: ' + JSON.stringify(metrics));
+  assert.ok(metrics.every((card) => card.contentHeight <= card.height + 1),
+    'The compact report layout must not clip any subject or signature content: ' + JSON.stringify(metrics));
+  assert.equal(metrics[0].breakAfter, 'page');
+  assert.ok(['auto', 'initial'].includes(metrics[1].breakAfter));
   await page.close();
 });
