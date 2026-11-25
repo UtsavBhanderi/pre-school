@@ -1486,7 +1486,7 @@ test('teacher daily work reports are easy to submit and review on phone screens'
   await page.getByRole('button', { name: 'Sign in securely' }).click();
   await page.waitForURL((url) => url.pathname.endsWith('/teacher-dashboard'));
   await page.locator('.teacher-mobile-nav').getByRole('button', { name: 'Daily report' }).click();
-  await page.getByRole('heading', { name: 'Daily work report' }).waitFor();
+  await page.getByRole('heading', { name: 'Daily work report', exact: true }).waitFor();
 
   const reportCards = page.locator('.daily-report-mobile-list .daily-report-mobile-card');
   await reportCards.first().waitFor();
@@ -1513,6 +1513,7 @@ test('teacher daily work reports are easy to submit and review on phone screens'
   assert.equal(submittedPayloads.length, 1);
   assert.equal(submittedPayloads[0].standard, 'ENG JR.');
   assert.equal(submittedPayloads[0].totalStudents, 20);
+  await page.waitForFunction(() => document.querySelectorAll('.daily-report-mobile-card').length === 2);
   assert.equal(await reportCards.count(), 2);
   await reportCards.first().getByText('Art and colours', { exact: true }).waitFor();
 
