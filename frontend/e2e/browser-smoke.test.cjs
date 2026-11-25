@@ -1182,7 +1182,7 @@ test('report cards reuse class assessment dates and move to the next child after
   await page.getByRole('button', { name: 'Sign in securely' }).click();
   await page.waitForURL(/\/dashboard\/home$/);
   await page.goto(BASE_URL + '/dashboard/students/ENG%20JR./report-1');
-  await page.getByRole('heading', { name: 'Student report cards' }).waitFor();
+  await page.getByRole('heading', { name: 'Student report cards', level: 2 }).waitFor();
   await page.getByText('1 of 3 reports completed').waitFor();
 
   const search = page.getByRole('searchbox', { name: 'Search students by name or GR number' });
