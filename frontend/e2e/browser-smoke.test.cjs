@@ -2276,6 +2276,7 @@ test('teacher report cards print all subjects on one professional A4 page per st
   await singleStudentCard.getByRole('button', { name: 'Print', exact: true }).click();
   const singlePrintDialog = page.getByRole('dialog', { name: /Report card preview · 1 student/ });
   await singlePrintDialog.waitFor();
+  await page.emulateMedia({ media: 'print' });
   const singlePdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
   const singlePdfPageCount = (singlePdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
   assert.equal(singlePdfPageCount, 1,
