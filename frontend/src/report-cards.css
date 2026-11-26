@@ -239,41 +239,6 @@
 }
 .report-card-footer span:last-child { text-align:right; }
 
-/* Larger report templates use tighter table rhythm, without dropping any subject or result. */
-.report-card-density-compact .report-card-header { padding-bottom:13px; }
-.report-card-density-compact .report-student-overview { gap:9px; padding:12px 0; }
-.report-card-density-compact .report-student-details > div { padding:7px 8px; }
-.report-card-density-compact .report-section-heading { margin:12px 0 6px; }
-.report-card-density-compact .report-marks-table th { padding:6px 7px; font-size:.55rem; }
-.report-card-density-compact .report-marks-table td { padding:6px 7px; font-size:.68rem; line-height:1.2; }
-.report-card-density-compact .report-result-summary { margin-top:9px; padding:8px; }
-.report-card-density-compact .report-result-summary strong { font-size:1.08rem; }
-.report-card-density-compact .report-teacher-remarks { margin-top:10px; }
-.report-card-density-compact .report-remarks-lines { gap:9px; }
-.report-card-density-compact .report-card-signatures { margin-top:18px; }
-.report-card-density-compact .report-card-footer { margin-top:11px; padding-top:7px; }
-
-.report-card-density-tight .report-card-header { padding-bottom:9px; }
-.report-card-density-tight .report-card-brand-mark { width:36px; height:36px; flex-basis:36px; font-size:1rem; }
-.report-card-density-tight .report-card-heading h1 { font-size:1.2rem; }
-.report-card-density-tight .report-student-overview { gap:7px; padding:9px 0; }
-.report-card-density-tight .report-student-name strong { font-size:1rem; }
-.report-card-density-tight .report-student-details { gap:6px; }
-.report-card-density-tight .report-student-details > div { gap:2px; padding:5px 6px; }
-.report-card-density-tight .report-student-details span,.report-card-density-tight .report-result-summary span { font-size:.52rem; }
-.report-card-density-tight .report-student-details strong { font-size:.67rem; }
-.report-card-density-tight .report-section-heading { margin:9px 0 4px; }
-.report-card-density-tight .report-section-heading strong { font-size:.78rem; }
-.report-card-density-tight .report-section-heading small { font-size:.58rem; }
-.report-card-density-tight .report-marks-table th { padding:4px 5px; font-size:.5rem; }
-.report-card-density-tight .report-marks-table td { padding:3.5px 5px; font-size:.62rem; line-height:1.12; }
-.report-card-density-tight .report-result-summary { margin-top:7px; padding:6px; }
-.report-card-density-tight .report-result-summary strong { font-size:.98rem; }
-.report-card-density-tight .report-teacher-remarks { margin-top:8px; }
-.report-card-density-tight .report-remarks-lines { gap:7px; }
-.report-card-density-tight .report-card-signatures { margin-top:12px; gap:16px; }
-.report-card-density-tight .report-card-footer { margin-top:8px; padding-top:5px; font-size:.52rem; }
-
 @media (max-width:760px) {
  .report-workflow-guide { grid-template-columns:1fr; gap:.45rem; }
  .report-workflow-guide > div { padding:.6rem .7rem; }
@@ -295,89 +260,101 @@
 }
 @media print {
  @page report-card-a4 { size:A4 portrait; margin:8mm; }
- html,body { width:auto !important; min-height:0 !important; margin:0 !important; padding:0 !important; overflow:visible !important; background:#fff !important; }
+ html,body {
+   width:auto !important; min-height:0 !important; margin:0 !important; padding:0 !important;
+   overflow:visible !important; background:#fff !important;
+ }
  body > #root { display:none !important; }
  body { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
  body * { visibility:hidden !important; }
  #print-area,#print-area * { visibility:visible !important; }
- .report-print-backdrop { position:static !important; display:block !important; overflow:visible !important; padding:0 !important; background:#fff !important; }
+ .report-print-backdrop {
+   position:static !important; display:block !important; overflow:visible !important;
+   width:100% !important; padding:0 !important; background:#fff !important;
+ }
  .report-print-dialog { display:block !important; min-height:0 !important; }
  .report-print-dialog,.report-print-modal-content,.report-print-modal-body {
-   width:100% !important; max-width:none !important; max-height:none !important; overflow:visible !important;
-   margin:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important;
-   box-shadow:none !important; background:#fff !important;
+   display:block !important; width:100% !important; max-width:none !important; max-height:none !important;
+   overflow:visible !important; margin:0 !important; padding:0 !important; border:0 !important;
+   border-radius:0 !important; box-shadow:none !important; background:#fff !important;
  }
  .report-print-toolbar { display:none !important; }
- #print-area { display:block !important; position:static !important; width:100% !important; max-width:none !important; margin:0 !important; padding:0 !important; }
+ #print-area {
+   display:block !important; position:static !important; width:100% !important; max-width:none !important;
+   margin:0 !important; padding:0 !important;
+ }
  .report-card-print-page {
    page:report-card-a4 !important;
-   box-sizing:border-box !important; display:flex !important; width:194mm !important; max-width:194mm !important;
-   min-height:0 !important; height:auto !important; margin:0 !important; padding:5mm 6mm 4mm !important;
-   overflow:visible !important; border:0 !important; border-radius:0 !important; box-shadow:none !important;
+   box-sizing:border-box !important; display:flex !important; flex-direction:column !important;
+   width:194mm !important; max-width:194mm !important; height:274mm !important; min-height:274mm !important;
+   margin:0 !important; padding:8mm 8mm 7mm !important; overflow:hidden !important;
+   border:0 !important; border-radius:0 !important; box-shadow:none !important;
+   break-before:auto !important; page-break-before:auto !important;
+   break-after:auto !important; page-break-after:auto !important;
    break-inside:avoid !important; page-break-inside:avoid !important;
-   break-after:page !important; page-break-after:always !important;
    -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
  }
- .report-card-print-page:last-child { break-after:auto !important; page-break-after:auto !important; }
- .report-card-print-page.report-card-print-last-page { break-after:auto !important; page-break-after:auto !important; }
- .report-card-topline { height:2mm !important; }
- .report-card-header { gap:8mm !important; padding:0 0 4mm !important; }
- .report-card-brand { gap:3mm !important; }
- .report-card-brand-mark { width:12mm !important; height:12mm !important; flex-basis:12mm !important; border-radius:2mm !important; font-size:12pt !important; }
- .report-card-brand-copy { gap:1mm !important; }
- .report-card-brand-copy strong { font-size:10pt !important; }
- .report-card-brand-copy small { font-size:6pt !important; }
- .report-card-heading > span { font-size:6pt !important; }
- .report-card-heading h1 { margin:1mm 0 !important; font-size:14pt !important; line-height:1.1 !important; }
- .report-card-header { flex-direction:row !important; align-items:center !important; }
+ /* Start each subsequent student on a fresh page. Never force a break after the final card. */
+ .report-card-print-page + .report-card-print-page {
+   break-before:page !important; page-break-before:always !important;
+ }
+ .report-card-topline { height:2.5mm !important; }
+ .report-card-header {
+   display:flex !important; flex-direction:row !important; align-items:center !important;
+   justify-content:space-between !important; gap:8mm !important; padding:0 0 5mm !important;
+   border-bottom:1px solid #dfe6ef !important;
+ }
+ .report-card-brand { display:flex !important; flex-direction:row !important; align-items:center !important; gap:3mm !important; }
+ .report-card-brand-mark {
+   display:grid !important; place-items:center !important; width:14mm !important; height:14mm !important;
+   flex:0 0 14mm !important; border-radius:3mm !important; font-size:15pt !important;
+ }
+ .report-card-brand-copy { display:grid !important; gap:1.2mm !important; }
+ .report-card-brand-copy strong { font-size:11pt !important; line-height:1.2 !important; }
+ .report-card-brand-copy small { font-size:6.5pt !important; }
  .report-card-heading { width:auto !important; text-align:right !important; }
- .report-student-details { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
- .report-card-footer { flex-direction:row !important; }
- .report-card-footer span:last-child { text-align:right !important; }
- .report-card-heading p { font-size:6pt !important; }
- .report-student-overview { gap:3mm !important; padding:4mm 0 !important; }
- .report-student-name { gap:1mm !important; }
- .report-student-name span,.report-student-details span,.report-result-summary span { font-size:6pt !important; }
- .report-student-name strong { font-size:12pt !important; line-height:1.15 !important; }
- .report-student-details { gap:2mm !important; }
- .report-student-details > div { gap:1mm !important; padding:2mm 2.5mm !important; border-radius:1.5mm !important; }
- .report-student-details strong { font-size:8pt !important; line-height:1.1 !important; }
- .report-section-heading { margin:4mm 0 2mm !important; }
- .report-section-heading strong { font-size:9pt !important; }
- .report-section-heading small,.report-assessment-scale { font-size:6.5pt !important; }
- .report-marks-table th { padding:1.5mm 2mm !important; font-size:6pt !important; }
- .report-marks-table td { padding:1.5mm 2mm !important; font-size:8pt !important; line-height:1.12 !important; }
- .report-marks-table td:first-child { font-size:7pt !important; }
- .report-result-summary { gap:2mm !important; padding:3mm !important; margin-top:4mm !important; border-radius:2mm !important; }
- .report-result-summary > div { gap:1mm !important; padding:0 2mm !important; }
- .report-result-summary strong { font-size:15pt !important; }
- .report-result-summary strong small { font-size:7pt !important; }
+ .report-card-heading > span { font-size:6.5pt !important; }
+ .report-card-heading h1 { margin:1.2mm 0 !important; font-size:16pt !important; line-height:1.1 !important; }
+ .report-card-heading p { font-size:6.5pt !important; }
+ .report-student-overview { display:grid !important; gap:4mm !important; padding:7mm 0 6mm !important; }
+ .report-student-name { display:grid !important; gap:1.5mm !important; }
+ .report-student-name span,.report-student-details span,.report-result-summary span { font-size:6.5pt !important; }
+ .report-student-name strong { font-size:14pt !important; line-height:1.2 !important; }
+ .report-student-details { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:2.5mm !important; }
+ .report-student-details > div { gap:1.2mm !important; padding:3mm !important; border-radius:2mm !important; }
+ .report-student-details strong { font-size:8.5pt !important; line-height:1.2 !important; }
+ .report-section-heading { display:flex !important; align-items:flex-end !important; justify-content:space-between !important; gap:3mm !important; margin:5mm 0 2.5mm !important; }
+ .report-section-heading strong { font-size:10pt !important; }
+ .report-section-heading small,.report-assessment-scale { font-size:7pt !important; }
+ .report-marks-table { width:100% !important; border-collapse:collapse !important; table-layout:fixed !important; }
+ .report-marks-table th { padding:2.4mm 2.2mm !important; font-size:6.8pt !important; }
+ .report-marks-table td { padding:2.6mm 2.2mm !important; font-size:8.6pt !important; line-height:1.22 !important; }
+ .report-marks-table td:first-child { font-size:7.5pt !important; }
+ .report-result-summary {
+   display:grid !important; grid-template-columns:1.15fr 1.15fr .65fr !important; gap:2.5mm !important;
+   padding:4mm !important; margin-top:6mm !important; border-radius:2.5mm !important;
+ }
+ .report-result-summary > div { gap:1.5mm !important; padding:0 2mm !important; }
+ .report-result-summary strong { font-size:17pt !important; }
+ .report-result-summary strong small { font-size:8pt !important; }
  .report-result-summary .report-grade-result { padding-left:3mm !important; }
- .report-teacher-remarks { margin-top:4mm !important; }
- .report-teacher-remarks .report-section-heading { margin:0 0 1.5mm !important; }
- .report-remarks-lines { gap:3mm !important; padding:1mm 0 0 !important; }
- .report-remarks-lines span { height:.25mm !important; }
- .report-card-signatures { gap:8mm !important; margin-top:7mm !important; }
- .report-card-signatures > div { gap:1.5mm !important; }
+ .report-teacher-remarks { margin-top:7mm !important; }
+ .report-teacher-remarks .report-section-heading { margin:0 0 2mm !important; }
+ .report-remarks-lines { display:grid !important; gap:7mm !important; padding:2mm 0 0 !important; }
+ .report-remarks-lines span { height:.25mm !important; background:#dfe6ef !important; }
+ .report-card-signatures {
+   display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+   gap:9mm !important; margin-top:14mm !important;
+ }
+ .report-card-signatures > div { display:grid !important; gap:1.8mm !important; }
  .report-card-signatures > div > span { height:.25mm !important; }
- .report-card-signatures strong { font-size:6pt !important; }
- .report-card-footer { gap:4mm !important; padding-top:2.5mm !important; margin-top:4mm !important; font-size:6pt !important; }
- .report-card-density-compact .report-marks-table th { padding:1.1mm 1.6mm !important; font-size:5.7pt !important; }
- .report-card-density-compact .report-marks-table td { padding:1.1mm 1.6mm !important; font-size:7.4pt !important; }
- .report-card-density-tight .report-card-header { padding-bottom:2.5mm !important; }
- .report-card-density-tight .report-student-overview { padding:2.5mm 0 !important; gap:2mm !important; }
- .report-card-density-tight .report-student-name strong { font-size:10pt !important; }
- .report-card-density-tight .report-student-details > div { padding:1.3mm 2mm !important; }
- .report-card-density-tight .report-student-details strong { font-size:7pt !important; }
- .report-card-density-tight .report-section-heading { margin:2.5mm 0 1.2mm !important; }
- .report-card-density-tight .report-marks-table th { padding:.9mm 1.4mm !important; font-size:5.3pt !important; }
- .report-card-density-tight .report-marks-table td { padding:.8mm 1.4mm !important; font-size:6.8pt !important; line-height:1.05 !important; }
- .report-card-density-tight .report-result-summary { padding:2mm !important; margin-top:2.5mm !important; }
- .report-card-density-tight .report-result-summary strong { font-size:12pt !important; }
- .report-card-density-tight .report-teacher-remarks { margin-top:2.5mm !important; }
- .report-card-density-tight .report-remarks-lines { gap:2mm !important; }
- .report-card-density-tight .report-card-signatures { margin-top:4mm !important; gap:6mm !important; }
- .report-card-density-tight .report-card-footer { margin-top:2.5mm !important; padding-top:1.5mm !important; font-size:5.5pt !important; }
+ .report-card-signatures strong { font-size:6.5pt !important; }
+ .report-card-footer {
+   display:flex !important; flex-direction:row !important; align-items:center !important;
+   justify-content:space-between !important; gap:4mm !important; padding-top:3mm !important;
+   margin-top:auto !important; font-size:6.3pt !important; border-top:1px solid #e2e8f0 !important;
+ }
+ .report-card-footer span:last-child { text-align:right !important; }
  .report-marks-table tr,.report-result-summary,.report-card-signatures { break-inside:avoid !important; page-break-inside:avoid !important; }
 }
 @media (prefers-reduced-motion:reduce) {
@@ -430,8 +407,6 @@
 .report-calculation-summary strong { color:#2d456b; font-size:.92rem; font-weight:900; overflow-wrap:anywhere; }
 .report-print-toolbar { flex-shrink:0; }
 .report-print-area { display:grid; gap:1.1rem; }
-.report-card-print-page { break-after:page; page-break-after:always; }
-.report-card-print-page:last-child { break-after:auto; page-break-after:auto; }
 
 @media (max-width:760px) {
   .report-overview-grid { grid-template-columns:1fr 1fr; }
@@ -466,11 +441,7 @@
   .report-print-area { gap:.7rem; }
   .report-card-print-page { padding:22px 15px 17px; }
 }
-@media print {
-  .report-print-area { display:block !important; }
-  .report-card-print-page { margin:0 !important; }
-  .report-card-print-page:last-child { break-after:auto !important; page-break-after:auto !important; }
-}
+
 
 
 /* Inline-safe report template rename controls. */

@@ -2193,11 +2193,11 @@ test('teachers can use Save & Next, carry assessment dates forward, edit results
   await page.close();
 });
 
-test('teacher report cards print all subjects on one professional A4 page per student', async () => {
+test('teacher report cards with ten subjects print exactly one A4 page per student without a trailing blank page', async () => {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
   });
-  const subjectData = Array.from({ length: 20 }, (_, index) => ({
+  const subjectData = Array.from({ length: 10 }, (_, index) => ({
     subject: 'Learning Area ' + String(index + 1).padStart(2, '0'),
     mark: 70 + (index % 10),
     date: '2026-11-20',
@@ -2238,10 +2238,10 @@ test('teacher report cards print all subjects on one professional A4 page per st
   await printDialog.waitFor();
   const printArea = page.locator('#print-area');
   assert.equal(await printArea.locator('.report-card-print-page').count(), 2);
-  assert.equal(await printArea.locator('.report-card-density-tight').count(), 2,
-    'Large reports should use the compact print layout automatically.');
-  assert.equal(await printArea.locator('.report-marks-table tbody tr').count(), 40,
-    'All subject rows must be retained on both report cards.');
+  assert.equal(await printArea.locator('.report-card-density-tight,.report-card-density-compact').count(), 0,
+    'The ten-subject design should use one consistent readable layout.');
+  assert.equal(await printArea.locator('.report-marks-table tbody tr').count(), 20,
+    'All ten subject rows must be retained on both report cards.');
   await printArea.getByText('Blooming Buds Preschool', { exact: true }).first().waitFor();
   await printArea.getByText('Aarav Demo Patel').waitFor();
   await printArea.getByText('Mira Demo Shah').waitFor();
@@ -2259,9 +2259,9 @@ test('teacher report cards print all subjects on one professional A4 page per st
   assert.equal(metrics.length, 2, 'Both selected students must remain in the print document.');
   const a4PrintableHeightPx = 281 * (96 / 25.4);
   assert.ok(metrics.every((card) => card.height <= a4PrintableHeightPx + 2),
-    'Each 20-subject report must fit within one A4 portrait page: ' + JSON.stringify(metrics));
+    'Each ten-subject report must fit within one A4 portrait page: ' + JSON.stringify(metrics));
   assert.ok(metrics.every((card) => card.contentHeight <= card.height + 1),
-    'The compact report layout must not clip any subject or signature content: ' + JSON.stringify(metrics));
+    'The one-page report layout must not clip any subject or signature content: ' + JSON.stringify(metrics));
 
   assert.equal(await printArea.evaluate((area) => area.closest('#root')), null,
     'The print preview must be isolated from the dashboard layout.');

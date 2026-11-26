@@ -637,17 +637,9 @@ const StudentsReport = ({
               </div>
               <div className="modal-body report-print-modal-body">
                 <div id="print-area" className="report-print-area">
-                  {printBatch.map(({ student: printStudent, report: printReport }, index) => (
+                  {printBatch.map(({ student: printStudent, report: printReport }) => (
                     <article
-                      className={
-                        "report-card report-card-print-page "
-                        + ((printReport.subjectData?.length || 0) >= 20
-                          ? "report-card-density-tight"
-                          : (printReport.subjectData?.length || 0) >= 12
-                            ? "report-card-density-compact"
-                            : "")
-                        + (index === printBatch.length - 1 ? " report-card-print-last-page" : "")
-                      }
+                      className="report-card report-card-print-page"
                       key={String(printStudent._id)}
                     >
                       <div className="report-card-topline" aria-hidden="true" />
