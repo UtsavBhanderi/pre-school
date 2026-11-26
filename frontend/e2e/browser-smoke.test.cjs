@@ -2262,5 +2262,23 @@ test('teacher report cards print all subjects on one professional A4 page per st
     'Each 20-subject report must fit within one A4 portrait page: ' + JSON.stringify(metrics));
   assert.ok(metrics.every((card) => card.contentHeight <= card.height + 1),
     'The compact report layout must not clip any subject or signature content: ' + JSON.stringify(metrics));
+
+  assert.equal(await printArea.evaluate((area) => area.closest('#root')), null,
+    'The print preview must be isolated from the dashboard layout.');
+  const batchPdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
+  const batchPdfPageCount = (batchPdf.toString('latin1').match(/\\/Type\\s*\\/Page\\b/g) || []).length;
+  assert.equal(batchPdfPageCount, 2,
+    'Printing two selected students should create exactly two A4 pages, with no dashboard or trailing pages. Actual: ' + batchPdfPageCount);
+
+  await page.emulateMedia({ media: 'screen' });
+  await printDialog.getByRole('button', { name: 'Close preview' }).click();
+  const singleStudentCard = page.locator('.report-student-mobile-card').filter({ hasText: 'Aarav Demo Patel' });
+  await singleStudentCard.getByRole('button', { name: 'Print', exact: true }).click();
+  const singlePrintDialog = page.getByRole('dialog', { name: /Report card preview · 1 student/ });
+  await singlePrintDialog.waitFor();
+  const singlePdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
+  const singlePdfPageCount = (singlePdf.toString('latin1').match(/\\/Type\\s*\\/Page\\b/g) || []).length;
+  assert.equal(singlePdfPageCount, 1,
+    'A single student report card must print to exactly one A4 page. Actual: ' + singlePdfPageCount);
   await page.close();
 });

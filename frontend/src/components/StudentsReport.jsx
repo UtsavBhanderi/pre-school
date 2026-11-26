@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { createAuthenticatedApi } from "../api.js";
 import { Link, useParams } from "react-router-dom";
 import "../report-cards.css";
@@ -621,7 +622,7 @@ const StudentsReport = ({
       {/* ===============================
          PRINT PREVIEW MODAL
       =============================== */}
-      {printBatch.length > 0 && (
+      {printBatch.length > 0 && createPortal(
         <div className="modal show d-block report-modal-backdrop report-print-backdrop" role="dialog" aria-modal="true" aria-labelledby="print-preview-dialog-title">
           <div className="modal-dialog modal-xl modal-dialog-centered report-print-dialog">
             <div className="modal-content report-print-modal-content">
@@ -742,7 +743,8 @@ const StudentsReport = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
