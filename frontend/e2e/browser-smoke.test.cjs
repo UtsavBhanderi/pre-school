@@ -2266,7 +2266,7 @@ test('teacher report cards print all subjects on one professional A4 page per st
   assert.equal(await printArea.evaluate((area) => area.closest('#root')), null,
     'The print preview must be isolated from the dashboard layout.');
   const batchPdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
-  const batchPdfPageCount = (batchPdf.toString('latin1').match(/\\/Type\\s*\\/Page\\b/g) || []).length;
+  const batchPdfPageCount = (batchPdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
   assert.equal(batchPdfPageCount, 2,
     'Printing two selected students should create exactly two A4 pages, with no dashboard or trailing pages. Actual: ' + batchPdfPageCount);
 
@@ -2277,7 +2277,7 @@ test('teacher report cards print all subjects on one professional A4 page per st
   const singlePrintDialog = page.getByRole('dialog', { name: /Report card preview · 1 student/ });
   await singlePrintDialog.waitFor();
   const singlePdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
-  const singlePdfPageCount = (singlePdf.toString('latin1').match(/\\/Type\\s*\\/Page\\b/g) || []).length;
+  const singlePdfPageCount = (singlePdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
   assert.equal(singlePdfPageCount, 1,
     'A single student report card must print to exactly one A4 page. Actual: ' + singlePdfPageCount);
   await page.close();
