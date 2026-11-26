@@ -646,6 +646,7 @@ const StudentsReport = ({
                           : (printReport.subjectData?.length || 0) >= 12
                             ? "report-card-density-compact"
                             : "")
+                        + (index === printBatch.length - 1 ? " report-card-print-last-page" : "")
                       }
                       key={String(printStudent._id)}
                     >

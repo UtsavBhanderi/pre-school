@@ -319,6 +319,7 @@
    -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
  }
  .report-card-print-page:last-child { break-after:auto !important; page-break-after:auto !important; }
+ .report-card-print-page.report-card-print-last-page { break-after:auto !important; page-break-after:auto !important; }
  .report-card-topline { height:2mm !important; }
  .report-card-header { gap:8mm !important; padding:0 0 4mm !important; }
  .report-card-brand { gap:3mm !important; }
@@ -328,6 +329,11 @@
  .report-card-brand-copy small { font-size:6pt !important; }
  .report-card-heading > span { font-size:6pt !important; }
  .report-card-heading h1 { margin:1mm 0 !important; font-size:14pt !important; line-height:1.1 !important; }
+ .report-card-header { flex-direction:row !important; align-items:center !important; }
+ .report-card-heading { width:auto !important; text-align:right !important; }
+ .report-student-details { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+ .report-card-footer { flex-direction:row !important; }
+ .report-card-footer span:last-child { text-align:right !important; }
  .report-card-heading p { font-size:6pt !important; }
  .report-student-overview { gap:3mm !important; padding:4mm 0 !important; }
  .report-student-name { gap:1mm !important; }
