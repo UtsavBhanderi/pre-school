@@ -2278,8 +2278,33 @@ test('teacher report cards print all subjects on one professional A4 page per st
   await singlePrintDialog.waitFor();
   await page.emulateMedia({ media: 'print' });
   const singlePdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
-  const singlePdfPageCount = (singlePdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
+  const singlePdfText = singlePdf.toString('latin1');
+  const singlePdfPageCount = (singlePdfText.match(/\/Type\s*\/Page\b/g) || []).length;
+  const singlePdfMediaBoxes = Array.from(singlePdfText.matchAll(/\/MediaBox\s*\[([^\]]+)\]/g), (match) => match[1]);
+  const singlePrintDiagnostics = await page.evaluate(() => {
+    const area = document.querySelector('#print-area');
+    const card = area?.querySelector('.report-card-print-page');
+    if (!card) return { missingCard: true };
+    const styles = getComputedStyle(card);
+    const header = card.querySelector('.report-card-header');
+    const details = card.querySelector('.report-student-details');
+    return {
+      cardCount: area.children.length,
+      cardHeight: card.getBoundingClientRect().height,
+      contentHeight: card.scrollHeight,
+      cardWidth: card.getBoundingClientRect().width,
+      pageName: styles.page,
+      breakAfter: styles.breakAfter,
+      pageBreakAfter: styles.pageBreakAfter,
+      headerDirection: getComputedStyle(header).flexDirection,
+      detailsColumns: getComputedStyle(details).gridTemplateColumns,
+      smallViewport: matchMedia('(max-width:760px)').matches,
+      rootDisplay: getComputedStyle(document.querySelector('#root')).display,
+      areaParent: area.parentElement?.className,
+    };
+  });
   assert.equal(singlePdfPageCount, 1,
-    'A single student report card must print to exactly one A4 page. Actual: ' + singlePdfPageCount);
+    'A single student report card must print to exactly one A4 page. Actual: '
+    + JSON.stringify({ singlePdfPageCount, singlePdfMediaBoxes, singlePrintDiagnostics }));
   await page.close();
 });
